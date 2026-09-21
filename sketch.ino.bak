@@ -1,0 +1,284 @@
+// SPDX-License-Identifier: MIT
+/**
+ * @file sketch.ino
+ * @brief ECG stream example that prints raw MAX30003 ECG samples to Serial.
+ *
+ * Adapted from ProtoCentral's "02-ecg-plotter" example (Arduino Uno pin
+ * numbers replaced with the ESP32-C3 SuperMini's default hardware SPI pins).
+ * Confirm CS_PIN against your actual PCB wiring before flashing.
+ *
+ * ESP32-C3 default hardware SPI pins (from arduino-esp32 pins_arduino.h):
+ *  - MISO : GPIO5
+ *  - MOSI : GPIO6
+ *  - SCLK : GPIO4
+ *  - CS   : GPIO7 (default SS; change CS_PIN below if wired elsewhere)
+ *  - VCC  : 3.3V
+ *  - GND  : GND
+ * - INT1  : GPIO10 
+ */
+
+#include <SPI.h>
+#include "protocentral_max30003.h"
+#include <NimBLEDevice.h>
+
+#define MAX30003_CS_PIN 7
+#define MAX30003_INT1_PIN 10
+
+MAX30003 max30003(MAX30003_CS_PIN);
+
+// ---------------------------------------------------------------------------
+// ECG FIFO decoding
+//
+// The ECG FIFO word is NOT a 24-bit sample. It packs three fields:
+//   bits [23:6] = 18-bit signed ECG sample
+//   bits [5:3]  = ETAG (status)
+//   bits [2:0]  = PTAG (pace)
+// The library's readEcgSample() returns the whole word sign-extended from
+// bit 23, i.e. (sample * 64 + tags), and never inspects ETAG - so an
+// overflowed FIFO reads as plausible-looking data. We decode it ourselves.
+// ---------------------------------------------------------------------------
+enum : uint8_t {
+    ETAG_VALID     = 0,  // valid sample
+    ETAG_FAST      = 1,  // valid, fast-recovery mode
+    ETAG_VALID_EOF = 2,  // valid, last sample in FIFO
+    ETAG_FAST_EOF  = 3,  // valid, fast mode, last sample in FIFO
+    ETAG_EMPTY     = 6,  // FIFO empty
+    ETAG_OVERFLOW  = 7   // FIFO overflowed - must FIFO_RST to recover
+};
+
+struct EcgWord {
+    int32_t sample;
+    uint8_t etag;
+    uint8_t ptag;
+};
+
+static bool readEcgWord(EcgWord& w)
+{
+    uint8_t b[3] = {0};
+    if (!max30003.readRegister(REG_ECG_FIFO, b, 3)) return false;
+
+    uint32_t raw = ((uint32_t)b[0] << 16) | ((uint32_t)b[1] << 8) | b[2];
+
+    int32_t s = (int32_t)(raw >> 6);          // bits [23:6]
+    if (s & 0x20000) s |= ~0x3FFFF;           // sign-extend from bit 17
+
+    w.sample = s;
+    w.etag = (raw >> 3) & 0x07;
+    w.ptag = raw & 0x07;
+    return true;
+}
+
+// INT1 fires when the FIFO reaches its threshold. The ISR only raises a flag;
+// all SPI traffic happens in loop(). Replaces the old free-running delay(8),
+// which consumed slower than the sensor produced and silently overflowed the
+// FIFO after ~10s.
+volatile bool ecgIntFlag = false;
+void IRAM_ATTR ecgIsr() { ecgIntFlag = true; }
+
+// Diagnostics - the evidence that the fix works.
+uint32_t statValid = 0, statOverflow = 0, statEmpty = 0, statOther = 0;
+uint32_t sampleIndex = 0;   // monotonic; gaps mean lost samples
+uint32_t lastStatsMs = 0;
+
+// BLE ECG service: streams batches of 6 raw 24-bit samples per notification.
+// Packet layout (20 bytes): [seq][count=6][6 x 3-byte little-endian samples]
+// Batched (rather than 1 sample/notification) to land in the default 20-byte
+// ATT payload with no MTU negotiation, at a cadence close to a typical
+// Android connection interval (~30-50ms) instead of asking for one
+// notification every 8ms.
+static const char* ECG_SERVICE_UUID = "e54b0001-67f5-479e-8711-b3b99198ce6c";
+static const char* ECG_CHAR_UUID    = "e54b0002-67f5-479e-8711-b3b99198ce6c";
+#define ECG_BATCH_SIZE 6
+
+NimBLEServer* pServer = nullptr;
+NimBLECharacteristic* pEcgChr = nullptr;
+volatile bool ecgSubscribed = false;
+uint8_t ecgSeq = 0;
+
+class EcgServerCallbacks : public NimBLEServerCallbacks {
+    void onConnect(NimBLEServer* server, NimBLEConnInfo& connInfo) override {
+        Serial.println("BLE client connected");
+        // Request a tighter connection interval (30-60ms) to reduce notification
+        // drops under our ~48ms batch cadence; the peer may not honor it exactly.
+        server->updateConnParams(connInfo.getConnHandle(), 24, 48, 0, 180);
+    }
+    void onDisconnect(NimBLEServer* server, NimBLEConnInfo& connInfo, int reason) override {
+        Serial.println("BLE client disconnected, restarting advertising");
+        ecgSubscribed = false;
+        NimBLEDevice::startAdvertising();
+    }
+} ecgServerCallbacks;
+
+class EcgCharCallbacks : public NimBLECharacteristicCallbacks {
+    void onSubscribe(NimBLECharacteristic* chr, NimBLEConnInfo& connInfo, uint16_t subValue) override {
+        ecgSubscribed = (subValue != 0);
+        Serial.printf("BLE notify %s\n", ecgSubscribed ? "subscribed" : "unsubscribed");
+    }
+} ecgCharCallbacks;
+
+void setupBle()
+{
+    NimBLEDevice::init("ESP32-ECG");
+
+    pServer = NimBLEDevice::createServer();
+    pServer->setCallbacks(&ecgServerCallbacks);
+
+    NimBLEService* pService = pServer->createService(ECG_SERVICE_UUID);
+    pEcgChr = pService->createCharacteristic(ECG_CHAR_UUID,
+        NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY);
+    pEcgChr->setCallbacks(&ecgCharCallbacks);
+    pService->start();
+
+    NimBLEAdvertising* pAdvertising = NimBLEDevice::getAdvertising();
+    pAdvertising->setName("ESP32-ECG");
+    pAdvertising->addServiceUUID(pService->getUUID());
+    pAdvertising->enableScanResponse(true);
+    pAdvertising->start();
+
+    Serial.println("BLE advertising started as ESP32-ECG");
+}
+
+// Packs `value`'s low 3 bytes (little-endian) into a 6-slot batch buffer;
+// every 6th call, stamps seq/count and sends one 20-byte notification.
+void sendEcgSampleOverBle(int32_t value)
+{
+    static uint8_t batch[2 + ECG_BATCH_SIZE * 3];
+    static uint8_t slot = 0;
+
+    uint8_t* dst = &batch[2 + slot * 3];
+    dst[0] = value & 0xFF;
+    dst[1] = (value >> 8) & 0xFF;
+    dst[2] = (value >> 16) & 0xFF;
+    slot++;
+
+    if (slot >= ECG_BATCH_SIZE) {
+        batch[0] = ecgSeq++;
+        batch[1] = ECG_BATCH_SIZE;
+        if (ecgSubscribed) {
+            pEcgChr->setValue(batch, sizeof(batch));
+            pEcgChr->notify();
+        }
+        slot = 0;
+    }
+}
+
+// The library's begin() never enables any interrupt, so INT1 (wired to GPIO10)
+// stayed idle. Enable the ECG-FIFO and FIFO-overflow interrupts and set the
+// FIFO threshold that drives them.
+void setupEcgInterrupt()
+{
+    // EN_INT: EN_EINT (bit 23) | EN_EOVF (bit 22) | INTB_TYPE = 0b11
+    // (open-drain NMOS with internal pullup, active low)
+    max30003.writeRegister(REG_EN_INT, 0xC00003);
+    delay(10);
+
+    // MNGR_INT: EFIT[4:0] in bits [23:19]. EFIT=3 -> assert once 4 samples are
+    // queued. We drain the FIFO completely on each service regardless, so this
+    // only sets how often we wake, not how much we read.
+    max30003.writeRegister(REG_MNGR_INT, 0x180004);
+    delay(10);
+
+    pinMode(MAX30003_INT1_PIN, INPUT_PULLUP);
+    attachInterrupt(digitalPinToInterrupt(MAX30003_INT1_PIN), ecgIsr, FALLING);
+
+    Serial.printf("INT1 enabled on GPIO%d\n", MAX30003_INT1_PIN);
+}
+
+// Drain the FIFO until it reports empty or hands us the end-of-file marker.
+// Draining fully is what actually prevents the overflow: it decouples our
+// service rate from the sensor's sample rate.
+void serviceEcgFifo()
+{
+    for (int guard = 0; guard < 64; guard++) {   // bounded, never spin forever
+        EcgWord w;
+        if (!readEcgWord(w)) return;
+
+        switch (w.etag) {
+        case ETAG_VALID:
+        case ETAG_FAST:
+            statValid++;
+            sampleIndex++;
+            Serial.println(w.sample);
+            sendEcgSampleOverBle(w.sample);
+            break;
+
+        case ETAG_VALID_EOF:
+        case ETAG_FAST_EOF:
+            statValid++;
+            sampleIndex++;
+            Serial.println(w.sample);
+            sendEcgSampleOverBle(w.sample);
+            return;                              // that was the last one
+
+        case ETAG_EMPTY:
+            statEmpty++;
+            return;
+
+        case ETAG_OVERFLOW:
+            statOverflow++;
+            max30003.writeRegister(REG_FIFO_RST, 0x000000);
+            return;                              // samples after this are lost
+
+        default:
+            statOther++;
+            return;
+        }
+    }
+}
+
+void setup()
+{
+    Serial.begin(57600); //Serial begin
+
+    setupBle();
+
+    pinMode(MAX30003_CS_PIN,OUTPUT);
+    digitalWrite(MAX30003_CS_PIN,HIGH); //disable device
+
+    SPI.begin();
+
+    bool ret = max30003.readDeviceID();
+    if(ret){
+      Serial.println("Max30003 read ID Success");
+    }else{
+
+      while(!ret){
+        //stay here untill the issue is fixed.
+        uint8_t buf[3] = {0};
+        max30003.readRegister(REG_INFO, buf, 3);
+        Serial.printf("Failed to read ID. Raw INFO reg (expect 0x5_ 0x__ 0x__): 0x%02X 0x%02X 0x%02X\n", buf[0], buf[1], buf[2]);
+        ret = max30003.readDeviceID();
+        delay(2000);
+      }
+    }
+
+    Serial.println("Initialising the chip ...");
+    max30003.begin();   // initialize MAX30003
+
+    setupEcgInterrupt();
+    max30003.writeRegister(REG_FIFO_RST, 0x000000);  // start from a clean FIFO
+    lastStatsMs = millis();
+}
+
+void loop()
+{
+    if (ecgIntFlag) {
+        ecgIntFlag = false;
+        serviceEcgFifo();
+    }
+
+    // Safety net: if an interrupt is ever missed the FIFO would fill silently,
+    // so sweep it periodically regardless. Should be a no-op once INT1 works.
+    static uint32_t lastSweepMs = 0;
+    if (millis() - lastSweepMs >= 100) {
+        lastSweepMs = millis();
+        serviceEcgFifo();
+    }
+
+    if (millis() - lastStatsMs >= 5000) {
+        lastStatsMs = millis();
+        Serial.printf("# ETAG stats over 5s -- valid:%lu overflow:%lu empty:%lu other:%lu | samples:%lu\n",
+                      statValid, statOverflow, statEmpty, statOther, sampleIndex);
+        statValid = statOverflow = statEmpty = statOther = 0;
+    }
+}

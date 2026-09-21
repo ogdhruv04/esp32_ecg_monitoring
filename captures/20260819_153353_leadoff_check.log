@@ -1,0 +1,3 @@
+# 5s: valid:762 ovf:1 empty:5 other:0 rate:152.40 | life: valid:762 ovf:1 logdrop:163 depth_max:5/32 isr:190 sweep:8 pin:1 status:000200 isr_gap_us:15593-2011743
+# 5s: valid:1281 ovf:0 empty:11 other:0 rate:256.20 | life: valid:2043 ovf:1 logdrop:163 depth_max:5/32 isr:506 sweep:24 pin:1 status:000200 isr_gap_us:15607-31250
+# 5s: valid:1281 ovf:0 empty:13 other:0 rate:256.20 | life: valid:3324 ovf:1 logdrop:163 depth_max:5/32 isr:821 sweep:43 pin:1 status:000200 isr_gap_us:15620-31250

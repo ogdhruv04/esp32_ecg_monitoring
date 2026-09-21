@@ -1,0 +1,24 @@
+build/
+bin/
+src_build/
+compile_commands.json
+android_app/local.properties
+android_app/**/build/
+android_app/.gradle/
+android_app/.idea/
+
+# reference-board and diagnostic builds (build/ and src_build/ are above)
+build_ref/
+build_diag/
+src_build_ref/
+__pycache__/
+
+# Windows download markers
+*:Zone.Identifier
+
+# MIT-BIH records (23 MB, public: PhysioNet "mitdb", 12 records used by benchmark_mitdb.py)
+data/
+
+# per-machine editor/agent settings
+.vscode/
+.claude/settings.local.json

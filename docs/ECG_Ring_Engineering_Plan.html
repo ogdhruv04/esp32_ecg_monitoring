@@ -1,0 +1,790 @@
+<title>ECG Ring — Engineering Plan</title>
+<style>
+  :root {
+    --paper:      #FBF7F5;
+    --paper-2:    #F4EDEB;
+    --ink:        #1C1A1D;
+    --ink-2:      #55505A;
+    --ink-3:      #857E88;
+    --rule:       #E2D8D6;
+    --rule-2:     #CFC2C0;
+    --accent:     #A4123F;
+    --accent-bg:  rgba(164, 18, 63, 0.07);
+    --alert:      #B3341A;
+    --alert-bg:   rgba(179, 52, 26, 0.08);
+    --grid-fine:  rgba(164, 18, 63, 0.045);
+    --grid-bold:  rgba(164, 18, 63, 0.085);
+    --ok:         #2F6B4F;
+    --ok-bg:      rgba(47, 107, 79, 0.09);
+
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, "DejaVu Sans Mono", Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper:      #16141A;
+      --paper-2:    #1E1B23;
+      --ink:        #EDE7EA;
+      --ink-2:      #A79FA8;
+      --ink-3:      #7C747E;
+      --rule:       #322C34;
+      --rule-2:     #453D48;
+      --accent:     #FF5C7A;
+      --accent-bg:  rgba(255, 92, 122, 0.10);
+      --alert:      #FF8360;
+      --alert-bg:   rgba(255, 131, 96, 0.11);
+      --grid-fine:  rgba(255, 92, 122, 0.045);
+      --grid-bold:  rgba(255, 92, 122, 0.08);
+      --ok:         #5FBF8F;
+      --ok-bg:      rgba(95, 191, 143, 0.11);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper:      #16141A;
+    --paper-2:    #1E1B23;
+    --ink:        #EDE7EA;
+    --ink-2:      #A79FA8;
+    --ink-3:      #7C747E;
+    --rule:       #322C34;
+    --rule-2:     #453D48;
+    --accent:     #FF5C7A;
+    --accent-bg:  rgba(255, 92, 122, 0.10);
+    --alert:      #FF8360;
+    --alert-bg:   rgba(255, 131, 96, 0.11);
+    --grid-fine:  rgba(255, 92, 122, 0.045);
+    --grid-bold:  rgba(255, 92, 122, 0.08);
+    --ok:         #5FBF8F;
+    --ok-bg:      rgba(95, 191, 143, 0.11);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background-color: var(--paper);
+    background-image:
+      repeating-linear-gradient(to right,  var(--grid-bold) 0 1px, transparent 1px 50px),
+      repeating-linear-gradient(to bottom, var(--grid-bold) 0 1px, transparent 1px 50px),
+      repeating-linear-gradient(to right,  var(--grid-fine) 0 1px, transparent 1px 10px),
+      repeating-linear-gradient(to bottom, var(--grid-fine) 0 1px, transparent 1px 10px);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.65;
+    margin: 0;
+    padding: 0;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .shell {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 52px 28px 120px;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 44px;
+  }
+  @media (min-width: 1040px) {
+    .shell { grid-template-columns: 210px minmax(0, 1fr); align-items: start; }
+  }
+
+  /* ---- masthead ---- */
+  .masthead { grid-column: 1 / -1; border-top: 2px solid var(--ink); padding-top: 18px; }
+  .masthead .kicker {
+    font-family: var(--mono);
+    font-size: 0.66rem;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: var(--accent);
+    margin-bottom: 12px;
+  }
+  .masthead h1 {
+    font-size: clamp(1.75rem, 4vw, 2.6rem);
+    font-weight: 660;
+    letter-spacing: -0.023em;
+    line-height: 1.08;
+    text-wrap: balance;
+    margin: 0 0 16px;
+    max-width: 22ch;
+  }
+  .masthead .standfirst {
+    font-size: 1.06rem;
+    line-height: 1.55;
+    color: var(--ink-2);
+    max-width: 62ch;
+    margin: 0 0 22px;
+  }
+  .factbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0;
+    border-top: 1px solid var(--rule-2);
+    border-bottom: 1px solid var(--rule-2);
+  }
+  .fact {
+    flex: 1 1 150px;
+    padding: 11px 20px 11px 0;
+    border-right: 1px solid var(--rule);
+    font-family: var(--mono);
+  }
+  .fact:last-child { border-right: none; }
+  .fact dt {
+    font-size: 0.62rem;
+    text-transform: uppercase;
+    letter-spacing: 0.13em;
+    color: var(--ink-3);
+    margin-bottom: 3px;
+  }
+  .fact dd { margin: 0; font-size: 0.82rem; font-weight: 600; color: var(--ink); }
+  .fact dd.hot { color: var(--alert); }
+
+  /* ---- section rail ---- */
+  nav.rail { display: none; font-family: var(--mono); font-size: 0.7rem; line-height: 1.5; }
+  @media (min-width: 1040px) { nav.rail { display: block; position: sticky; top: 32px; } }
+  nav.rail .rail-label {
+    text-transform: uppercase; letter-spacing: 0.14em; color: var(--ink-3);
+    padding-bottom: 10px; margin-bottom: 12px; border-bottom: 1px solid var(--rule);
+  }
+  nav.rail ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 9px; }
+  nav.rail a { color: var(--ink-2); text-decoration: none; display: block; border-left: 2px solid transparent; padding-left: 10px; }
+  nav.rail a:hover { color: var(--accent); border-left-color: var(--accent); }
+  nav.rail a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  nav.rail .num { color: var(--ink-3); margin-right: 7px; }
+
+  main { min-width: 0; }
+  .prose { max-width: 68ch; }
+  section { padding-top: 6px; margin-bottom: 56px; }
+
+  h2 {
+    font-family: var(--mono); font-size: 0.76rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.15em; color: var(--accent);
+    margin: 0 0 22px; padding-bottom: 9px; border-bottom: 1px solid var(--rule-2);
+    display: flex; align-items: baseline; gap: 12px;
+  }
+  h2 .h2-num { color: var(--ink-3); font-variant-numeric: tabular-nums; }
+
+  h3 { font-size: 1.13rem; font-weight: 640; letter-spacing: -0.012em; line-height: 1.3; text-wrap: balance; margin: 36px 0 12px; }
+  h3 .sec { font-family: var(--mono); font-size: 0.78rem; font-weight: 500; color: var(--accent); margin-right: 9px; font-variant-numeric: tabular-nums; }
+
+  h4 { font-family: var(--mono); font-size: 0.73rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.11em; color: var(--ink-2); margin: 26px 0 10px; }
+
+  p { margin: 0 0 15px; }
+  ul, ol { margin: 0 0 15px; padding-left: 1.25em; }
+  li { margin-bottom: 7px; }
+  li::marker { color: var(--ink-3); }
+  strong { font-weight: 640; }
+
+  code { font-family: var(--mono); font-size: 0.86em; background: var(--accent-bg); color: var(--accent); padding: 0.12em 0.36em; border-radius: 2px; }
+  pre {
+    font-family: var(--mono); font-size: 0.78rem; line-height: 1.65;
+    background: var(--paper-2); border: 1px solid var(--rule); border-left: 2px solid var(--accent);
+    padding: 15px 17px; overflow-x: auto; margin: 18px 0;
+  }
+  pre code { background: none; color: var(--ink); padding: 0; font-size: inherit; }
+
+  .tw { overflow-x: auto; margin: 20px 0; border-bottom: 1px solid var(--rule); }
+  table { border-collapse: collapse; width: 100%; font-size: 0.86rem; min-width: 460px; }
+  thead th {
+    font-family: var(--mono); font-size: 0.66rem; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.1em; color: var(--ink-3); text-align: left;
+    padding: 0 14px 8px 0; border-bottom: 1px solid var(--rule-2); white-space: nowrap;
+  }
+  tbody td { padding: 10px 14px 10px 0; border-bottom: 1px solid var(--rule); vertical-align: top; font-variant-numeric: tabular-nums; }
+  tbody tr:last-child td { border-bottom: none; }
+  table code { font-size: 0.82em; }
+
+  .callout { border-left: 3px solid var(--accent); background: var(--accent-bg); padding: 15px 19px; margin: 22px 0; }
+  .callout.crit { border-left-color: var(--alert); background: var(--alert-bg); }
+  .callout.done { border-left-color: var(--ok); background: var(--ok-bg); }
+  .callout p:last-child { margin-bottom: 0; }
+  .callout .tag {
+    font-family: var(--mono); font-size: 0.63rem; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.14em; color: var(--accent); display: block; margin-bottom: 8px;
+  }
+  .callout.crit .tag { color: var(--alert); }
+  .callout.done .tag { color: var(--ok); }
+
+  .week { border-top: 1px solid var(--rule-2); padding: 18px 0 2px; display: grid; gap: 4px 26px; }
+  @media (min-width: 720px) { .week { grid-template-columns: 88px minmax(0,1fr); } }
+  .week-id { font-family: var(--mono); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent); padding-top: 3px; }
+  .week-body ul { margin-bottom: 10px; padding-left: 1.1em; }
+  .week-body > :last-child { margin-bottom: 12px; }
+
+  .track { font-family: var(--mono); font-size: 0.7rem; font-weight: 600; color: var(--ink-2); letter-spacing: 0.04em; }
+
+  .gate { font-size: 0.86rem; border-left: 2px solid var(--ok); padding: 7px 0 7px 13px; margin: 12px 0 14px; color: var(--ink-2); }
+  .gate b { font-family: var(--mono); font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--ok); display: block; margin-bottom: 3px; }
+
+  .month-head {
+    font-family: var(--mono); font-size: 0.95rem; font-weight: 600; letter-spacing: 0.05em;
+    text-transform: uppercase; margin: 42px 0 4px; padding: 10px 0; border-top: 2px solid var(--ink); color: var(--ink);
+  }
+  .month-head span { color: var(--ink-3); font-weight: 400; text-transform: none; letter-spacing: 0; }
+
+  .summary-grid { display: grid; gap: 0; border-top: 1px solid var(--rule-2); margin: 4px 0 26px; }
+  .summary-grid > div { display: grid; grid-template-columns: 1fr; gap: 2px; padding: 13px 0; border-bottom: 1px solid var(--rule); }
+  @media (min-width: 640px) { .summary-grid > div { grid-template-columns: 140px minmax(0,1fr); gap: 22px; } }
+  .summary-grid dt { font-family: var(--mono); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.11em; color: var(--accent); padding-top: 3px; }
+  .summary-grid dd { margin: 0; }
+
+  a { color: var(--accent); }
+  a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+  /* ================= PRINT / PDF ================= */
+  @page { size: A4; margin: 16mm 14mm 16mm 14mm; }
+
+  @media print {
+    :root, :root[data-theme="dark"], :root:not([data-theme="light"]) {
+      --paper: #FFFFFF; --paper-2: #F6F2F1;
+      --ink: #16151A; --ink-2: #45414B; --ink-3: #6E6873;
+      --rule: #DAD2D0; --rule-2: #B9AFAD;
+      --accent: #8E0F36; --accent-bg: #FAF1F4;
+      --alert: #9B2C16; --alert-bg: #FCF1EE;
+      --ok: #245A41; --ok-bg: #F0F6F3;
+      --grid-fine: transparent; --grid-bold: transparent;
+    }
+    body {
+      background-image: none;
+      background-color: #FFFFFF;
+      font-size: 9.6pt;
+      line-height: 1.5;
+    }
+    .shell { display: block; max-width: none; padding: 0; }
+    nav.rail { display: none; }
+    main { max-width: none; }
+    .prose { max-width: none; }
+
+    .masthead { border-top-width: 3px; padding-top: 0; margin-bottom: 20px; }
+    .masthead h1 { font-size: 24pt; max-width: none; }
+    .masthead .standfirst { font-size: 10.5pt; max-width: none; }
+
+    /* each Part starts a fresh page */
+    section { break-before: page; margin-bottom: 0; padding-top: 0; }
+    section:first-of-type { break-before: avoid; }
+
+    h2 { break-after: avoid; font-size: 8.5pt; }
+    h3, h4 { break-after: avoid; }
+    h3 { font-size: 12pt; margin-top: 18pt; }
+
+    /* keep all five facts on one row at A4 width */
+    .factbar { display: grid; grid-template-columns: repeat(5, 1fr); }
+    .fact { padding: 9px 12px 9px 0; }
+    .fact dt { font-size: 5.6pt; }
+    .fact dd { font-size: 7.6pt; }
+
+    .week, .callout, .gate, pre, .fact { break-inside: avoid; }
+    tr, thead { break-inside: avoid; }
+    thead { display: table-header-group; }
+    table { font-size: 8.4pt; min-width: 0; }
+    .tw { overflow-x: visible; }
+    pre { font-size: 7.8pt; white-space: pre-wrap; word-break: break-word; }
+
+    /* each month opens a page, except the first - it shares the page with
+       the Part 4 intro rather than orphaning it */
+    .month-head { break-before: page; }
+    .month-head.first { break-before: avoid; }
+    a { text-decoration: none; }
+  }
+</style>
+
+<div class="shell">
+
+  <header class="masthead">
+    <div class="kicker">Engineering Plan · Revision B · 12 weeks</div>
+    <h1>ECG Ring: Validation, Signal Processing &amp; Arrhythmia Detection</h1>
+    <p class="standfirst">A twelve-week plan to take the ring from an unvalidated prototype to a measured, defensible instrument — covering how we prove the ECG is real, how the signal-processing pipeline works, and what we can and cannot honestly claim from it.</p>
+    <dl class="factbar">
+      <div class="fact"><dt>Scope</dt><dd>Academic research</dd></div>
+      <div class="fact"><dt>Regulatory</dt><dd>Non-diagnostic</dd></div>
+      <div class="fact"><dt>Tracks</dt><dd>4 parallel</dd></div>
+      <div class="fact"><dt>Critical path</dt><dd class="hot">Ethics approval</dd></div>
+      <div class="fact"><dt>Blockers</dt><dd>None open</dd></div>
+    </dl>
+  </header>
+
+  <nav class="rail" aria-label="Sections">
+    <div class="rail-label">Contents</div>
+    <ol>
+      <li><a href="#sum"><span class="num">—</span>Summary</a></li>
+      <li><a href="#p0"><span class="num">0</span>Status &amp; blocker</a></li>
+      <li><a href="#p1"><span class="num">1</span>Post-processing</a></li>
+      <li><a href="#p2"><span class="num">2</span>AFib detection</a></li>
+      <li><a href="#p3"><span class="num">3</span>Sensor fusion</a></li>
+      <li><a href="#p4"><span class="num">4</span>The 12 weeks</a></li>
+      <li><a href="#p5"><span class="num">5</span>Standing rules</a></li>
+      <li><a href="#p6"><span class="num">6</span>Risks</a></li>
+    </ol>
+  </nav>
+
+  <main>
+
+  <!-- ============ SUMMARY ============ -->
+  <section id="sum">
+    <h2><span class="h2-num">—</span> Summary</h2>
+    <div class="prose">
+      <dl class="summary-grid">
+        <div>
+          <dt>Where we are</dt>
+          <dd>A bench prototype (ESP32-C3 + MAX30003) streams ECG over BLE to an Android app. Both ends work. A defect that silently corrupted every reading has been found and fixed (§0.2) — but <strong>data captured before that fix should be discarded</strong>, so the accuracy baseline starts from zero.</dd>
+        </div>
+        <div>
+          <dt>The core problem</dt>
+          <dd>We cannot currently tell whether our pipeline is measuring a heartbeat or manufacturing one. A filter and peak detector will produce a confident, plausible heart rate from pure noise. Resolving this — not adding features — is what the next twelve weeks are for.</dd>
+        </div>
+        <div>
+          <dt>What we will build</dt>
+          <dd>A correctly-sampled ECG front end; a classical filtering and R-peak pipeline benchmarked against annotated public data; an IMU-referenced adaptive filter for motion artifact; a signal-quality index; and a classical atrial-fibrillation baseline.</dd>
+        </div>
+        <div>
+          <dt>What we will not claim</dt>
+          <dd>Clinical arrhythmia sensitivity (we have no patients with atrial fibrillation), QT/interval morphology (insufficient sample rate), and non-invasive glucose (the evidence does not support it — §6).</dd>
+        </div>
+        <div>
+          <dt>How we verify</dt>
+          <dd>Every week ends at a numeric gate. Every user-visible number traces to a line in the validation report. All model evaluation uses subject-wise splits.</dd>
+        </div>
+        <div>
+          <dt>Biggest risk</dt>
+          <dd>Ethics approval has the longest lead time of anything here and gates all human-subject data collection. It is started in Week 1 for that reason.</dd>
+        </div>
+      </dl>
+    </div>
+  </section>
+
+  <!-- ============ PART 0 ============ -->
+  <section id="p0">
+    <h2><span class="h2-num">Part 0</span> Current status &amp; the blocking defect</h2>
+    <div class="prose">
+
+      <h3><span class="sec">0.1</span>Why a reference device is not optional</h3>
+      <p><strong>A filter cannot tell you whether its own output is real.</strong> Bandpass-filter pure electrical noise between 0.5–40 Hz and you get a smooth, plausible-looking squiggle. Run a peak detector on it and it will find peaks, space them believably, and report "72 bpm." Everything downstream — heart-rate variability, an atrial-fibrillation flag, the chart in the app — will look completely healthy. It is entirely fabricated.</p>
+      <p>This is not a hypothetical. It is the default failure mode of biosignal pipelines, and it is invisible from the inside.</p>
+      <p>There are two <em>different</em> questions here, and they need two <em>different</em> sources of truth:</p>
+
+      <div class="tw"><table>
+        <thead><tr><th>Question</th><th>Answered by</th><th>Cannot be answered by</th></tr></thead>
+        <tbody>
+          <tr><td>Is our R-peak detection algorithm correct?</td><td><strong>MIT-BIH</strong> — expert-annotated beats</td><td>Our own hardware — no ground-truth labels</td></tr>
+          <tr><td>Does the ring capture real cardiac activity?</td><td><strong>Simultaneous reference recording</strong></td><td>MIT-BIH — different electrodes, site, noise</td></tr>
+        </tbody>
+      </table></div>
+
+      <p>Public datasets validate our <em>code</em>. Only a simultaneous reference recording validates our <em>hardware and code as a system</em>. Both are required; neither substitutes for the other.</p>
+      <p>The reference answers, for every beat the ring claims to have seen, whether a heartbeat actually occurred. Without it, every number the system produces is unfalsifiable — and an unfalsifiable number is not a result.</p>
+
+      <h3><span class="sec">0.2</span>The defect found this week</h3>
+
+      <div class="callout crit">
+        <span class="tag">Blocking · invalidates all ECG captured to date</span>
+        <p>Every ECG sample recorded so far has <strong>identical low 6 bits</strong> (<code>0b111111</code>), verified across two independent captures. Those bits are not signal — they are a status field, and it reads <code>FIFO_OVERFLOW</code>.</p>
+      </div>
+
+      <p>The MAX30003 does not return a 24-bit sample. It returns a 24-bit word packing three fields:</p>
+<pre><code>bits [23:6] = 18-bit signed ECG sample
+bits [5:3]  = ETAG  (status: valid / empty / overflow)
+bits [2:0]  = PTAG  (pace detection)</code></pre>
+
+      <h4>Two defects, stacked</h4>
+      <p><strong>(a) The vendor library never shifts.</strong> It sign-extends the full word from bit 23 and returns <code>sample × 64 + status_bits</code>. The waveform <em>shape</em> survives, which is why the chart looked plausible — but every amplitude is wrong and six bits of status ride on the signal. Correct handling is to shift right by 6, then sign-extend from bit 17.</p>
+      <p><strong>(b) The sensor was reporting overflow continuously.</strong> ETAG read <code>7</code> (<code>FIFO_OVERFLOW</code>) on every sample. Because the library never masks the tag bits off, nothing was reading it.</p>
+
+      <p>Root cause was ours: the sensor was configured for <strong>128 samples/sec</strong> while the firmware polled at <strong>~125 Hz</strong>. Consumption ran roughly three samples per second behind production, the 32-deep FIFO saturated in about ten seconds, and it then stayed latched in overflow.</p>
+
+      <div class="callout">
+        <span class="tag">This explains an earlier misdiagnosis</span>
+        <p>Early in a capture, values swung widely — plausibly real signal. They then collapsed into a narrow band and stayed there. We attributed that to poor electrode contact. It was almost certainly the FIFO latching into overflow and returning stale data. Worth remembering: we had a confident hardware explanation for what turned out to be a software defect.</p>
+      </div>
+
+      <h3><span class="sec">0.3</span>Fix status</h3>
+
+      <div class="callout done">
+        <span class="tag">Fixed and flashed</span>
+        <p>The fix is implemented, flashed and confirmed working on hardware. <strong>Recordings made before it should be discarded rather than reanalysed</strong> — the samples were overwritten with status data, so the underlying signal cannot be recovered from them.</p>
+      </div>
+
+      <p>What the fix changes:</p>
+      <ol>
+        <li><strong>Correct decode</strong> — shift right 6, sign-extend from bit 17, and expose ETAG and PTAG separately instead of folding them into the sample.</li>
+        <li><strong>Status is now checked</strong> — valid samples are used, an empty FIFO ends the read, and an overflow triggers a FIFO reset and increments an error counter.</li>
+        <li><strong>The FIFO is fully drained on every service</strong>, which is the actual root-cause fix: it decouples our service rate from the sensor's sample rate, so a rate mismatch can no longer accumulate.</li>
+        <li><strong>INT1 is finally used.</strong> The interrupt line was physically wired but never enabled, because the vendor library configures no interrupts at all. The firmware now enables the FIFO and overflow interrupts and services the FIFO on the interrupt rather than on a fixed delay.</li>
+        <li><strong>Diagnostic counters</strong> report the status-tag distribution every five seconds.</li>
+      </ol>
+
+      <div class="gate"><b>Standing regression check</b>
+        The diagnostic counters stay in the firmware. Any future change to sampling rate, packet size or interrupt configuration should be re-checked the same way: <strong>overflow events must remain zero</strong>, and samples must arrive evenly rather than in 100 ms bursts — bursty output means the interrupt has stopped firing and the safety-net sweep is masking it.
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 1 ============ -->
+  <section id="p1">
+    <h2><span class="h2-num">Part 1</span> How the signal processing works</h2>
+    <div class="prose">
+
+      <h3><span class="sec">1.1</span>The signal, and what corrupts it</h3>
+      <div class="tw"><table>
+        <thead><tr><th>Component</th><th>Band</th><th>Role</th></tr></thead>
+        <tbody>
+          <tr><td><strong>QRS complex</strong></td><td>~10–25 Hz</td><td>Sharp and high-energy; the target of R-peak detection</td></tr>
+          <tr><td><strong>P wave</strong></td><td>~0.5–10 Hz</td><td>Atrial depolarization. <strong>Absent in atrial fibrillation</strong></td></tr>
+          <tr><td><strong>T wave</strong></td><td>~0.5–10 Hz</td><td>Repolarization; easily mistaken for an R-peak</td></tr>
+          <tr><td>Diagnostic bandwidth</td><td>0.05–150 Hz</td><td>Required for true morphology (ST segment, QT interval)</td></tr>
+          <tr><td>Monitoring bandwidth</td><td>0.5–40 Hz</td><td>Sufficient for heart rate, HRV and AF detection</td></tr>
+        </tbody>
+      </table></div>
+
+      <div class="tw"><table>
+        <thead><tr><th>Noise source</th><th>Band</th><th>Removable by frequency filtering?</th></tr></thead>
+        <tbody>
+          <tr><td>Baseline wander — respiration, electrode drift</td><td>0.05–0.5 Hz</td><td>Yes — high-pass</td></tr>
+          <tr><td>Mains interference (India: <strong>50 Hz</strong>)</td><td>50 / 100 / 150 Hz</td><td>Yes — narrow notch</td></tr>
+          <tr><td>Muscle activity (EMG)</td><td>20–500 Hz</td><td>Partially — overlaps the QRS</td></tr>
+          <tr><td><strong>Motion artifact</strong></td><td>0.1–20 Hz</td><td><strong>No — occupies the ECG band itself</strong></td></tr>
+        </tbody>
+      </table></div>
+
+      <p>That final row is the central difficulty. Motion artifact sits at the same frequencies as the signal, so <strong>no frequency-domain filter can separate the two</strong> — a notch placed on the artifact removes the ECG with it. This is precisely why the ring's accelerometer and gyroscope matter (§1.3).</p>
+
+      <h3><span class="sec">1.2</span>The classical filter chain</h3>
+      <p><strong>High-pass at ~0.5 Hz</strong> removes baseline wander, the slow drift caused by changing contact pressure and perspiration that otherwise walks the trace off-screen. Offline processing should use a zero-phase forward-backward filter; a causal filter delays the waveform and corrupts interval measurements. On-device real-time processing must accept causal filtering and characterise its delay. Raising the corner above ~0.5 Hz begins distorting the ST segment — acceptable for heart rate, not for morphology.</p>
+      <p><strong>A narrow notch at 50 Hz</strong> (Q ≈ 30) removes mains interference, with a second at 100 Hz if harmonics are visible. The notch must stay narrow, or it consumes QRS energy.</p>
+      <p><strong>Low-pass at ~40 Hz</strong> removes muscle noise and high-frequency content above the monitoring band.</p>
+
+      <div class="callout">
+        <span class="tag">Sample rate — action required in Week 1</span>
+        <p>The sensor currently runs at <strong>128 samples/sec</strong>. That is adequate for heart rate, marginal for HRV — RR intervals quantise to 7.8 ms against RMSSD values of 20–50 ms — and <strong>insufficient</strong> for QT or QRS-duration measurement. Move to <strong>256 SPS minimum</strong>. At 512 SPS the current six-sample BLE batch would fire every 11.7 ms, exceeding the connection interval, so larger batches and MTU negotiation would be required.</p>
+      </div>
+
+      <h3><span class="sec">1.3</span>Motion artifact, and why the IMU matters</h3>
+      <p>Because motion artifact cannot be separated from the ECG by frequency, it must be separated by <em>reference</em>: an independent measurement of the motion itself, which the accelerometer and gyroscope provide.</p>
+<pre><code>observed(n) = clean_ecg(n) + artifact(n)
+                                  ^ correlated with IMU motion x(n)
+
+An adaptive filter learns weights w such that   w.x(n) ~ artifact(n)
+Output:   e(n) = observed(n) - w.x(n)   ~   clean_ecg(n)
+
+NLMS update:   w(n+1) = w(n) + mu . e(n) . x(n) / (||x(n)||^2 + eps)</code></pre>
+      <p>The method rests on an assumption that genuinely holds here: <strong>cardiac electrical activity is uncorrelated with hand motion</strong>, while the artifact is strongly correlated with it. The filter can therefore only subtract the motion-driven component — it cannot consume the ECG.</p>
+      <p>Both sensors are needed. The accelerometer captures translation (arm swing, tapping); the gyroscope captures rotation (wrist twist, finger roll). For a ring, rotation is often dominant, because it directly alters electrode-skin contact geometry. All six channels should feed the filter.</p>
+      <p><strong>The IMU must be sampled synchronously with the ECG and timestamped on the same clock.</strong> Asynchronous IMU data is useless as an adaptive reference. This belongs in the firmware in Week 2; retrofitting it later is painful.</p>
+      <p>Normalised least-mean-squares is roughly thirty lines of code and runs on-device. It should be built first, and any deep-learning denoiser must beat it to justify its cost.</p>
+
+      <h3><span class="sec">1.4</span>R-peak detection</h3>
+      <p>The Pan–Tompkins algorithm remains the standard and is still competitive. It runs in six stages:</p>
+      <ol>
+        <li><strong>Bandpass, 5–15 Hz</strong> — deliberately narrower than the monitoring band. Centred on QRS energy, it actively suppresses P and T waves so they cannot be mistaken for beats.</li>
+        <li><strong>Differentiate.</strong> The QRS has the steepest slope in the signal; differentiation converts "steep" into "large".</li>
+        <li><strong>Square.</strong> Makes all values positive and amplifies large ones non-linearly, widening the margin between QRS and everything else.</li>
+        <li><strong>Moving-window integration</strong> over roughly 150 ms — approximately QRS width — converting spikes into one smooth hump per beat. Too narrow yields multiple peaks per complex; too wide merges adjacent beats.</li>
+        <li><strong>Adaptive dual thresholds</strong> track running estimates of signal and noise peaks, so amplitude drift needs no manual tuning. If no peak appears within 166% of the running average RR interval, the algorithm searches back at a lower threshold before declaring a miss.</li>
+        <li><strong>Physiological constraints.</strong> A 200 ms refractory period forbids two beats closer together than cardiac physiology allows. T-wave discrimination rejects candidates arriving 200–360 ms after a confirmed beat with a shallower slope.</li>
+      </ol>
+      <p>RR intervals follow, and from them heart rate and HRV (RMSSD, SDNN, pNN50). The algorithm is worth implementing once to understand it, then replacing with a maintained library such as NeuroKit2 for production.</p>
+
+      <h3><span class="sec">1.5</span>Signal quality index — the highest-value output</h3>
+      <p>For an episodic, spot-check recording, the most valuable thing the pipeline can produce is a trustworthy judgement of <strong>whether a recording is interpretable at all</strong>. An incorrect heart rate is far worse than an honest refusal to report one.</p>
+      <ul>
+        <li><strong>Kurtosis</strong> — clean ECG is spiky and high-kurtosis; noise is Gaussian and sits near 3.</li>
+        <li><strong>In-band power ratio</strong> — energy in 5–15 Hz relative to total.</li>
+        <li><strong>Detector agreement</strong> — run two different R-peak detectors and compare. They agree on real beats and diverge on noise. Cheap, and remarkably effective.</li>
+        <li><strong>IMU motion energy</strong> — gates trust during movement.</li>
+        <li><strong>Skin conductance</strong> — a direct proxy for contact quality (§3.3).</li>
+      </ul>
+      <p>These fuse into a single score. The rejection rate it produces should be reported as a primary result: for a novel form factor, how often the device honestly declines to answer <em>is</em> the finding.</p>
+    </div>
+  </section>
+
+  <!-- ============ PART 2 ============ -->
+  <section id="p2">
+    <h2><span class="h2-num">Part 2</span> Atrial fibrillation detection</h2>
+    <div class="prose">
+
+      <h3><span class="sec">2.1</span>The physiology</h3>
+      <p>In normal sinus rhythm the sinoatrial node fires regularly, producing a P wave then a QRS complex, with RR intervals that are regular apart from gentle respiratory modulation.</p>
+      <p>In atrial fibrillation the atria fibrillate chaotically at 300–600 bpm, and the atrioventricular node conducts impulses through essentially at random. Two signatures result:</p>
+      <ol>
+        <li><strong>RR intervals become irregularly irregular</strong> — variable with no discernible pattern. This signature is robust and survives noise.</li>
+        <li><strong>P waves vanish</strong>, replaced by fibrillatory waves. Diagnostically definitive, but requiring clean morphology that a noisy single lead may not deliver.</li>
+      </ol>
+      <p>We build on the first. The second demands signal quality this form factor may not support.</p>
+
+      <h3><span class="sec">2.2</span>The classical baseline</h3>
+      <p>Over a window of roughly 30–120 consecutive RR intervals:</p>
+      <ul>
+        <li><strong>RMSSD</strong> — root mean square of successive differences; elevated in AF.</li>
+        <li><strong>Normalised RMSSD</strong> — divided by mean RR, removing heart-rate dependence. This matters: raw RMSSD rises at low heart rates regardless of rhythm.</li>
+        <li><strong>Shannon entropy</strong> of the binned RR distribution — AF is high-entropy.</li>
+        <li><strong>Sample entropy</strong> — an irregularity measure robust on short records.</li>
+        <li><strong>Poincaré SD1/SD2</strong> — plotting each RR interval against the next, sinus rhythm forms a tight ellipse along the identity line while AF forms a diffuse cloud.</li>
+      </ul>
+      <p>Thresholded, or fed to a small classifier, this is a genuine and defensible baseline that runs on-device in microseconds.</p>
+      <div class="callout">
+        <span class="tag">Its failure mode is what must be measured</span>
+        <p>Frequent ectopic beats also produce irregular RR intervals and will drive false positives — as will every missed or spurious R-peak from §1.4. The false-positive rate is therefore downstream of R-peak accuracy, which is downstream of signal quality. The chain is the product.</p>
+      </div>
+
+      <h3><span class="sec">2.3</span>Machine learning, only after the baseline exists</h3>
+      <p>Training data would come from the PhysioNet/CinC 2017 challenge set — single-lead, four classes including an explicitly noisy category, making it the closest public analogue to our use case. Architectures should stay small enough to run on a phone.</p>
+      <p><strong>Subject-wise splits are non-negotiable.</strong> A 2025 systematic review found that only 30.3% of published ECG classification studies used inter-patient splits, and only 4.1% met all evaluation criteria. The same review cites a study reporting <strong>99.48% accuracy under intra-patient evaluation against 88.34% inter-patient on identical data</strong>. If our numbers resemble the literature's best, we should suspect leakage before celebrating.</p>
+      <p>Any model must beat the classical baseline on the same held-out split to earn inclusion. Frequently it will not — and that is a legitimate, publishable finding.</p>
+
+      <h3><span class="sec">2.4</span>What can and cannot be validated</h3>
+      <p>We have no participants with atrial fibrillation. The claim therefore decomposes, and should be stated this way:</p>
+      <div class="tw"><table>
+        <thead><tr><th>Claim</th><th>Validated by</th><th>Available to us</th></tr></thead>
+        <tbody>
+          <tr><td>Algorithm <strong>sensitivity</strong> to AF</td><td>Public annotated AF records</td><td>Yes</td></tr>
+          <tr><td><strong>False-positive rate</strong> on our hardware</td><td>Our healthy cohort — any flag is false</td><td>Yes</td></tr>
+          <tr><td>End-to-end <strong>clinical sensitivity</strong></td><td>Patients with AF wearing the ring</td><td><strong>No</strong></td></tr>
+        </tbody>
+      </table></div>
+      <p>We therefore report algorithm sensitivity from public data and hardware false-positive rate from our own participants, <strong>separately</strong>. A combined "sensitivity and specificity for our ring" figure cannot be computed from what we have, and claiming one would be the fastest route to failing review.</p>
+    </div>
+  </section>
+
+  <!-- ============ PART 3 ============ -->
+  <section id="p3">
+    <h2><span class="h2-num">Part 3</span> Multi-sensor integration</h2>
+    <div class="prose">
+      <h3><span class="sec">3.1</span>Accelerometer and gyroscope</h3>
+      <ul>
+        <li><strong>Reference channel for adaptive filtering</strong> (§1.3) — the primary use, and the main technical contribution of Month 2.</li>
+        <li><strong>Signal-quality input</strong> — motion energy gates how far the ECG is trusted.</li>
+        <li><strong>Activity context</strong> — suppressing arrhythmia flags during exercise, where elevated and variable heart rate is expected physiology. This alone removes a large share of false positives.</li>
+      </ul>
+
+      <h3><span class="sec">3.2</span>Photoplethysmography</h3>
+      <ul>
+        <li><strong>An independent second opinion on heart rate</strong>, derived from an entirely different physical mechanism — optical rather than electrical. Agreement between the two is a strong internal validity signal requiring no external reference.</li>
+        <li><strong>Fusion for arrhythmia detection</strong> is well supported: signal-quality-weighted fusion has been reported to improve accuracy by <strong>4.51% with two sensors and 10.92% with three</strong> at −10 dB SNR against single-input methods. The mechanism is complementary failure — ECG degrades from electrode noise, PPG from motion, and rarely both simultaneously.</li>
+        <li><strong>Skin tone materially affects PPG</strong>, since melanin absorbs green wavelengths, but barely affects ECG, which is electrical. Any analysis across skin tones must treat the two arms separately.</li>
+      </ul>
+
+      <h3><span class="sec">3.3</span>Skin conductance as a contact-quality sensor</h3>
+      <p>Skin conductance is physically the same quantity that governs electrode-skin contact impedance. A sudden drop therefore predicts ECG degradation <em>before</em> it becomes visible in the ECG itself. Used as a leading indicator, it can drive both the quality index and a "reposition your finger" prompt. This is a genuinely novel angle for a ring form factor and merits its own section in any write-up.</p>
+
+      <h3><span class="sec">3.4</span>Temperature</h3>
+      <p>Slow-moving and low-yield: useful for circadian baseline, contact detection and as a stress-index input. Worth capturing, not worth significant effort.</p>
+    </div>
+  </section>
+
+  <!-- ============ PART 4 ============ -->
+  <section id="p4">
+    <h2><span class="h2-num">Part 4</span> The twelve weeks</h2>
+    <div class="prose">
+      <p>Four tracks run in parallel. <strong>Track A runs underneath the others throughout</strong> — B, C and D produce nothing meaningful without it to check them against.</p>
+      <ul>
+        <li><span class="track">Track A</span> — Correlation and validation study</li>
+        <li><span class="track">Track B</span> — Filtering and R-peak pipeline</li>
+        <li><span class="track">Track C</span> — Arrhythmia detection</li>
+        <li><span class="track">Track D</span> — Multi-sensor integration</li>
+      </ul>
+    </div>
+
+    <div class="month-head first">Month 1 <span>— Foundations</span></div>
+
+    <div class="week">
+      <div class="week-id">Week 1</div>
+      <div class="week-body">
+        <ul>
+          <li><span class="track">B</span> Raise the sample rate to 256 SPS and re-run the FIFO regression check at the new rate (§0.3) — a higher rate is exactly the condition that would resurface the original overflow.</li>
+          <li><span class="track">A</span> Order the reference device. A research-grade ECG chest strap is the pragmatic starting point — widely used as an RR-interval reference in published validation work. It provides heart rate and RR reference but <em>not</em> diagnostic morphology, which would require a clinical 12-lead.</li>
+          <li><span class="track">A</span> Begin the ethics application. <strong>Longest lead time of anything in this plan.</strong></li>
+          <li><span class="track">C</span> Obtain and explore the public datasets; understand their formats before writing code against them.</li>
+        </ul>
+        <div class="gate"><b>Gate</b>At 256 SPS: status tags valid on essentially all samples across a five-minute capture, zero overflow events, timing jitter under 2 ms, and the BLE link keeping up without dropped packets.</div>
+      </div>
+    </div>
+
+    <div class="week">
+      <div class="week-id">Week 2</div>
+      <div class="week-body">
+        <ul>
+          <li><span class="track">B</span> Implement the classical filter chain (§1.2), developed against annotated public data before being pointed at our own noisier recordings.</li>
+          <li><span class="track">B/D</span> Add IMU capture to firmware — accelerometer and gyroscope on the same clock and timestamps as the ECG, with the BLE packet format extended accordingly.</li>
+          <li><span class="track">A</span> First simultaneous recordings, resting condition only, three to five participants. The goal is plumbing rather than results: does synchronisation hold, is the reference reliable, do the streams align?</li>
+          <li><span class="track">C</span> Review recent wearable AF literature, recording methodology and realistic accuracy ranges.</li>
+        </ul>
+        <div class="gate"><b>Gate</b>Ring and reference streams align within 50 ms; filtered public-dataset output matches published examples.</div>
+      </div>
+    </div>
+
+    <div class="week">
+      <div class="week-id">Week 3</div>
+      <div class="week-body">
+        <ul>
+          <li><span class="track">B</span> Implement R-peak detection (§1.4) and benchmark against annotated data under the ANSI/AAMI EC57 protocol, reporting sensitivity <em>and positive predictivity</em> record by record — never bare accuracy.</li>
+          <li><span class="track">A</span> Add a light-motion condition. This is where finger ECG genuinely breaks, and where our contribution lies.</li>
+          <li><span class="track">C</span> Implement the classical RR-irregularity metrics (§2.2) and validate them against annotated AF records.</li>
+        </ul>
+        <div class="gate"><b>Gate</b>QRS sensitivity and positive predictivity both at or above 99% on annotated data. Below that the detector is broken and must be fixed before proceeding.</div>
+      </div>
+    </div>
+
+    <div class="week">
+      <div class="week-id">Week 4</div>
+      <div class="week-body">
+        <p><strong>Month 1 checkpoint.</strong></p>
+        <ul>
+          <li><span class="track">A</span> First real agreement numbers — Bland–Altman bias and limits of agreement, plus intraclass and concordance correlation, for heart rate and RR interval. Correlation alone is not sufficient: two signals can correlate almost perfectly while being systematically offset.</li>
+          <li><strong>Decision:</strong> is raw signal quality sufficient to continue, or does the electrode design need another hardware pass before software can compensate? We should be willing to answer "hardware".</li>
+        </ul>
+        <div class="gate"><b>Gate</b>A written heart-rate agreement figure exists. Target: bias under 2 bpm, limits of agreement within ±5 bpm at rest.</div>
+      </div>
+    </div>
+
+    <div class="month-head">Month 2 <span>— Accuracy and robustness</span></div>
+
+    <div class="week">
+      <div class="week-id">Week 5</div>
+      <div class="week-body">
+        <ul>
+          <li><span class="track">B/D</span> Implement the IMU-referenced adaptive filter (§1.3) — the centrepiece of Month 2.</li>
+          <li><span class="track">A/B</span> Build the signal-quality index (§1.5). Re-run the Week 4 agreement analysis with it applied and report the difference: how much does accuracy improve once poor segments are excluded, and at what rejection cost?</li>
+          <li><span class="track">C</span> Report beat-rejection rate alongside the irregularity metrics.</li>
+        </ul>
+        <div class="gate"><b>Gate</b>Adaptive filtering measurably improves R-peak detection on motion recordings — quantified against the unfiltered baseline, not judged by eye.</div>
+      </div>
+    </div>
+
+    <div class="week">
+      <div class="week-id">Week 6</div>
+      <div class="week-body">
+        <ul>
+          <li><span class="track">A</span> Expand participant count and add a moderate-exercise condition. QRS-duration agreement only if the sample rate moved to 512 SPS; <strong>QT is out of scope at 256 SPS</strong> — the time resolution is not there and we should not pretend otherwise.</li>
+          <li><span class="track">B</span> Benchmark the detector against the noise-stress database, which exists specifically to test robustness under the conditions that challenge us.</li>
+          <li><span class="track">C</span> Exploratory work on a small classifier. Exploration only, not a committed direction.</li>
+          <li><span class="track">D</span> Bring up the PPG pipeline and compare its heart rate against the ECG over identical windows.</li>
+        </ul>
+        <div class="gate"><b>Gate</b>Detector characterised across noise levels; PPG and ECG heart-rate agreement quantified.</div>
+      </div>
+    </div>
+
+    <div class="week">
+      <div class="week-id">Week 7</div>
+      <div class="week-body">
+        <ul>
+          <li><span class="track">A</span> Draft the validation report — agreement statistics, heart-rate accuracy against the applicable standard, and rejection rate, all with the quality index applied.</li>
+          <li><span class="track">B</span> Only if adaptive filtering underperforms, evaluate a learned denoiser against it on an identical test set. The comparison is not optional.</li>
+          <li><span class="track">C</span> If the classifier shows promise, formalise it with subject-wise splits. Verify the splitting code by inspection rather than trusting the resulting metric.</li>
+        </ul>
+        <div class="gate"><b>Gate</b>Report draft exists with real numbers. Any model result is subject-wise split, or it is not reported.</div>
+      </div>
+    </div>
+
+    <div class="week">
+      <div class="week-id">Week 8</div>
+      <div class="week-body">
+        <p><strong>Month 2 checkpoint.</strong></p>
+        <ul>
+          <li>Review: is heart-rate and HRV accuracy sufficient to surface in the app? Is the classical AF baseline useful on its own, or is a learned model actually required?</li>
+          <li>Set the arrhythmia decision threshold explicitly and conservatively. For a non-diagnostic feature, false alarms erode trust considerably faster than missed detections.</li>
+        </ul>
+        <div class="gate"><b>Gate</b>A written decision per feature, each resting on a specific number.</div>
+      </div>
+    </div>
+
+    <div class="month-head">Month 3 <span>— Integration and decision</span></div>
+
+    <div class="week">
+      <div class="week-id">Week 9</div>
+      <div class="week-body">
+        <ul>
+          <li><span class="track">A</span> Close coverage gaps — finger position, time of day, hand size, skin tone (expecting effects in the PPG arm rather than the ECG, §3.2).</li>
+          <li><span class="track">B</span> Move the finalised pipeline into the application itself rather than a research script, and measure real on-device latency and battery cost.</li>
+          <li><span class="track">C</span> Lock the chosen arrhythmia approach and report algorithm sensitivity and hardware false-positive rate separately (§2.4).</li>
+          <li><span class="track">D</span> Implement quality-weighted ECG and PPG fusion.</li>
+        </ul>
+        <div class="gate"><b>Gate</b>Pipeline runs on-device within the latency budget.</div>
+      </div>
+    </div>
+
+    <div class="week">
+      <div class="week-id">Week 10</div>
+      <div class="week-body">
+        <ul>
+          <li><span class="track">A/B</span> Full end-to-end test — raw signal in, heart rate, HRV, quality score and arrhythmia flag out, inside the real application, validated against the reference recordings from Months 1 and 2.</li>
+          <li><span class="track">C</span> Characterise the arrhythmia false-positive rate, including the ectopic-beat failure mode.</li>
+          <li><span class="track">D</span> Evaluate skin conductance as a leading indicator of contact degradation (§3.3).</li>
+        </ul>
+        <div class="gate"><b>Gate</b>Every number surfaced in the app traces to a line in the validation report.</div>
+      </div>
+    </div>
+
+    <div class="week">
+      <div class="week-id">Week 11</div>
+      <div class="week-body">
+        <p><strong>Buffer.</strong> Something in the preceding ten weeks will have slipped; this week absorbs it rather than adding scope. Only if genuinely ahead should the stress-index work begin.</p>
+      </div>
+    </div>
+
+    <div class="week">
+      <div class="week-id">Week 12</div>
+      <div class="week-body">
+        <p><strong>Final checkpoint.</strong></p>
+        <ul>
+          <li>Final validation report covering heart rate, HRV, RR agreement, R-peak sensitivity and positive predictivity, rejection rate, and arrhythmia algorithm sensitivity and hardware false-positive rate.</li>
+          <li>Decide what is ready, what needs another cycle, and what becomes longer-horizon research.</li>
+          <li>Write up what we would do differently — the input to the next cycle.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PART 5 ============ -->
+  <section id="p5">
+    <h2><span class="h2-num">Part 5</span> Standing rules</h2>
+    <div class="prose">
+      <ol>
+        <li><strong>Validation is blocking, never skippable.</strong> An unvalidated filter is a filter we do not know works. If Track A slips, B and C stop — they are producing unfalsifiable output until it catches up.</li>
+        <li><strong>Subject-wise splits, always.</strong> Our numbers will look worse than much of the published literature. The literature is largely wrong on this point; we are not.</li>
+        <li><strong>Report sensitivity and positive predictivity together.</strong> Never bare accuracy — at 1% prevalence, a detector that always answers "no" is 99% accurate.</li>
+        <li><strong>Every user-visible number traces to a line in the validation report</strong>, not to an internal impression that something looked correct.</li>
+        <li><strong>Pre-register the Month 3 analysis plan before collecting Month 3 data.</strong> Cheap now, and it forecloses questions about post-hoc analysis later.</li>
+        <li><strong>Prefer honest failure to quiet fabrication.</strong> "Recording rejected, please retry" is always better than a confident wrong heart rate.</li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- ============ PART 6 ============ -->
+  <section id="p6">
+    <h2><span class="h2-num">Part 6</span> Risks and open questions</h2>
+    <div class="prose">
+      <div class="tw"><table>
+        <thead><tr><th>Risk</th><th>Severity</th><th>Mitigation</th></tr></thead>
+        <tbody>
+          <tr><td>Sensor readings silently corrupted by FIFO defect</td><td>Resolved</td><td>Fixed and flashed; counters retained as a standing regression check</td></tr>
+          <tr><td>Ethics approval lead time</td><td>High</td><td>Started Week 1; gates all human-subject work</td></tr>
+          <tr><td>No reference hardware yet</td><td>High</td><td>Ordered Week 1</td></tr>
+          <tr><td>128 SPS too coarse for morphology</td><td>Medium</td><td>Move to 256 or 512 SPS; otherwise drop interval claims</td></tr>
+          <tr><td>BLE packet loss corrupts RR intervals</td><td>Medium</td><td>Detect gaps and exclude affected windows</td></tr>
+          <tr><td>No participants with atrial fibrillation</td><td>Medium</td><td>Decompose the claim per §2.4; never report combined figures</td></tr>
+          <tr><td>Dry-electrode signal-to-noise on a finger</td><td>Medium</td><td>The core technical risk; adaptive filtering and quality indexing address it</td></tr>
+          <tr><td>Public non-invasive glucose claim</td><td><strong>High</strong></td><td>Requires retraction — see below</td></tr>
+        </tbody>
+      </table></div>
+
+      <h4>Verified during this analysis</h4>
+      <p>The sensor's FIFO word format and status-tag semantics (manufacturer datasheet); the constant low-order bits across our own captures (arithmetic); the configured 128 SPS sample rate (library source); the systematic-review evaluation statistics; the sensor-fusion improvement figures.</p>
+
+      <h4>Inferred rather than verified</h4>
+      <ul>
+        <li>A target of roughly 30 participants — a convention drawn from comparable studies, not a power calculation. A proper calculation should follow pilot data from about five participants.</li>
+        <li><strong>That the ring's ECG is a two-handed spot check rather than continuous.</strong> Deduced from the physics of Lead I, which requires a potential difference across two limbs, and from how comparable ring devices operate — <strong>not from our schematic. This needs confirming, as the study protocol depends on it.</strong></li>
+      </ul>
+
+      <div class="callout crit">
+        <span class="tag">Non-invasive glucose — requires action</span>
+        <p>The evidence does not support a glucose feature. Regulators have issued an explicit safety communication warning against smartwatches and smart rings claiming non-invasive glucose measurement, and no such device has been authorised anywhere. A recent reproducibility study found that published PPG-glucose models collapse to near-zero or negative explained variance under participant-aware evaluation — no better than predicting the mean — while more than 90% of predictions still fall within clinically "acceptable" error-grid zones <em>including the baseline</em>, meaning the field's standard metric cannot distinguish a working model from nothing at all.</p>
+        <p>There is additionally no plausible optical mechanism at the wavelengths our sensor uses, which are chosen for haemoglobin rather than glucose. Reference glucose collection would also require fingerstick or continuous monitoring — invasive data collection, at a substantially higher ethics threshold than ECG.</p>
+        <p><strong>Recommendation:</strong> retract or reframe the public claim now, and treat glucose as an explicitly negative-result research track rather than a roadmap feature. A well-executed negative replication is publishable and defensible; an unsupported claim is neither.</p>
+      </div>
+    </div>
+  </section>
+
+  </main>
+</div>

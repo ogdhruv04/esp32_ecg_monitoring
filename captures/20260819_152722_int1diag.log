@@ -1,0 +1,2 @@
+# 5s: valid:998 ovf:1 empty:0 other:0 rate:199.60 | life: valid:998 ovf:1 logdrop:0 depth_max:26/32 isr:0 pin:0 isr_gap_us:0-0
+# 5s: valid:1281 ovf:0 empty:0 other:0 rate:256.20 | life: valid:2279 ovf:1 logdrop:12 depth_max:26/32 isr:0 pin:0 isr_gap_us:0-0

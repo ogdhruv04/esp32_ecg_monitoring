@@ -1,0 +1,81 @@
+#!/usr/bin/env python3
+"""Record both devices at once, into two aligned CSV files.
+
+    ./capture_dual.py --seconds 120 --label rest01
+
+One thread per port so a stall on one link cannot delay the other. Each row
+carries the host clock time the line arrived, which is coarse (tens of ms,
+jittered by USB scheduling) but enough to establish which device started first.
+The fine alignment comes later from the beat trains themselves.
+"""
+import argparse, datetime, pathlib, threading, time
+import serial
+
+ap = argparse.ArgumentParser()
+ap.add_argument("--ring", default="/dev/ttyACM0")
+ap.add_argument("--ref",  default="/dev/ttyUSB0")
+ap.add_argument("--ring-baud", type=int, default=460800)
+ap.add_argument("--ref-baud",  type=int, default=460800)
+ap.add_argument("--seconds", type=float, default=120.0)
+ap.add_argument("--label", default="dual")
+args = ap.parse_args()
+
+stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+outdir = pathlib.Path("captures"); outdir.mkdir(exist_ok=True)
+stop = threading.Event()
+results = {}
+
+def worker(name, port, baud):
+    path = outdir / f"{stamp}_{args.label}_{name}.csv"
+    n = bad = 0
+    first_host = None
+    try:
+        s = serial.Serial(port, baud, timeout=1)
+        s.dtr = True; s.rts = False
+        s.reset_input_buffer()
+    except Exception as e:
+        results[name] = f"ERROR opening {port}: {e}"
+        return
+    with path.open("w") as f:
+        f.write("host_time,index,isr_micros,value,etag,leadoff\n")
+        while not stop.is_set():
+            ln = s.readline().decode(errors="replace").strip()
+            if not ln:
+                continue
+            if ln.startswith("S,"):
+                p = ln[2:].split(",")
+                if len(p) != 5:
+                    bad += 1; continue
+                t = time.time()
+                if first_host is None: first_host = t
+                f.write(f"{t:.6f},{','.join(p)}\n")
+                n += 1
+    s.close()
+    results[name] = (path, n, bad, first_host)
+
+threads = [threading.Thread(target=worker, args=a, daemon=True)
+           for a in (("ring", args.ring, args.ring_baud),
+                     ("ref",  args.ref,  args.ref_baud))]
+print(f"Recording {args.seconds:.0f}s from both devices.")
+print("Hold still. Chest electrodes on, fingers on the ring pads.\n")
+for t in threads: t.start()
+try:
+    time.sleep(args.seconds)
+except KeyboardInterrupt:
+    print("\ninterrupted")
+stop.set()
+for t in threads: t.join(timeout=3)
+
+print()
+for name in ("ring", "ref"):
+    r = results.get(name)
+    if isinstance(r, str):
+        print(f"  {name:5}: {r}"); continue
+    if r is None:
+        print(f"  {name:5}: no data"); continue
+    path, n, bad, first = r
+    print(f"  {name:5}: {n:6d} samples ({n/args.seconds:.1f}/s), {bad} malformed -> {path.name}")
+both = [results.get(k) for k in ("ring","ref")]
+if all(isinstance(x, tuple) for x in both) and all(x[3] for x in both):
+    print(f"\n  host-clock start offset: {abs(both[0][3]-both[1][3])*1000:.0f} ms"
+          f"  (coarse - fine alignment comes from the beat trains)")

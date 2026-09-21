@@ -1,0 +1,5 @@
+# 5s: valid:1281 ovf:0 empty:1 other:0 rate:256.14 | life: valid:1281 ovf:0 logdrop:0 depth_max:26/32 isr:0 pin:0 status:000300 isr_gap_us:0-0
+# 5s: valid:1280 ovf:0 empty:0 other:0 rate:256.00 | life: valid:2561 ovf:0 logdrop:13 depth_max:26/32 isr:0 pin:0 status:000200 isr_gap_us:0-0
+# 5s: valid:1280 ovf:0 empty:0 other:0 rate:256.00 | life: valid:3841 ovf:0 logdrop:35 depth_max:26/32 isr:0 pin:0 status:000300 isr_gap_us:0-0
+# 5s: valid:1280 ovf:0 empty:0 other:0 rate:256.00 | life: valid:5121 ovf:0 logdrop:46 depth_max:26/32 isr:0 pin:0 status:000200 isr_gap_us:0-0
+# 5s: valid:1280 ovf:0 empty:0 other:0 rate:256.00 | life: valid:6401 ovf:0 logdrop:65 depth_max:26/32 isr:0 pin:0 status:000200 isr_gap_us:0-0

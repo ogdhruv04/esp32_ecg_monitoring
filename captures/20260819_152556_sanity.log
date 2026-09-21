@@ -1,0 +1,4 @@
+# 5s: valid:947 ovf:1 empty:0 other:0 rate:189.40 | life: valid:2202 ovf:1 logdrop:1261 depth_max:26/32 isr_gap_us:0-0
+# 5s: valid:1281 ovf:0 empty:0 other:0 rate:256.20 | life: valid:3483 ovf:1 logdrop:1275 depth_max:26/32 isr_gap_us:0-0
+# 5s: valid:1281 ovf:0 empty:0 other:0 rate:256.20 | life: valid:4764 ovf:1 logdrop:1281 depth_max:26/32 isr_gap_us:0-0
+# 5s: valid:1280 ovf:0 empty:0 other:0 rate:256.00 | life: valid:6044 ovf:1 logdrop:1289 depth_max:26/32 isr_gap_us:0-0

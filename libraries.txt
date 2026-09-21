@@ -1,0 +1,5 @@
+# Arduino Library List
+# Installed via: ./bin/arduino-cli lib install "<name>"
+
+ProtoCentral MAX30003 ECG AFE Sensor Library
+NimBLE-Arduino

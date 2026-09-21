@@ -1,0 +1,5 @@
+# 5s: valid:1255 ovf:0 empty:0 other:0 rate:251.00 | life: valid:1255 ovf:0 logdrop:5 depth_max:26/32 isr:0 pin:0 status:000000 isr_gap_us:0-0
+# PIN SURVEY 200ms: high:0 low:85349 edges:0 | EN_INT:C00003
+# MNGR_INT:180004
+# 5s: valid:1229 ovf:1 empty:0 other:0 rate:245.80 | life: valid:2484 ovf:1 logdrop:15 depth_max:26/32 isr:0 pin:0 status:000000 isr_gap_us:0-0
+# 5s: valid:1281 ovf:0 empty:0 other:0 rate:256.20 | life: valid:3765 ovf:1 logdrop:20 depth_max:26/32 isr:0 pin:0 status:000000 isr_gap_us:0-0

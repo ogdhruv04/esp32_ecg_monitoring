@@ -1,0 +1,249 @@
+:root {
+  --paper:     #FDFAF8;
+  --paper-2:   #F6EFEC;
+  --ink:       #1A171C;
+  --ink-2:     #514B55;
+  --ink-3:     #8A828D;
+  --rule:      #E6DCD9;
+  --rule-2:    #C9BCB8;
+  --accent:    #A4123F;
+  --accent-bg: #FBF0F3;
+  --ok:        #2F6B4F;
+  --ok-bg:     #F1F7F4;
+
+  --mono: ui-monospace, "SF Mono", SFMono-Regular, "DejaVu Sans Mono", Menlo, Consolas, monospace;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper:     #17151B;
+    --paper-2:   #201C25;
+    --ink:       #F0EAEC;
+    --ink-2:     #ABA3AC;
+    --ink-3:     #7E7681;
+    --rule:      #332C36;
+    --rule-2:    #4A4150;
+    --accent:    #FF6486;
+    --accent-bg: #241A20;
+    --ok:        #63C494;
+    --ok-bg:     #182420;
+  }
+}
+:root[data-theme="dark"] {
+  --paper:     #17151B;
+  --paper-2:   #201C25;
+  --ink:       #F0EAEC;
+  --ink-2:     #ABA3AC;
+  --ink-3:     #7E7681;
+  --rule:      #332C36;
+  --rule-2:    #4A4150;
+  --accent:    #FF6486;
+  --accent-bg: #241A20;
+  --ok:        #63C494;
+  --ok-bg:     #182420;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 17px;
+  line-height: 1.62;
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+.wrap { max-width: 720px; margin: 0 auto; padding: 64px 28px 96px; }
+
+.eyebrow {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--accent);
+  margin-bottom: 18px;
+}
+h1 {
+  font-size: clamp(2.1rem, 6vw, 3.05rem);
+  line-height: 1.05;
+  letter-spacing: -0.028em;
+  font-weight: 620;
+  margin: 0 0 20px;
+  text-wrap: balance;
+}
+.standfirst {
+  font-size: 1.22rem;
+  line-height: 1.5;
+  color: var(--ink-2);
+  margin: 0 0 42px;
+  max-width: 31em;
+}
+
+h2 {
+  font-size: 1.34rem;
+  font-weight: 640;
+  letter-spacing: -0.015em;
+  margin: 50px 0 14px;
+  text-wrap: balance;
+}
+
+p { margin: 0 0 16px; }
+strong { font-weight: 640; }
+
+hr { border: none; border-top: 1px solid var(--rule); margin: 46px 0; }
+
+/* ---- status block ---- */
+.status {
+  background: var(--paper-2);
+  border-left: 3px solid var(--accent);
+  padding: 22px 26px;
+  margin: 32px 0;
+}
+.status h3 {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--accent);
+  margin: 0 0 12px;
+  font-weight: 600;
+}
+.status p:last-child { margin-bottom: 0; }
+
+/* ---- timeline ---- */
+.timeline { counter-reset: phase; margin-top: 6px; }
+
+.phase {
+  position: relative;
+  padding: 0 0 42px 62px;
+  border-left: 2px solid var(--rule);
+  margin-left: 21px;
+  counter-increment: phase;
+}
+.phase:last-child { border-left-color: transparent; padding-bottom: 6px; }
+
+.phase::before {
+  content: counter(phase, decimal-leading-zero);
+  position: absolute;
+  left: -22px;
+  top: -4px;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: var(--paper);
+  border: 2px solid var(--accent);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+/* the "**Month N**" line pandoc emits as the phase's first paragraph */
+.phase > p:first-of-type {
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--ink-3);
+  margin-bottom: 5px;
+}
+.phase > p:first-of-type strong { font-weight: 600; }
+
+.phase h3 {
+  font-size: 1.3rem;
+  font-weight: 640;
+  letter-spacing: -0.015em;
+  margin: 0 0 12px;
+  line-height: 1.25;
+}
+
+/* ---- per-month capability block ---- */
+.gains {
+  background: var(--ok-bg);
+  border-left: 2px solid var(--ok);
+  padding: 15px 20px 6px;
+  margin-top: 18px;
+}
+.gains > p:first-child {
+  font-family: var(--mono);
+  font-size: 0.63rem;
+  text-transform: uppercase;
+  letter-spacing: 0.13em;
+  color: var(--ok);
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+.gains ul { margin: 0 0 12px; padding-left: 1.15em; }
+.gains li { margin-bottom: 8px; color: var(--ink-2); font-size: 0.97rem; }
+.gains li::marker { color: var(--ok); }
+.gains strong { color: var(--ink); }
+
+/* ---- hardware block: deliberately unfilled, reads as awaiting input ---- */
+.hw {
+  border: 1px dashed var(--rule-2);
+  padding: 15px 20px 6px;
+  margin-top: 12px;
+}
+.hw > p:first-child {
+  font-family: var(--mono);
+  font-size: 0.63rem;
+  text-transform: uppercase;
+  letter-spacing: 0.13em;
+  color: var(--ink-3);
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+.hw ul { margin: 0 0 12px; padding-left: 1.15em; }
+.hw li { margin-bottom: 7px; color: var(--ink-3); font-size: 0.95rem; }
+.hw li::marker { color: var(--rule-2); }
+.hw em { font-style: normal; color: var(--ink-3); }
+
+.footer {
+  margin-top: 56px;
+  padding-top: 22px;
+  border-top: 1px solid var(--rule);
+  font-size: 0.9rem;
+  color: var(--ink-3);
+}
+
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+/* ================= PRINT ================= */
+@page { size: A4; margin: 15mm 16mm; }
+
+@media print {
+  :root, :root[data-theme="dark"], :root:not([data-theme="light"]) {
+    --paper: #FFFFFF; --paper-2: #F7F1EF;
+    --ink: #15131A; --ink-2: #423D48; --ink-3: #6C6572;
+    --rule: #DCD3D0; --rule-2: #B4A9A5; --accent: #8E0F36;
+    --accent-bg: #FBF1F4; --ok: #245A41; --ok-bg: #F1F7F4;
+  }
+  body { background: #fff; font-size: 10pt; line-height: 1.5; }
+  .wrap { max-width: none; padding: 0; }
+  h1 { font-size: 25pt; }
+  .standfirst { font-size: 12pt; max-width: 36em; margin-bottom: 26px; }
+  h1, h2, h3 { break-after: avoid; }
+  h2 { font-size: 13pt; margin: 26px 0 9px; }
+  hr { margin: 24px 0; }
+  /* Milestone lists are long enough that a whole phase no longer fits on one
+     page - so let phases break, and protect the smaller units instead. */
+  .phase { padding-bottom: 26px; padding-left: 26px; }
+  li { break-inside: avoid; }
+  .hw { break-inside: avoid; page-break-inside: avoid; }
+  .gains > p:first-child, .hw > p:first-child { break-after: avoid; }
+  /* Chrome paints an absolutely-positioned pseudo-element on the page fragment
+     where its container *started*, so a phase pushed to the next page leaves a
+     clipped node behind. Drop the circle in print - the spine and the MONTH
+     labels already carry the sequence. */
+  .phase::before { display: none; }
+  .phase h3 { font-size: 12.5pt; }
+  .status { break-inside: avoid; }
+  .status { margin: 20px 0; padding: 16px 20px; }
+  .footer { margin-top: 30px; }
+}

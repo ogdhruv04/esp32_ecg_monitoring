@@ -1,0 +1,381 @@
+<title>A ring that records your heartbeat properly</title>
+<style>
+:root {
+  --paper:     #FDFAF8;
+  --paper-2:   #F6EFEC;
+  --ink:       #1A171C;
+  --ink-2:     #514B55;
+  --ink-3:     #8A828D;
+  --rule:      #E6DCD9;
+  --rule-2:    #C9BCB8;
+  --accent:    #A4123F;
+  --accent-bg: #FBF0F3;
+  --ok:        #2F6B4F;
+  --ok-bg:     #F1F7F4;
+
+  --mono: ui-monospace, "SF Mono", SFMono-Regular, "DejaVu Sans Mono", Menlo, Consolas, monospace;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper:     #17151B;
+    --paper-2:   #201C25;
+    --ink:       #F0EAEC;
+    --ink-2:     #ABA3AC;
+    --ink-3:     #7E7681;
+    --rule:      #332C36;
+    --rule-2:    #4A4150;
+    --accent:    #FF6486;
+    --accent-bg: #241A20;
+    --ok:        #63C494;
+    --ok-bg:     #182420;
+  }
+}
+:root[data-theme="dark"] {
+  --paper:     #17151B;
+  --paper-2:   #201C25;
+  --ink:       #F0EAEC;
+  --ink-2:     #ABA3AC;
+  --ink-3:     #7E7681;
+  --rule:      #332C36;
+  --rule-2:    #4A4150;
+  --accent:    #FF6486;
+  --accent-bg: #241A20;
+  --ok:        #63C494;
+  --ok-bg:     #182420;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 17px;
+  line-height: 1.62;
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+.wrap { max-width: 720px; margin: 0 auto; padding: 64px 28px 96px; }
+
+.eyebrow {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--accent);
+  margin-bottom: 18px;
+}
+h1 {
+  font-size: clamp(2.1rem, 6vw, 3.05rem);
+  line-height: 1.05;
+  letter-spacing: -0.028em;
+  font-weight: 620;
+  margin: 0 0 20px;
+  text-wrap: balance;
+}
+.standfirst {
+  font-size: 1.22rem;
+  line-height: 1.5;
+  color: var(--ink-2);
+  margin: 0 0 42px;
+  max-width: 31em;
+}
+
+h2 {
+  font-size: 1.34rem;
+  font-weight: 640;
+  letter-spacing: -0.015em;
+  margin: 50px 0 14px;
+  text-wrap: balance;
+}
+
+p { margin: 0 0 16px; }
+strong { font-weight: 640; }
+
+hr { border: none; border-top: 1px solid var(--rule); margin: 46px 0; }
+
+/* ---- status block ---- */
+.status {
+  background: var(--paper-2);
+  border-left: 3px solid var(--accent);
+  padding: 22px 26px;
+  margin: 32px 0;
+}
+.status h3 {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--accent);
+  margin: 0 0 12px;
+  font-weight: 600;
+}
+.status p:last-child { margin-bottom: 0; }
+
+/* ---- timeline ---- */
+.timeline { counter-reset: phase; margin-top: 6px; }
+
+.phase {
+  position: relative;
+  padding: 0 0 42px 62px;
+  border-left: 2px solid var(--rule);
+  margin-left: 21px;
+  counter-increment: phase;
+}
+.phase:last-child { border-left-color: transparent; padding-bottom: 6px; }
+
+.phase::before {
+  content: counter(phase, decimal-leading-zero);
+  position: absolute;
+  left: -22px;
+  top: -4px;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: var(--paper);
+  border: 2px solid var(--accent);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+/* the "**Month N**" line pandoc emits as the phase's first paragraph */
+.phase > p:first-of-type {
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--ink-3);
+  margin-bottom: 5px;
+}
+.phase > p:first-of-type strong { font-weight: 600; }
+
+.phase h3 {
+  font-size: 1.3rem;
+  font-weight: 640;
+  letter-spacing: -0.015em;
+  margin: 0 0 12px;
+  line-height: 1.25;
+}
+
+/* ---- per-month capability block ---- */
+.gains {
+  background: var(--ok-bg);
+  border-left: 2px solid var(--ok);
+  padding: 15px 20px 6px;
+  margin-top: 18px;
+}
+.gains > p:first-child {
+  font-family: var(--mono);
+  font-size: 0.63rem;
+  text-transform: uppercase;
+  letter-spacing: 0.13em;
+  color: var(--ok);
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+.gains ul { margin: 0 0 12px; padding-left: 1.15em; }
+.gains li { margin-bottom: 8px; color: var(--ink-2); font-size: 0.97rem; }
+.gains li::marker { color: var(--ok); }
+.gains strong { color: var(--ink); }
+
+/* ---- hardware block: deliberately unfilled, reads as awaiting input ---- */
+.hw {
+  border: 1px dashed var(--rule-2);
+  padding: 15px 20px 6px;
+  margin-top: 12px;
+}
+.hw > p:first-child {
+  font-family: var(--mono);
+  font-size: 0.63rem;
+  text-transform: uppercase;
+  letter-spacing: 0.13em;
+  color: var(--ink-3);
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+.hw ul { margin: 0 0 12px; padding-left: 1.15em; }
+.hw li { margin-bottom: 7px; color: var(--ink-3); font-size: 0.95rem; }
+.hw li::marker { color: var(--rule-2); }
+.hw em { font-style: normal; color: var(--ink-3); }
+
+.footer {
+  margin-top: 56px;
+  padding-top: 22px;
+  border-top: 1px solid var(--rule);
+  font-size: 0.9rem;
+  color: var(--ink-3);
+}
+
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+/* ================= PRINT ================= */
+@page { size: A4; margin: 15mm 16mm; }
+
+@media print {
+  :root, :root[data-theme="dark"], :root:not([data-theme="light"]) {
+    --paper: #FFFFFF; --paper-2: #F7F1EF;
+    --ink: #15131A; --ink-2: #423D48; --ink-3: #6C6572;
+    --rule: #DCD3D0; --rule-2: #B4A9A5; --accent: #8E0F36;
+    --accent-bg: #FBF1F4; --ok: #245A41; --ok-bg: #F1F7F4;
+  }
+  body { background: #fff; font-size: 10pt; line-height: 1.5; }
+  .wrap { max-width: none; padding: 0; }
+  h1 { font-size: 25pt; }
+  .standfirst { font-size: 12pt; max-width: 36em; margin-bottom: 26px; }
+  h1, h2, h3 { break-after: avoid; }
+  h2 { font-size: 13pt; margin: 26px 0 9px; }
+  hr { margin: 24px 0; }
+  /* Milestone lists are long enough that a whole phase no longer fits on one
+     page - so let phases break, and protect the smaller units instead. */
+  .phase { padding-bottom: 26px; padding-left: 26px; }
+  li { break-inside: avoid; }
+  .hw { break-inside: avoid; page-break-inside: avoid; }
+  .gains > p:first-child, .hw > p:first-child { break-after: avoid; }
+  /* Chrome paints an absolutely-positioned pseudo-element on the page fragment
+     where its container *started*, so a phase pushed to the next page leaves a
+     clipped node behind. Drop the circle in print - the spine and the MONTH
+     labels already carry the sequence. */
+  .phase::before { display: none; }
+  .phase h3 { font-size: 12.5pt; }
+  .status { break-inside: avoid; }
+  .status { margin: 20px 0; padding: 16px 20px; }
+  .footer { margin-top: 30px; }
+}
+
+</style>
+
+<div class="wrap">
+  <div class="eyebrow">Project Brief · 4-Month Timeline</div>
+  <h1>A ring that records your heartbeat properly</h1>
+  <p class="standfirst">We are building a ring that captures a real electrocardiogram from your finger and sends it to your phone. Over four months it goes from a working prototype to a device with measured, proven accuracy — and a steadily widening set of things it can tell you about your health.</p>
+<h2 id="what-we-are-building">What we are building</h2>
+<p>An electrocardiogram — an ECG — measures the electrical activity your heart produces with every beat. It is what a hospital uses, and the most reliable way to see how a heart is actually behaving. A clinical ECG is accurate but means electrodes on your chest; a smartwatch is convenient but mostly reads your pulse optically, which is an approximation.</p>
+<p>Our ring aims at the gap: a genuine electrical heart reading, taken in thirty seconds, from something you already wear all day — with pulse, skin temperature, skin response and motion tracked continuously alongside it.</p>
+<section id="where-we-are-today" class="status">
+<h3>Where we are today</h3>
+<p>The prototype works end to end: the sensor captures a heart signal, sends it wirelessly, and our phone app displays it live. We have also just corrected a significant flaw in how the sensor data was being read — one that would have quietly corrupted every measurement we took.</p>
+<p>A plausible-looking heart trace can be produced from electrical noise alone, and nothing about it looks wrong from the inside. The work ahead is proving, against hospital-grade equipment, that what the ring reports is real — and then widening what it can report.</p>
+</section>
+<hr />
+<h2 id="the-four-months">The four months</h2>
+<div class="timeline">
+<div class="phase">
+<p><strong>Month 1</strong></p>
+<h3 id="a-heartbeat-we-can-trust">A heartbeat we can trust</h3>
+<div class="gains">
+<p><strong>Software Milestones</strong></p>
+<ul>
+<li>Sensor front end running at 256 samples/sec, with <strong>zero data-loss events across a 5-minute capture</strong> and sample timing jitter <strong>under 2 ms</strong></li>
+<li>Filtering pipeline v1 — baseline-wander removal (0.5 Hz high-pass), mains-noise notch (50 Hz), high-frequency limit (40 Hz); zero-phase offline, causal on-device with its delay measured</li>
+<li>Heartbeat detection implemented and benchmarked against cardiologist-labelled public recordings: <strong>≥99% of beats found, ≥99% of detections correct</strong></li>
+<li>Time-synchronised dual recording — ring and medical reference aligned to <strong>under 50 ms</strong></li>
+<li>Resting heart rate agreement vs reference: <strong>bias under 2 bpm, limits of agreement within ±5 bpm</strong></li>
+<li>Beat-to-beat interval export, with heart rate variability (RMSSD, SDNN, pNN50) computed from it</li>
+<li>Raw session capture to phone storage, so every later result can be re-derived from source data</li>
+</ul>
+</div>
+<div class="hw">
+<p><strong>Hardware Milestones</strong></p>
+<ul>
+<li><em>[placeholder — electrode design: material, contact area, plating]</em></li>
+<li><em>[placeholder — ring PCB revision and form factor]</em></li>
+<li><em>[placeholder — power budget and battery selection]</em></li>
+<li><em>[placeholder]</em></li>
+</ul>
+</div>
+</div>
+<div class="phase">
+<p><strong>Month 2</strong></p>
+<h3 id="readings-that-survive-real-life">Readings that survive real life</h3>
+<div class="gains">
+<p><strong>Software Milestones</strong></p>
+<ul>
+<li>Motion sensors integrated — accelerometer and gyroscope sampled on the <strong>same clock and timestamps</strong> as the heart signal</li>
+<li>Motion-artifact suppression using the motion sensors as a reference, with <strong>measured improvement in beat detection on movement recordings</strong> against the unfiltered baseline</li>
+<li>Signal quality score v1 — combining signal shape, in-band power, agreement between two independent beat detectors, and motion energy; <strong>rejection rate reported as a headline number</strong></li>
+<li>Beat detection characterised across graded noise levels using a purpose-built public noise database</li>
+<li>Accuracy re-measured with the quality score applied: <strong>accuracy gained vs percentage of readings rejected</strong></li>
+<li>Heart rate and variability validated <strong>during walking and light exercise</strong>, not only at rest</li>
+<li>Breathing rate derived from the way each breath modulates the heart signal</li>
+<li>Pulse sensor pipeline live; <strong>pulse rate vs ECG heart rate agreement quantified</strong></li>
+<li>Skin temperature and skin conductance logged, trended, and time-aligned with everything else</li>
+<li>Stress and arousal index v1, benchmarked against a public multi-sensor dataset</li>
+</ul>
+</div>
+<div class="hw">
+<p><strong>Hardware Milestones</strong></p>
+<ul>
+<li><em>[placeholder — electrode contact under movement]</em></li>
+<li><em>[placeholder — sensor placement and mechanical fit]</em></li>
+<li><em>[placeholder — enclosure / sealing]</em></li>
+<li><em>[placeholder]</em></li>
+</ul>
+</div>
+</div>
+<div class="phase">
+<p><strong>Month 3</strong></p>
+<h3 id="screening-and-sensors-that-cover-for-each-other">Screening, and sensors that cover for each other</h3>
+<div class="gains">
+<p><strong>Software Milestones</strong></p>
+<ul>
+<li>Rhythm-irregularity feature set implemented — normalised variability, distribution entropy, sample entropy, and beat-interval scatter geometry</li>
+<li>Atrial fibrillation screening baseline validated against annotated public recordings of the condition: <strong>sensitivity and specificity both reported</strong></li>
+<li><strong>False-alarm rate measured on our own healthy volunteers</strong> — every flag raised there is by definition incorrect</li>
+<li>Known failure mode characterised: extra beats that mimic an irregular rhythm</li>
+<li>Heart and pulse sensors fused with quality weighting — <strong>accuracy under degraded conditions vs either sensor alone</strong></li>
+<li>Blood oxygen saturation from the pulse sensor, compared against a reference oximeter</li>
+<li>Overnight recovery summary combining heart rate, variability, temperature and movement</li>
+<li>Optional machine-learning classifier — trained with strict participant separation, and <strong>only adopted if it beats the simpler baseline on the same held-out data</strong></li>
+</ul>
+</div>
+<div class="hw">
+<p><strong>Hardware Milestones</strong></p>
+<ul>
+<li><em>[placeholder — optical sensor window and skin coupling]</em></li>
+<li><em>[placeholder — thermal path for temperature accuracy]</em></li>
+<li><em>[placeholder — antenna and wireless range in worn position]</em></li>
+<li><em>[placeholder]</em></li>
+</ul>
+</div>
+</div>
+<div class="phase">
+<p><strong>Month 4</strong></p>
+<h3 id="on-the-device-in-the-app-and-on-the-record">On the device, in the app, and on the record</h3>
+<div class="gains">
+<p><strong>Software Milestones</strong></p>
+<ul>
+<li>Full pipeline running <strong>on-device and inside the app</strong>, not in research scripts — with <strong>per-reading latency and battery cost measured</strong></li>
+<li>End-to-end validation: raw signal in, heart rate / variability / quality score / rhythm flag out, checked against every reference recording from Months 1–3</li>
+<li>Coverage testing across <strong>finger positions, hand sizes, skin tones and times of day</strong>, with results reported separately for the electrical and optical sensors</li>
+<li>Session history, trends and data export in the app</li>
+<li>Automated regression suite, so any future firmware or algorithm change re-verifies every number above</li>
+<li><strong>Final validation report</strong> — every metric with its measured value, and every user-facing number traceable to a specific measurement</li>
+<li>Battery life per typical day of use, measured rather than estimated</li>
+</ul>
+</div>
+<div class="hw">
+<p><strong>Hardware Milestones</strong></p>
+<ul>
+<li><em>[placeholder — final assembly and manufacturability]</em></li>
+<li><em>[placeholder — durability, water resistance, charging]</em></li>
+<li><em>[placeholder — production-intent build]</em></li>
+<li><em>[placeholder]</em></li>
+</ul>
+</div>
+</div>
+</div>
+<hr />
+<h2 id="where-that-leaves-us">Where that leaves us</h2>
+<p>After four months the ring is no longer a prototype producing a plausible line on a screen. It is an instrument with a known margin of error — reporting heart rate, heart rate variability, breathing rate, blood oxygen, skin temperature, stress and recovery, and screening for an irregular rhythm that matters clinically.</p>
+<p>Just as importantly, every one of those numbers arrives with evidence behind it. That report is the first thing any clinical partner, regulator or investor asks to see, and it is what turns a working device into a credible one.</p>
+
+  <div class="footer">Prepared for project stakeholders · Revision D · Detailed engineering plan available on request.</div>
+</div>
