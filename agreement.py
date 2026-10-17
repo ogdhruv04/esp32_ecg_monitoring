@@ -257,6 +257,7 @@ else:
     print("   too few usable windows")
 
 # ---- 5. RR intervals on matched beats
+rr_saved = None
 print("\n5. RR intervals (matched beats only)")
 if len(pairs) > 3:
     ref_i = np.array([p[0] for p in pairs])
@@ -268,8 +269,10 @@ if len(pairs) > 3:
     if len(rr_ref) > 3:
         bias, sd, lo, hi = bland_altman(rr_ring, rr_ref)
         print(f"   {len(rr_ref)} intervals   bias {bias:+.2f} ms   limits {lo:+.2f} to {hi:+.2f} ms")
-        print(f"   RMSSD chest {np.sqrt(np.mean(np.diff(rr_ref)**2)):.1f} ms   "
-              f"finger {np.sqrt(np.mean(np.diff(rr_ring)**2)):.1f} ms")
+        rm_ref = float(np.sqrt(np.mean(np.diff(rr_ref)**2)))
+        rm_ring = float(np.sqrt(np.mean(np.diff(rr_ring)**2)))
+        print(f"   RMSSD chest {rm_ref:.1f} ms   finger {rm_ring:.1f} ms")
+        rr_saved = (len(rr_ref), bias, lo, hi, rm_ref, rm_ring)
     else:
         print("   too few consecutive matched pairs")
 else:
@@ -294,6 +297,10 @@ with contextlib.redirect_stdout(buf):
         bias, sd, lo, hi = bland_altman(hr_ring[ok], hr_ref[ok])
         print(f"HR bias {bias:+.2f} bpm  LoA {lo:+.2f}..{hi:+.2f}  ICC {icc21(hr_ring[ok], hr_ref[ok]):.4f}"
               f"  CCC {lins_ccc(hr_ring[ok], hr_ref[ok]):.4f}")
+    if rr_saved is not None:
+        n_rr, rb, rlo, rhi, rm_ref, rm_ring = rr_saved
+        print(f"RR {n_rr} intervals  bias {rb:+.2f} ms  LoA {rlo:+.2f}..{rhi:+.2f}"
+              f"  RMSSD chest {rm_ref:.1f} ms  finger {rm_ring:.1f} ms")
 rep.write_text(buf.getvalue())
 print(f"\nsaved {rep}")
 

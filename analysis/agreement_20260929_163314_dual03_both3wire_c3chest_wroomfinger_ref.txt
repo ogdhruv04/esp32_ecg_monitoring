@@ -3,3 +3,4 @@ settings: fs=256 mains=50 window=10s tol=150ms skip=10s max_offset=5s
 offset -16 ms, drift -22.7 +/- 10.3 ppm
 beats matched 178 missed 1 extra 1  Se 99.44%  P+ 99.44%
 HR bias -0.02 bpm  LoA -1.15..+1.12  ICC 0.9806  CCC 0.9784
+RR 177 intervals  bias +0.01 ms  LoA -8.51..+8.53  RMSSD chest 36.3 ms  finger 37.3 ms
