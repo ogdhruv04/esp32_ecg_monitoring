@@ -52,6 +52,16 @@ class PanTompkins:
         self.peaks = []
         self.refractory = int(0.200*fs)       # absolute cardiac refractory
         self.warmup = int(2.0*fs)
+        # Threshold decay. A transient far larger than any R-peak - electrodes
+        # settling, a knock on the lead - drives SPK so high that nothing
+        # reaches the threshold again. Search-back cannot rescue it, because
+        # search-back needs an RR history and none is ever built. The detector
+        # then produces NOTHING for the rest of the recording, silently: on a
+        # real chest capture it found 10 beats in 4.5 minutes. MIT-BIH never
+        # exposed this because those records start already settled.
+        self.stall = int(3.0*fs)              # 3 s without a beat = under 20 bpm
+        self.decay_every = int(1.0*fs)
+        self.last_decay = 0
 
     def process(self, x):
         """Feed one sample; returns index of a confirmed R-peak or None."""
@@ -90,6 +100,13 @@ class PanTompkins:
         # candidates we rejected using a threshold half as strict. Without this,
         # sensitivity on MIT-BIH record 228 is 52.1% (95.7% with it); overall Se
         # 94.86% -> 98.49%. See analysis/ablation_searchback_refine.txt.
+        # Recover from a poisoned threshold: halve SPK once a second until
+        # beats are found again. Geometric, so it recovers within a few
+        # seconds from any artifact, however large.
+        if (self.n - self.last_peak) > self.stall and (self.n - self.last_decay) > self.decay_every:
+            self.spk = max(self.npk, self.spk * 0.5)
+            self.last_decay = self.n
+
         if out is None and self.rr:
             avg = sum(self.rr) / len(self.rr)
             if (self.n - self.last_peak) > 1.66 * avg:
