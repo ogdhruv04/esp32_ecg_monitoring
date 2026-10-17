@@ -1,0 +1,17 @@
+wireless soak test  20260921_154639  label=func_15dbm_noant
+board 10.55.17.104  duration 5.1 min  ble_on=? wifi_on=?
+UDP  sent 6513  echoed 6353  RTT ms p50 53  p95 237  p99 549  max 1102
+RSSI dBm  min n/a  median n/a  max n/a
+
+checks (proposed criteria - see top of wireless_test.py):
+  [PASS] serial log ran for the whole test      ok
+  [PASS] no reboots during test                 0 distinct boot(s)
+  [PASS] no brownouts (board counter)           brownouts 0 -> 0 (lifetime)
+  [FAIL] UDP loss < 1.0%                        2.46% (160/6513)
+  [PASS] UDP outage < 5.0s                      longest 4.8s
+  [PASS] WiFi outage < 10.0s                    0 disconnect(s), longest 0.0s
+  [FAIL] TCP bursts all > 1.0 Mbit/s            5 ok, 0 failed, min 0.06 / median 0.12 Mbit/s
+  [PASS] BLE: no disconnects, no notify failures disc 0, notify fail 0, sent 0 pkts (phone-side loss: read it off the app)
+  [PASS] heap drop < 10.0%                      0 -> 0 B (0.0%)
+
+OVERALL: FAIL
