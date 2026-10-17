@@ -1,0 +1,5 @@
+source: captures/20260929_153252_dual01_c3chest_wroomfinger_ref.csv + captures/20260929_153252_dual01_c3chest_wroomfinger_ring.csv
+settings: fs=256 mains=50 window=10s tol=150ms skip=10s max_offset=5s
+offset -4480 ms, drift -116.8 +/- 119.3 ppm
+beats matched 226 missed 54 extra 292  Se 80.71%  P+ 43.63%
+HR bias +101.58 bpm  LoA +48.10..+155.06  ICC 0.0315  CCC 0.0295

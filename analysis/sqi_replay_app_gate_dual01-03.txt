@@ -1,0 +1,9 @@
+== captures/20260929_153252_dual01_c3chest_wroomfinger
+  chest  kSQI median   2.2  pSQI median 0.065   GOOD   7.7%  FAIR   1.5%  POOR  90.9%   -> HR shown 9% of the time, RMSSD 8%
+  finger kSQI median   2.5  pSQI median 0.139   GOOD   2.2%  FAIR   1.8%  POOR  96.0%   -> HR shown 4% of the time, RMSSD 2%
+== captures/20260929_155511_dual02_rbias_c3chest_wroomfinger
+  chest  kSQI median   3.9  pSQI median 0.234   GOOD   2.9%  FAIR  85.3%  POOR  11.8%   -> HR shown 88% of the time, RMSSD 3%
+  finger kSQI median  16.3  pSQI median 0.441   GOOD 100.0%  FAIR   0.0%  POOR   0.0%   -> HR shown 100% of the time, RMSSD 100%
+== captures/20260929_163314_dual03_both3wire_c3chest_wroomfinger
+  chest  kSQI median  17.8  pSQI median 0.448   GOOD 100.0%  FAIR   0.0%  POOR   0.0%   -> HR shown 100% of the time, RMSSD 100%
+  finger kSQI median   9.7  pSQI median 0.365   GOOD 100.0%  FAIR   0.0%  POOR   0.0%   -> HR shown 100% of the time, RMSSD 100%
