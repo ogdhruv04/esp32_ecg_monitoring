@@ -72,10 +72,17 @@ class MainActivity : ComponentActivity() {
                             // seq is a byte that wraps at 256. A gap means the
                             // notification never arrived, which is 6 missing
                             // samples and one corrupted RR interval - so it has
-                            // to be counted, not just tolerated.
+                            // to be counted, not just tolerated. The detector is
+                            // told too, so it keeps time across the hole and
+                            // drops the RR interval that spans it. Lost packets
+                            // are assumed to have carried as many samples as
+                            // the last one that arrived.
                             if (lastSeq >= 0) {
                                 val gap = (packet.seq - lastSeq + 256) % 256 - 1
-                                if (gap > 0) packetsLost += gap
+                                if (gap > 0) {
+                                    packetsLost += gap
+                                    detector.skip(gap * lastCount)
+                                }
                             }
                             lastSeq = packet.seq
                             lastCount = packet.count
@@ -139,13 +146,16 @@ class MainActivity : ComponentActivity() {
                         // The quality verdict gates the number rather than
                         // sitting beside it: a confident wrong heart rate does
                         // more damage than an honest refusal to show one.
+                        // Only GOOD shows a number. Replaying this gate on our
+                        // recordings (sqi_replay.py) found a chest channel that
+                        // sat at FAIR 85% of the time while detecting 241 beats
+                        // against the finger's 186 - FAIR let wrong rates through.
+                        val trusted = sq.level == SignalQuality.Level.GOOD
                         Text(
-                            if (sq.level == SignalQuality.Level.POOR || heartRate == null)
-                                "-- bpm"
+                            if (!trusted || heartRate == null) "-- bpm"
                             else "%.0f bpm".format(heartRate),
                             fontSize = 44.sp,
-                            color = if (sq.level == SignalQuality.Level.POOR)
-                                Color(0xFFAAAAAA) else Color(0xFF202124)
+                            color = if (trusted) Color(0xFF202124) else Color(0xFFAAAAAA)
                         )
                         Text(sq.label, fontSize = 13.sp, color = sqColor)
                         Text(
