@@ -28,7 +28,7 @@ results = {}
 def worker(name, port, baud):
     path = outdir / f"{stamp}_{args.label}_{name}.csv"
     n = bad = 0
-    first_host = None
+    first_host = last_host = None
     try:
         s = serial.Serial(port, baud, timeout=1)
         s.dtr = True; s.rts = False
@@ -48,10 +48,11 @@ def worker(name, port, baud):
                     bad += 1; continue
                 t = time.time()
                 if first_host is None: first_host = t
+                last_host = t
                 f.write(f"{t:.6f},{','.join(p)}\n")
                 n += 1
     s.close()
-    results[name] = (path, n, bad, first_host)
+    results[name] = (path, n, bad, first_host, last_host)
 
 threads = [threading.Thread(target=worker, args=a, daemon=True)
            for a in (("ring", args.ring, args.ring_baud),
@@ -73,8 +74,12 @@ for name in ("ring", "ref"):
         print(f"  {name:5}: {r}"); continue
     if r is None:
         print(f"  {name:5}: no data"); continue
-    path, n, bad, first = r
-    print(f"  {name:5}: {n:6d} samples ({n/args.seconds:.1f}/s), {bad} malformed -> {path.name}")
+    path, n, bad, first, last = r
+    # Rate over the span actually recorded, not the span requested: threads
+    # start and stop a little inside the window, and dividing by the requested
+    # duration understates the rate by a few percent - which reads as a defect.
+    el = (last - first) if (first and last and last > first) else args.seconds
+    print(f"  {name:5}: {n:6d} samples ({n/el:.1f}/s over {el:.1f}s), {bad} malformed -> {path.name}")
 both = [results.get(k) for k in ("ring","ref")]
 if all(isinstance(x, tuple) for x in both) and all(x[3] for x in both):
     print(f"\n  host-clock start offset: {abs(both[0][3]-both[1][3])*1000:.0f} ms"
