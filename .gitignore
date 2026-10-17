@@ -22,3 +22,10 @@ data/
 # per-machine editor/agent settings
 .vscode/
 .claude/settings.local.json
+
+# WiFi credentials for the wireless test board
+wireless_test/wifi_secrets.h
+build_wtest/
+
+# Office lock files (left behind while a .docx/.pptx is open)
+~$*

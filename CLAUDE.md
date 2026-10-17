@@ -54,11 +54,22 @@ In WSL, USB devices must first be attached from Windows with `usbipd attach --ws
 ./capture.py --port /dev/ttyUSB0 --baud 460800 --seconds 300 --label rest01   # -> captures/<stamp>_<label>.csv + .log
 ./capture_dual.py --seconds 300 --label dual01    # ring ACM0 + ref USB0 at once; not yet validated end to end
 ./analyze.py captures/<file>.csv [--plot]          # integrity first, then filter/beats/HRV/SQI; mains 50 Hz
+./agreement.py captures/<..>_ring.csv captures/<..>_ref.csv [--plot]   # THE correlation result:
+                                                   # integrity -> clock offset/drift -> beat Se/P+ -> HR Bland-Altman/ICC/CCC -> RR
 ./benchmark_mitdb.py --method ours --fs-target 256 [--sqi-gate 0.9]   # EC57 on data/mitdb (12 records)
 cd android_app && ./gradlew assembleDebug          # install with ~/Android/Sdk/platform-tools/adb (wireless debugging)
 ```
 
 The benchmark has no single-record option; it always runs every record in `data/mitdb/`. Use `--method neurokit` or `--method pantompkins1985` for comparison detectors. MIT-BIH is US data, so its notch filter is fixed at 60 Hz, while our own recordings use 50 Hz.
+
+## Wireless test board (side task)
+
+A third board, the custom ESP32-C3 in `docs/ESP32C3_custom_schematic.pdf`: a bare C3 with a 40 MHz crystal, an AMS1117-3.3 regulator from VIN, a U.FL antenna connector, and BOOT/EN buttons. It is connected through an FTDI adapter (`/dev/ttyUSB0`, 115200) and has no auto-reset circuit. `wireless_test/wireless_test.ino` tests WiFi and BLE stability on it, and has nothing to do with the ECG signal path.
+- `./flash_wtest.sh`: hold BOOT → tap EN → release BOOT first, then run it, then tap EN. It flashes in DIO mode, not QIO.
+- WiFi credentials go in `wireless_test/wifi_secrets.h`, which is gitignored; copy it from the `.example.h`.
+- `./wireless_test.py --minutes 60 --label soak`: UDP echo (5005) and TCP stream (5006), with the laptop connecting out to the board because of WSL2 NAT. It logs serial and prints PASS/FAIL against the proposed criteria at the top of the script.
+- For BLE, it advertises as `C3-WTEST` with the ECG service UUID, so the unmodified phone app connects and shows packet loss.
+- Every boot prints `# boot ... reason=... brownouts=N`. BROWNOUT resets under WiFi TX mean VIN is too low for the AMS1117.
 
 ## Firmware serial protocol
 
@@ -98,9 +109,18 @@ These are checked against the datasheet (`docs/MAX30003 - ... .pdf`, Rev 3). The
 - ECG captured before the FIFO fix (19 Aug 2026) is invalid. Every sample from that period carried the overflow flag.
 - When both boards are connected and electrodes are on a person, run the laptop on battery, since the boards share a ground through it.
 
-## Status as of 21 Sep 2026 (update or delete as it changes)
+## Status as of 29 Sep 2026 (update or delete as it changes)
 
-- Neither board runs the current `sketch.ino` (21 Sep comment fixes; the ring is also on a pre-shared-config build). Reflash both.
-- The reference board at 460800 baud has never been verified with a capture.
-- No simultaneous chest + finger recording has been made yet, and no agreement-analysis (Bland–Altman/ICC) script exists.
+- **FIRST VALID DUAL-SITE RESULT, 29 Sep** (`analysis/agreement_20260929_163314_*`, re-run 30 Sep with default settings): finger vs chest, 105 s at rest, Se 99.44% / P+ 99.44%, HR bias -0.02 bpm (LoA -1.15..+1.12), ICC 0.981, CCC 0.978, RR bias +0.01 ms (LoA +-8.5 ms), RMSSD 36.3 vs 37.3 ms. Month-1 gate (bias < 2 bpm, LoA within +-5 bpm) PASSED. One subject, one posture, hands still - not yet a validation study. Presented in `docs/Finger_vs_Chest_ECG_Results.pptx`; figures in `analysis/slides/`.
+- **Electrodes: a reference (third) electrode is essential.** Removing the third clip took the finger channel from 0.4% to 43% mains and killed the QRS band. Both sites need a 3-wire cable; a 2-wire cable gives noise once anything else references the body. Most of 29 Sep went on diagnosing this.
+- **Oscillator drift between the boards has NOT been measured.** The earlier "-67 +/- 28 ppm" came from a run with `--skip-s 5`, which leaves settling data in. Sweeping that one flag moves the estimate from -67 to +28 ppm with the sign flipping, because 20 ppm over 105 s accumulates 2.1 ms - less than the 3.0 ms sd of R-peak timing. The fit has no power at this record length. Alignment offset is -16 ms (stable for every `--skip-s` from 10 to 45 s and every `--max-offset` from 1 to 10 s) and is host serial latency, native USB vs FTDI, not physiology. To actually measure drift, wire SYNC between the boards or record for 10 minutes: the slope's standard error falls as T^1.5.
+- **There is no hardware sync in use.** `sketch.ino` drives SYNC_PIN and emits `K,` lines, but the pin was never wired between boards, `capture_dual.py` does not parse `K` lines, and every dual capture contains 0 sync markers. All alignment is software, from the beat trains. It works: after alignment, matched beats sit a median 0.2 ms apart with sd 3.0 ms, using 19% of the 150 ms tolerance.
+- **Electrode polarity is reversed.** The averaged beat has P, QRS and T all negative at both sites (`analysis/qrs_polarity_dual03.png`); negate it and it is a textbook lead II. The ratio is 4.76:1 negative-to-positive in the raw counts and `readEcgWord()` does no negation, so it is the two non-reference clips being swapped relative to ECGP/ECGN - we are recording lead -II. Detection is polarity-blind (Pan-Tompkins squares the derivative), so no reported number is affected, but every morphology claim is blocked until the clips are swapped and the capture repeated.
+- `agreement.py` now writes its settings line into the saved report. A report that omits them cannot be reproduced from itself - that is how the +131 ms figure got published.
+- **The app's quality gate, replayed on our recordings** (`sqi_replay.py`, `analysis/sqi_replay_app_gate_dual01-03.txt`): it passes both good dual03 channels 100% GOOD and rejects the failed dual01 run (91-96% POOR). Its weak point is FAIR, which still displays a heart rate: dual02's chest channel sat at FAIR 85% of the time while detecting 241 beats against the finger's 186, so the app would have shown a number from it. The earlier 'pSQI 0.024, marginal' came from `analyze.py`, which computes pSQI differently (whole-recording spectrum, not the app's 5 s time-domain ratio), so it says nothing about the app's thresholds. Three recordings are far too few to calibrate on.
+- **Both boards flashed with the current `sketch.ino` on 29 Sep** and verified: ring 256.20 SPS logdrop 0 (was 23,677 on the old build), reference 256.00 SPS ovf 0. They are running identical code.
+- **Both links verified clean** by a 3-minute electrode-free dual capture (`captures/20260929_152557_linktest_noelectrodes_*`): 44,548 / 44,545 samples, 0 missing, 0 gaps, 0 duplicates, 0 malformed, 256.01 SPS. August's 0.80% loss on the reference did not reproduce, and `capture_dual.py` works end to end (boards started 17 ms apart on the host clock).
+- `agreement.py` was validated on a synthetic pair (same ECG, 500 ms apart, noise and a gap added): it recovered the offset exactly, reported Se 98.3% / P+ 99.4%, HR bias -0.09 bpm, ICC 0.990. It has since been run on three real dual captures.
+- **Suspect the WSL/usbip serial path, not the boards.** During the wireless-test side task the kernel logged `vhci_hcd ... urb->status -104`, single serial lines arrived up to 8 times, and opening the port eventually hung. The reference board's 0.80% loss may have the same cause. Worth one capture run from Windows Python on the COM port to compare.
+- Wireless test board findings: BLE stable (0 disconnects, 0 notify failures, full rate). WiFi connects only at <=15 dBm TX; at full 19.5 dBm it fails authentication every time. Cause is either supply sag under TX current or the missing U.FL antenna - not yet separated. TCP throughput 0.06-0.12 Mbit/s at -25 dBm is ~100x lower than expected. No antenna is fitted, so no range or soak result is meaningful yet.
 - Explainer artifact: https://claude.ai/artifact/8jDzKhFDJhRjZyEzRZhu7S
