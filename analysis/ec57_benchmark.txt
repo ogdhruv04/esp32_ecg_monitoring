@@ -100,7 +100,8 @@ data rejected by SQI gate (bSQI < 0.8): 5.4% of recording time
 Week 3 gate (Se >= 99% AND P+ >= 99%): FAIL
 worst records: 203 (Se 95.9, P+ 97.0), 228 (Se 98.3, P+ 97.5), 208 (Se 97.8, P+ 98.1)
 
-### ours @ 256 SPS, after stall-decay fix (2026-09-29): Se 98.50 P+ 97.31, unchanged from before the fix
+### ours @ 256 SPS, after stall-decay fix (2026-09-29): Se 98.50 P+ 97.31 (was 98.49 / 97.31; record 208 gains 2 TP)
+### This is the current detector; the first section above predates the fix.
 ANSI/AAMI EC57 QRS detection - 12 records, 256 Hz (resampled), method=ours, tolerance=150 ms
 
   rec   beats      TP     FP     FN     Se%     P+%
@@ -123,3 +124,29 @@ ANSI/AAMI EC57 QRS detection - 12 records, 256 Hz (resampled), method=ours, tole
 gross Se 98.50%   gross P+ 97.31%
 Week 3 gate (Se >= 99% AND P+ >= 99%): FAIL
 worst records: 108 (Se 99.2, P+ 83.3), 203 (Se 94.8, P+ 96.3), 228 (Se 95.7, P+ 95.0)
+
+### ours @ 256 SPS + bSQI gate 0.9, current detector (re-run 2026-10-17): unchanged from the pre-fix gated run
+
+ANSI/AAMI EC57 QRS detection - 12 records, 256 Hz (resampled), method=ours, tolerance=150 ms
+
+  rec   beats      TP     FP     FN     Se%     P+%
+--------------------------------------------------
+  100    2260    2259      0      1   99.96  100.00
+  101    1832    1830      4      2   99.89   99.78
+  103    2059    2059      0      0  100.00  100.00
+  105    2470    2463     33      7   99.72   98.68
+  106    1782    1776      4      6   99.66   99.78
+  108    1221    1220      7      1   99.92   99.43
+  109    2475    2472      4      3   99.88   99.84
+  119    1987    1987      4      0  100.00   99.80
+  203    2046    1987     44     59   97.12   97.83
+  208    2156    2136     18     20   99.07   99.16
+  222    2272    2264      6      8   99.65   99.74
+  228    1520    1516     19      4   99.74   98.76
+--------------------------------------------------
+  ALL   24080   23969    143    111   99.54   99.41
+
+gross Se 99.54%   gross P+ 99.41%
+data rejected by SQI gate (bSQI < 0.9): 11.9% of recording time
+Week 3 gate (Se >= 99% AND P+ >= 99%): PASS
+worst records: 203 (Se 97.1, P+ 97.8), 105 (Se 99.7, P+ 98.7), 228 (Se 99.7, P+ 98.8)

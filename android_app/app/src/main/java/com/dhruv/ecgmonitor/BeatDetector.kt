@@ -11,10 +11,15 @@ import kotlin.math.sqrt
  *
  * Direct port of pan_tompkins.py, which is benchmarked against MIT-BIH expert
  * annotations under ANSI/AAMI EC57 by benchmark_mitdb.py. Measured on 12
- * records / 27,574 beats, resampled to this exact 256 SPS rate:
+ * records / 27,574 beats, resampled to this exact 256 SPS rate
+ * (analysis/ec57_benchmark.txt):
  *
- *     ungated                      Se 98.49%   P+ 97.31%
- *     with bSQI >= 0.9 gate        Se 99.52%   P+ 99.30%   (13.3% rejected)
+ *     ungated                      Se 98.50%   P+ 97.31%
+ *     with bSQI >= 0.9 gate        Se 99.54%   P+ 99.41%   (11.9% rejected)
+ *
+ * The phone does not compute bSQI, so the ungated row is the one that applies
+ * here. BeatDetectorParityTest checks that this port and pan_tompkins.py find
+ * the same beats on a real recording.
  *
  * Those numbers belong to THIS algorithm, not to a library we cannot run here.
  * If you change anything below, the benchmark has to be re-run before the heart
@@ -71,21 +76,59 @@ class BeatDetector(private val fs: Double = EcgFilter.ECG_SAMPLE_RATE) {
     // Separate, longer RR history for HRV. The 8-interval window above exists to
     // adapt the detection threshold; RMSSD over 8 beats is not a heart-rate
     // variability measurement, it is noise. Real HRV wants minutes.
+    //
+    // rrHist is measured between REFINED R-peaks, not between the integrator
+    // peaks that `rr` and the thresholds use. The integrator peak trails the R
+    // peak by a variable amount (sd 26-31 ms on our recordings), and RMSSD,
+    // being built from differences of differences, amplifies that jitter: the
+    // same finger recording read 58.3 ms from integrator times and 43.8 ms from
+    // R-peaks. Detection stays on integrator times, as in pan_tompkins.py.
     private val rrHist = ArrayDeque<Long>()
+    private var lastR = NO_BEAT              // refined index of the last primary beat
     private var prev = 0.0
     private var rising = false
     private val refractory = (0.200 * fs).toLong()   // absolute cardiac refractory
     private val warmup = (2.0 * fs).toLong()
 
+    // Threshold decay. A transient far larger than any R-peak - electrodes
+    // settling, a knock on the lead - drives SPK so high that nothing reaches
+    // the threshold again, and search-back cannot help because no RR history
+    // is ever built. The detector then goes silent for the rest of the session:
+    // 10 beats in 4.5 minutes on a real chest capture. Halving SPK once a second
+    // while no beat is found recovers from any artifact within seconds.
+    private val stall = (3.0 * fs).toLong()          // 3 s without a beat = under 20 bpm
+    private val decayEvery = (1.0 * fs).toLong()
+    private var lastDecay = 0L
+
+    // Set by skip(): samples were lost since the last beat, so the next RR
+    // interval spans a hole and may hide a beat. It is not recorded.
+    private var gapPending = false
+
     private val pendingIdx = ArrayDeque<Long>()
     private val pendingVal = ArrayDeque<Double>()
 
-    /** Feed one filtered sample. Returns the sample index of a confirmed R-peak, or null. */
     /** Last 5-15 Hz bandpassed value. Exposed so SignalQuality can compute a
      *  real QRS-band energy ratio instead of comparing the signal to itself. */
     var lastBandpassed: Float = 0f
         private set
 
+    /**
+     * Tell the detector that [samples] samples were lost in transit.
+     *
+     * The clock moves on by the lost count, so later beat indices and RR
+     * intervals stay on the true timeline. Feeding nothing would compress time:
+     * one lost BLE packet would shorten an RR interval by 23 ms. The interval
+     * spanning the gap is dropped rather than recorded, because a beat may have
+     * fallen inside the hole. The filters are not reset; the splice is a small
+     * step they absorb.
+     */
+    fun skip(samples: Int) {
+        if (samples <= 0) return
+        n += samples
+        gapPending = true
+    }
+
+    /** Feed one filtered sample. Returns the sample index of a confirmed R-peak, or null. */
     fun process(x: Float): Long? {
         val y = lp.process(hp.process(x.toDouble()))
         lastBandpassed = y.toFloat()
@@ -111,10 +154,17 @@ class BeatDetector(private val fs: Double = EcgFilter.ECG_SAMPLE_RATE) {
             return null
         }
 
+        // Recover from a poisoned threshold (see `stall` above).
+        if ((n - lastPeak) > stall && (n - lastDecay) > decayEvery) {
+            spk = maxOf(npk, spk * 0.5)
+            lastDecay = n
+        }
+
         // Search-back: no beat within 166% of the running average RR means one
         // was probably missed under the threshold. Re-scan rejected candidates
         // at half the threshold. Without this, sensitivity on MIT-BIH record
-        // 228 was 53.8%; with it, 99.7%.
+        // 228 is 52.1% (95.7% with it); overall Se 94.86% -> 98.49%.
+        // See analysis/ablation_searchback_refine.txt.
         if (out == null && rr.isNotEmpty()) {
             val avg = rr.sum().toDouble() / rr.size
             if ((n - lastPeak) > 1.66 * avg) out = searchBack()
@@ -132,14 +182,16 @@ class BeatDetector(private val fs: Double = EcgFilter.ECG_SAMPLE_RATE) {
                 return null
             }
             spk = 0.875 * spk + 0.125 * peak
-            if (lastPeak > Long.MIN_VALUE / 8) {
-                val d = idx - lastPeak
-                rr.addLast(d); if (rr.size > 8) rr.removeFirst()
-                rrHist.addLast(d); if (rrHist.size > 256) rrHist.removeFirst()
+            if (lastPeak > Long.MIN_VALUE / 8 && !gapPending) {
+                rr.addLast(idx - lastPeak); if (rr.size > 8) rr.removeFirst()
             }
+            val r = refine()
+            if (lastR != NO_BEAT) pushHist(if (gapPending) RR_BREAK else r - lastR)
+            lastR = r
+            gapPending = false
             lastPeak = idx
             pendingIdx.clear(); pendingVal.clear()
-            return refine()
+            return r
         }
         npk = 0.875 * npk + 0.125 * peak
         if (idx - lastPeak > refractory) {
@@ -160,14 +212,26 @@ class BeatDetector(private val fs: Double = EcgFilter.ECG_SAMPLE_RATE) {
         if (bestIdx < 0) return null
         // Lower-confidence detection, so it moves the threshold less.
         spk = 0.75 * spk + 0.25 * bestVal
-        if (lastPeak > Long.MIN_VALUE / 8) {
+        if (lastPeak > Long.MIN_VALUE / 8 && !gapPending) {
             rr.addLast(bestIdx - lastPeak); if (rr.size > 8) rr.removeFirst()
         }
+        // A searched-back beat stays out of rrHist, and so does the interval
+        // after it: refine() looks back from the current sample, which for a
+        // search-back can be over a second past the beat, so its position is
+        // unreliable. It goes in as a break, not a silent omission - omitting
+        // it let RMSSD difference two intervals that were not adjacent.
+        if (lastR != NO_BEAT) pushHist(RR_BREAK)
+        lastR = NO_BEAT
+        gapPending = false
         lastPeak = bestIdx
         while (pendingIdx.isNotEmpty() && pendingIdx.first() <= bestIdx) {
             pendingIdx.removeFirst(); pendingVal.removeFirst()
         }
         return refine()
+    }
+
+    private fun pushHist(d: Long) {
+        rrHist.addLast(d); if (rrHist.size > 256) rrHist.removeFirst()
     }
 
     /** Max of |bandpassed| over the last 200 ms, i.e. index n-1-offset. */
@@ -196,20 +260,24 @@ class BeatDetector(private val fs: Double = EcgFilter.ECG_SAMPLE_RATE) {
 
     /** RMSSD over the recent RR window, in ms. Indicative only - a 8-beat
      *  window is far too short for a real HRV figure, which needs minutes. */
-    val beatCount: Int get() = rrHist.size
+    val beatCount: Int get() = rrHist.count { it != RR_BREAK }
 
     /** RMSSD in ms over the long RR history. Null until there are enough beats
      *  for the figure to mean anything. Intervals outside 300-2000 ms are
      *  dropped first: a missed beat merges two intervals into one and would
      *  otherwise dominate the result - an unfiltered 8-beat window produced a
-     *  reading of 425 ms, which is not a physiological value. */
+     *  reading of 425 ms, which is not a physiological value.
+     *  A difference is only taken between two valid intervals that were
+     *  adjacent in time: dropping a bad interval and then differencing its
+     *  neighbours would invent a successive difference that never happened. */
     val rmssdMs: Double?
         get() {
-            if (rrHist.size < MIN_BEATS_FOR_HRV) return null
-            val ms = rrHist.map { 1000.0 * it / fs }.filter { it in 300.0..2000.0 }
-            if (ms.size < MIN_BEATS_FOR_HRV) return null
+            val ms = rrHist.map { if (it == RR_BREAK) Double.NaN else 1000.0 * it / fs }
+            val valid = { v: Double -> v in 300.0..2000.0 }   // false for NaN
+            if (ms.count(valid) < MIN_BEATS_FOR_HRV) return null
             var acc = 0.0; var k = 0
             for (i in 1 until ms.size) {
+                if (!valid(ms[i]) || !valid(ms[i - 1])) continue
                 val d = ms[i] - ms[i - 1]
                 if (abs(d) > 300.0) continue   // ectopic / detector slip
                 acc += d * d; k++
@@ -218,5 +286,10 @@ class BeatDetector(private val fs: Double = EcgFilter.ECG_SAMPLE_RATE) {
             return sqrt(acc / k)
         }
 
-    companion object { const val MIN_BEATS_FOR_HRV = 30 }
+    companion object {
+        const val MIN_BEATS_FOR_HRV = 30
+        /** Marks a break in rrHist: a lost-data gap or a searched-back beat. */
+        private const val RR_BREAK = -1L
+        private const val NO_BEAT = Long.MIN_VALUE
+    }
 }

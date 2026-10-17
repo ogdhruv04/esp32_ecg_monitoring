@@ -62,6 +62,24 @@ class PanTompkins:
         self.stall = int(3.0*fs)              # 3 s without a beat = under 20 bpm
         self.decay_every = int(1.0*fs)
         self.last_decay = 0
+        # Set by skip(): samples were lost since the last beat, so the next RR
+        # interval spans a hole and may hide a beat. It is not recorded.
+        self.gap_pending = False
+
+    def skip(self, samples):
+        """Tell the detector that `samples` samples were lost in transit.
+
+        The clock moves on by the lost count, so later beat indices and RR
+        intervals stay on the true timeline. Feeding nothing would compress time:
+        on the phone, one lost BLE packet would shorten an RR interval by 23 ms.
+        The interval spanning the gap is dropped, not recorded, because a beat
+        may have fallen inside the hole. The filters are not reset; the splice
+        is a small step they absorb.
+        """
+        if samples <= 0:
+            return
+        self.n += samples
+        self.gap_pending = True
 
     def process(self, x):
         """Feed one sample; returns index of a confirmed R-peak or None."""
@@ -88,7 +106,11 @@ class PanTompkins:
         self.prev = mwi
 
         if self.n < self.warmup:
-            # Learning phase: seed the running estimates, emit nothing.
+            # Learning phase: seed the running estimates, and return nothing.
+            # Candidates are still judged, so `peaks` - the offline output that
+            # benchmark_mitdb.py and agreement.py read - does include beats from
+            # these first 2 s. The phone shows only what process() returns, so
+            # BeatDetector.kt emits nothing here; the internal state is the same.
             self.spk = max(self.spk, mwi*0.25)
             self.npk = 0.875*self.npk + 0.125*mwi
             return None
@@ -122,9 +144,10 @@ class PanTompkins:
                 self.npk = 0.875*self.npk + 0.125*peak
                 return None
             self.spk = 0.875*self.spk + 0.125*peak
-            if self.last_peak > -10**8:
+            if self.last_peak > -10**8 and not self.gap_pending:
                 self.rr.append(idx - self.last_peak)
                 if len(self.rr) > 8: self.rr.pop(0)
+            self.gap_pending = False
             r = self._refine(idx)
             self.last_peak = idx
             self.peaks.append(r)
@@ -153,13 +176,15 @@ class PanTompkins:
         # 0.125 weighting on the running value) per the original paper - it is a
         # lower-confidence detection and should not yank the threshold around.
         self.spk = 0.75*self.spk + 0.25*peak
-        if self.last_peak > -10**8:
+        if self.last_peak > -10**8 and not self.gap_pending:
             self.rr.append(idx - self.last_peak)
             if len(self.rr) > 8: self.rr.pop(0)
+        self.gap_pending = False
         self.last_peak = idx
-        self.peaks.append(self._refine(idx))
+        r = self._refine(idx)
+        self.peaks.append(r)
         self.pending = [(i, p) for i, p in self.pending if i > idx]
-        return idx
+        return r
 
     def _refine(self, mwi_idx):
         """Map an integrator peak back to the QRS peak in the bandpassed signal.
