@@ -1,0 +1,32 @@
+# mains share of raw power, 5 s windows every 10 s (app cause-line metric)
+# file  then: t_start_s:share%
+20260929_153252_dual01_c3chest_wroomfinger_ref.csv  median 91.8%  min 89.0%  max 92.9% | 5:91.7 15:91.8 25:91.8 35:90.3 45:91.7 55:91.9 65:91.6 75:91.8
+20260929_153252_dual01_c3chest_wroomfinger_ring.csv  median 91.8%  min 88.3%  max 93.3% | 5:91.5 15:91.7 25:92.2 35:92.4 45:91.6 55:92.2 65:91.5 75:91.5
+20260929_155511_dual02_rbias_c3chest_wroomfinger_ref.csv  median 51.1%  min 10.7%  max 66.6% | 5:25.1 15:32.6 25:36.5 35:17.0 45:10.7 55:54.0 65:63.0 75:58.7
+20260929_155511_dual02_rbias_c3chest_wroomfinger_ring.csv  median 79.2%  min 71.0%  max 85.4% | 5:79.5 15:79.2 25:75.0 35:71.0 45:74.3 55:80.3 65:85.4 75:84.8
+20260929_163314_dual03_both3wire_c3chest_wroomfinger_ref.csv  median 1.0%  min 0.1%  max 3.0% | 5:1.6 15:0.4 25:1.1 35:1.0 45:0.1 55:0.1 65:0.4 75:2.5
+20260929_163314_dual03_both3wire_c3chest_wroomfinger_ring.csv  median 2.3%  min 1.2%  max 4.2% | 5:1.3 15:2.4 25:2.5 35:1.9 45:2.2 55:1.2 65:2.0 75:2.3
+# generated 2026-10-23 by:
+#   # Mains share of raw-signal power in 5 s windows, computed the way the app's
+#   # cause line will: 50 Hz and 100 Hz power (bins within +-0.4 Hz, no window)
+#   # over total variance of the mean-removed raw codes.
+#   import csv, glob, math, cmath
+#   FS = 256; N = 5 * FS
+#   def frac(x):
+#       m = sum(x) / len(x); x = [v - m for v in x]
+#       var = sum(v * v for v in x) / len(x)
+#       if var == 0: return 0.0
+#       p = 0.0
+#       for f0 in (50.0, 100.0):
+#           for k in range(round((f0 - 0.4) * N / FS), round((f0 + 0.4) * N / FS) + 1):
+#               X = sum(v * cmath.exp(-2j * math.pi * k * i / N) for i, v in enumerate(x))
+#               p += 2 * abs(X) ** 2 / N ** 2
+#       return p / var
+#   print("# mains share of raw power, 5 s windows every 10 s (app cause-line metric)")
+#   print("# file  then: t_start_s:share%")
+#   for f in sorted(glob.glob("captures/20260929_*dual0*_*.csv")):
+#       v = [int(r["value"]) for r in csv.DictReader(open(f))]
+#       shares = [(s // FS, frac(v[s:s + N])) for s in range(5 * FS, len(v) - N, 10 * FS)]
+#       xs = sorted(s for _, s in shares)
+#       print(f.split("/")[-1], " median %.1f%%  min %.1f%%  max %.1f%% |" % (100 * xs[len(xs) // 2], 100 * xs[0], 100 * xs[-1]),
+#             " ".join(f"{t}:{100*s:.1f}" for t, s in shares[:8]))

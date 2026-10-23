@@ -14,7 +14,10 @@ UI work never changes the logic in `EcgFilter.kt`, `BeatDetector.kt`, `SignalQua
 - Stroke 1.5 dp, round joins, no glow or shadow. The 1 mV calibration pulse sits at the left edge, and 0 mV moves down a major line when needed so the whole pulse stays on screen at 40 mm/mV.
 - Grid scale on the test phone was measured from a screencap and checked with a ruler (pulse 10 x 5 mm): `screenshots/after/device_check.txt`.
 - mV conversion: `mV = code × VREF / (2^17 × GAIN)` = code / 2621.44 at VREF 1000 mV, gain 20 V/V. This is `docs/MAX30003_datasheet_check.md` #23 and is **nominal and unverified**. The MAX30003 datasheet doesn't state it. Label the gain as nominal wherever it is shown. If the firmware gain changes, the constant changes with it.
-- Gain: 10 mm/mV by default, 20 and 40 selectable, remembered between launches. The current gain is always printed on the strip next to a 1 mV calibration pulse. The signal is small (see the root CLAUDE.md status), which is why the higher gains exist.
+- Gain: 10, 20 and 40 mm/mV, cycled by tapping the gain label, remembered between launches. **The default is 40 for now**, because at 10 our 0.14 mV signal looks flat. When the root CLAUDE.md amplitude issue is resolved, set `DEFAULT_GAIN_MM_PER_MV` back to 10; a user's saved choice is kept either way. The current gain is always printed on the strip next to a 1 mV calibration pulse.
+- The calibration pulse is drawn in the muted text colour, to scale. 0 mV sits on the major line nearest the middle, or lower when that is what it takes to keep the whole pulse on screen.
+- The strip runs edge to edge with no border and takes all the height left over; partial squares at its edges are fine.
+- DPI per axis: `DisplayMetrics.xdpi/ydpi` describe the panel's natural axes and Android does not swap them on rotation. `MainActivity` swaps them at 90/270 degrees; unswapped, landscape squares were 4.973 x 5.029 mm (`screenshots/after/device_check.txt`).
 - Polarity: draw the samples as they arrive. The boards currently record lead −II; that's fixed at the electrodes, never by negating in the app.
 - The grid is never red; red is for alerts.
 
@@ -25,7 +28,8 @@ UI work never changes the logic in `EcgFilter.kt`, `BeatDetector.kt`, `SignalQua
 - Main screen layout, landscape: the trace goes full-bleed, with the heart-rate block in a narrow side column. Never a collapsed strip.
 - A small, quiet entry point to Diagnostics, and nothing else on the main screen.
 - Diagnostics screen: BLE state, packet loss, sample rate, SQI values (kSQI, pSQI), skip counts, raw/filtered view.
-- Heart rate is shown only on GOOD quality. Otherwise show "—" plus one line giving the likely cause and fix: hold still, press the finger fully on the electrode, or check the reference electrode.
+- Heart rate is shown only on GOOD quality. Otherwise show "—" plus one line giving the likely cause and fix: hold still, press the finger fully on the electrode, or check the reference electrode. The rules live in `headline()` (`MonitorUi.kt`, pinned by `HeadlineTest`). "Check the reference electrode" fires when quality isn't GOOD and mains is at least 10% of raw power, a threshold from three recordings of one subject (`analysis/mains_share_dual01-03.txt`), so uncalibrated.
+- With no packets the heart-rate area reads "Scanning for ring…" or "Ring not connected" (the latter in the alert red), never a zero or -1. In debug builds a replay shows a permanent "REPLAY · <file>" tag.
 - RMSSD is hidden unless research mode is on, and is labelled "unvalidated" there.
 
 ## Look
@@ -42,7 +46,8 @@ A UI change isn't done until it has been rendered (Roborazzi or `adb exec-out sc
 
 - **Roborazzi** runs inside `./gradlew testDebugUnitTest` (record mode is always on; Robolectric native graphics). `MonitorScreenshotTest` renders the screen from replay at 20 s and asserts the quality state each image is meant to show. Renders are byte-identical run to run.
 - Device config is the test phone, a Galaxy A56 (SM-A566E): 1080 x 2340 px, logical density 450, physical DPI 386.37 x 388.47 (`screenshots/before/device_check.txt`). The app is edge-to-edge, so a render is the whole screen; the test passes the phone's bar insets (status 101 px, nav 135 px) and physical DPI in, so a render lines up with a screencap.
-- `screenshots/before/` is the frozen pre-redesign baseline (its renders are the old app area, 1080 x 2103). `MonitorScreenshotTest` writes to `screenshots/after/`.
+- `screenshots/before/` is the frozen pre-redesign baseline (its renders are the old app area, 1080 x 2103). `MonitorScreenshots` (portrait and landscape subclasses) writes every main-screen state and Diagnostics to `screenshots/after/<state>_<orientation>.png`, Diagnostics also scrolled to its end.
+- A render is a first composition, so it can't show a part of the screen that stops updating. Never pass the pipeline itself to a small composable: it is the same instance every frame and Compose will skip it. Pass values. `MonitorRecompositionTest` drives one composition through a live stream.
 - Device screencaps are in Display P3, not sRGB: `#C0392B` captures as (177, 68, 52) (`screenshots/before/device_check.txt`). Convert before comparing colour values.
 
 Design and screenshot work uses replay mode fed from real `captures/` files, never synthetic sine waves. Debug builds bundle `dual03_ring`, `dual03_ref`, `dual02_ring` and `dual01_ring` (mapping in `app/build.gradle.kts`); start one with `adb shell am start -n com.dhruv.ecgmonitor/.MainActivity --es replay dual03_ring`. Replay feeds `EcgPipeline.onPacket` exactly as BLE does, and `ReplayPipelineTest` pins that path to direct detector calls.

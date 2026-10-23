@@ -34,6 +34,13 @@ class EcgPipeline(private val onBeat: ((Long) -> Unit)? = null) {
     // walks the whole 5 s window, and the verdict can't change much faster.
     var signalQuality: SignalQuality.Result = quality.assess(FloatArray(0), FloatArray(0))
         private set
+    // False until the first assessment over at least one second of data;
+    // before that the verdict is only a placeholder.
+    var qualityReady = false
+        private set
+    // Mains share of the raw window (MainsMeter.kt), assessed with quality.
+    var mainsShare = 0.0
+        private set
     private var sinceQuality = 0
 
     fun onPacket(packet: EcgPacket) {
@@ -76,7 +83,10 @@ class EcgPipeline(private val onBeat: ((Long) -> Unit)? = null) {
         sinceQuality += packet.samples.size
         if (sinceQuality >= QUALITY_EVERY) {
             sinceQuality = 0
-            signalQuality = quality.assess(filteredBuffer.snapshot(), qrsBuffer.snapshot())
+            val filtered = filteredBuffer.snapshot()
+            signalQuality = quality.assess(filtered, qrsBuffer.snapshot())
+            qualityReady = filtered.size >= EcgFilter.ECG_SAMPLE_RATE
+            mainsShare = mainsShareOf(rawBuffer.snapshot())
         }
     }
 

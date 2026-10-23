@@ -30,6 +30,9 @@ const val NOMINAL_CODES_PER_MV = (1 shl 17) * 20 / 1000f
 
 const val PAPER_SPEED_MM_PER_S = 25f
 val GAINS_MM_PER_MV = listOf(10, 20, 40)
+// 40, not the standard 10, while our signal is tiny at the nominal scale
+// (root CLAUDE.md status). Back to 10 once that amplitude issue is resolved.
+const val DEFAULT_GAIN_MM_PER_MV = 40
 
 /**
  * ECG paper and sweep trace. The grid is 1 mm / 5 mm in real millimetres,
@@ -61,7 +64,9 @@ fun EcgTrace(
         val major = 5 * pxPerMmY
         val middle = (size.height / 2 / major).roundToInt() * major
         val pulseRoom = ceil((mmPerMv + PULSE_HEADROOM_MM) * pxPerMmY / major) * major
-        val baseline = maxOf(middle, pulseRoom)
+        // If even that won't fit (a very short strip), keep 0 mV on screen.
+        val lowest = floor((size.height - major) / major) * major
+        val baseline = maxOf(middle, pulseRoom).coerceAtMost(maxOf(lowest, major))
 
         drawPaper(pxPerMmX, pxPerMmY, baseline)
         if (!showTrace) return@Canvas
@@ -71,7 +76,8 @@ fun EcgTrace(
             width = TRACE_STROKE.toPx(), join = StrokeJoin.Round, cap = StrokeCap.Round,
         )
         clipRect {
-            drawPath(calibrationPulse(pxPerMmX, baseline, pxPerMv), MonitorColors.Trace, style = stroke)
+            // Muted: it is a scale reference, not signal.
+            drawPath(calibrationPulse(pxPerMmX, baseline, pxPerMv), MonitorColors.TextMuted, style = stroke)
 
             val x0 = snap(CAL_GUTTER_MM * pxPerMmX)
             val pxPerSample = PAPER_SPEED_MM_PER_S * pxPerMmX / EcgFilter.ECG_SAMPLE_RATE.toFloat()

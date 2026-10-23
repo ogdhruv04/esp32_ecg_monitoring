@@ -1,21 +1,31 @@
-# Device check, 23 Oct 2026: steps 4-5 build (theme + sweep trace), Galaxy A56 (SM-A566E), USB adb
-# Panel: 1080x2340, wm density 450, dumpsys display xDpi=386.3662 yDpi=388.47058
-# Insets (dumpsys window InsetsSource): statusBars [0,0][1080,101], navigationBars [0,2205][1080,2340]
-#   -> MonitorScreenshotTest passes status 101 px / nav 135 px and these DPIs
+# Device check, 23 Oct 2026: steps 6-7 build (main layout + Diagnostics), Galaxy A56 (SM-A566E), USB adb
+# Panel: 1080x2340, wm density 450, dumpsys display xDpi=386.3662 yDpi=388.47058 (panel's natural axes)
+# Insets (dumpsys window InsetsSource):
+#   portrait  statusBars [0,0][1080,101]  navigationBars [0,2205][1080,2340]
+#   landscape statusBars [0,0][2340,84]   displayCutout [0,0][92,1080]  navigationBars [2205,0][2340,1080]
+# The screenshot tests pass these insets and DPIs, so renders line up with screencaps.
 
-## device_dual03.png: am start -S -W ... --es replay dual03_ring, screencap 22.45 s after launch returned
+## Captures (replay dual03_ring, am start -S -W, screencap ~18-20 s in; rotation via user_rotation, restored to 0)
+# device_good_portrait.png, device_good_landscape.png, device_diagnostics_portrait.png (opened by tapping
+# "Diagnostics", bounds [841,2070][1024,2205] = 48 dp tall), device_scanning_portrait.png (BLE, no ring advertising)
+# Diagnostics on the phone measured the arrival rate: 256.0 SPS over the last 5 s.
 
-## Grid measured on the screencap (column/row brightness peaks in the trace strip, away from the trace)
-# major vertical lines x: 67 143 220 296 371 448 524 599 675 752 828 904 980
-#   render roborazzi_dual03_ring.png:  67 143 219 295 371 447 523 599 675 752 828 904 980  (within 1 px)
-#   mean spacing 76.08 px; 5 mm at xDpi 386.3662 is 76.06 px -> 5.002 mm; 10 squares = 761 px = 50.03 mm
-# major horizontal lines y (strip rows 905..1747, 0 mV at row 1364): 981 1058 1134 1211 1287 [1364] 1440 1517 1593 1670
-#   identical on device and render; spacing (1670-981)/9 = 76.56 px; 5 mm at yDpi 388.47058 is 76.47 px -> 5.006 mm
-# These mm use the panel's own reported DPI, which is also what the app draws with, so they show the
-# drawing is consistent, not that the DPI figure is true. The ruler check below is the independent test.
+## Grid: major-line positions found by brightness peaks, render vs device
+# portrait  good_portrait.png           major x 75..1064 (14)  76.08 px = 5.001 mm | major y 655..2032 (18)  76.50 px = 5.002 mm
+# portrait  device_good_portrait.png    major x 75..1064 (14)  76.08 px = 5.001 mm | major y 655..2032 (18)  76.50 px = 5.002 mm
+# portrait  render vs device: x lines equal True, y lines equal True
+# landscape good_landscape.png          major x 685..2138 (20)  76.47 px = 5.000 mm | major y 159..920 (10)  76.00 px = 4.996 mm
+# landscape device_good_landscape.png   major x 685..2138 (20)  76.47 px = 5.000 mm | major y 159..920 (10)  76.00 px = 4.996 mm
+# landscape render vs device: x lines equal True, y lines equal True
+# mm figures divide by the panel's physical DPI along each screen axis (386.3662 horizontal in portrait,
+# 388.47058 horizontal in landscape).
 
-## Ruler on the phone screen (by the user, dual01 replay running, 10 mm/mV)
-# calibration pulse: 10 mm tall x 5 mm wide, as drawn (1 mV at 10 mm/mV; 0.2 s at 25 mm/s)
-# whole strip: user counted 11 major squares, about 55 mm, i.e. 5 mm per square.
-#   The screencap has 13 major lines (12 full squares, 60 mm) plus a ~2 mm partial at the right edge;
-#   the count differs, the square size agrees.
+## Two bugs this check found (fixed in this build, re-measured above)
+# 1. Landscape grid was off: Android does not swap DisplayMetrics xdpi/ydpi on rotation, so the app drew
+#    the long (now horizontal) axis with the short axis's DPI. Before the fix the landscape capture measured
+#    76.05 px across = 4.973 mm and 76.50 px down = 5.029 mm. MainActivity now swaps them at 90/270 degrees.
+# 2. Portrait showed "98 bpm" next to "Checking signal": QualityRow took the pipeline, the same instance
+#    every frame, so Compose skipped it and it stayed on its first state. Renders are first compositions
+#    and could not show it. QualityRow now takes values; MonitorRecompositionTest fails on the old code.
+
+## Earlier ruler check (steps 4-5 build, portrait, by the user): calibration pulse 10 mm x 5 mm at 10 mm/mV.
