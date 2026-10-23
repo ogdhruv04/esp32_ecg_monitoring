@@ -1,0 +1,21 @@
+# Device check, 23 Oct 2026: steps 4-5 build (theme + sweep trace), Galaxy A56 (SM-A566E), USB adb
+# Panel: 1080x2340, wm density 450, dumpsys display xDpi=386.3662 yDpi=388.47058
+# Insets (dumpsys window InsetsSource): statusBars [0,0][1080,101], navigationBars [0,2205][1080,2340]
+#   -> MonitorScreenshotTest passes status 101 px / nav 135 px and these DPIs
+
+## device_dual03.png: am start -S -W ... --es replay dual03_ring, screencap 22.45 s after launch returned
+
+## Grid measured on the screencap (column/row brightness peaks in the trace strip, away from the trace)
+# major vertical lines x: 67 143 220 296 371 448 524 599 675 752 828 904 980
+#   render roborazzi_dual03_ring.png:  67 143 219 295 371 447 523 599 675 752 828 904 980  (within 1 px)
+#   mean spacing 76.08 px; 5 mm at xDpi 386.3662 is 76.06 px -> 5.002 mm; 10 squares = 761 px = 50.03 mm
+# major horizontal lines y (strip rows 905..1747, 0 mV at row 1364): 981 1058 1134 1211 1287 [1364] 1440 1517 1593 1670
+#   identical on device and render; spacing (1670-981)/9 = 76.56 px; 5 mm at yDpi 388.47058 is 76.47 px -> 5.006 mm
+# These mm use the panel's own reported DPI, which is also what the app draws with, so they show the
+# drawing is consistent, not that the DPI figure is true. The ruler check below is the independent test.
+
+## Ruler on the phone screen (by the user, dual01 replay running, 10 mm/mV)
+# calibration pulse: 10 mm tall x 5 mm wide, as drawn (1 mV at 10 mm/mV; 0.2 s at 25 mm/s)
+# whole strip: user counted 11 major squares, about 55 mm, i.e. 5 mm per square.
+#   The screencap has 13 major lines (12 full squares, 60 mm) plus a ~2 mm partial at the right edge;
+#   the count differs, the square size agrees.

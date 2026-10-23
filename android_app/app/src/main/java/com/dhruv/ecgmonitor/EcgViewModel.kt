@@ -28,6 +28,24 @@ class EcgViewModel(app: Application) : AndroidViewModel(app) {
     var packetTick by mutableIntStateOf(0)
         private set
 
+    // False until the first packet, and again after STALL_MS without one; the
+    // trace is hidden then, leaving the bare grid, rather than freezing the
+    // last sweep on screen as if it were live.
+    var receiving by mutableStateOf(false)
+        private set
+    private var lastPacketAt = 0L
+
+    private val prefs = app.getSharedPreferences("display", Application.MODE_PRIVATE)
+    var gainMmPerMv by mutableIntStateOf(
+        prefs.getInt(KEY_GAIN, GAINS_MM_PER_MV[0]).takeIf { it in GAINS_MM_PER_MV } ?: GAINS_MM_PER_MV[0]
+    )
+        private set
+
+    fun cycleGain() {
+        gainMmPerMv = nextGain(gainMmPerMv)
+        prefs.edit().putInt(KEY_GAIN, gainMmPerMv).apply()
+    }
+
     private var bleClient: BleEcgClient? = null
 
     private val listener = object : BleEcgListener {
@@ -35,6 +53,17 @@ class EcgViewModel(app: Application) : AndroidViewModel(app) {
         override fun onPacket(packet: EcgPacket) {
             pipeline.onPacket(packet)
             packetTick++
+            lastPacketAt = SystemClock.elapsedRealtime()
+            receiving = true
+        }
+    }
+
+    init {
+        viewModelScope.launch {
+            while (true) {
+                delay(250)
+                if (receiving && SystemClock.elapsedRealtime() - lastPacketAt > STALL_MS) receiving = false
+            }
         }
     }
 
@@ -88,5 +117,9 @@ class EcgViewModel(app: Application) : AndroidViewModel(app) {
 
     companion object {
         const val REPLAY_DIR = "replay"
+        private const val KEY_GAIN = "gain_mm_per_mv"
+        // Packets normally arrive every 6/256 s (about 23 ms); a full second of
+        // silence means the stream has stopped, not that one packet was late.
+        private const val STALL_MS = 1000L
     }
 }

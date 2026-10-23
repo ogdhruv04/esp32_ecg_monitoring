@@ -12,6 +12,10 @@ class EcgPipeline(private val onBeat: ((Long) -> Unit)? = null) {
     val filteredBuffer = EcgRingBuffer()
     // Bandpassed 5-15 Hz copy, kept only to feed the pSQI energy ratio.
     val qrsBuffer = EcgRingBuffer()
+    // What the sweep trace draws: the same raw and filtered streams, but with
+    // lost samples kept as gaps (the buffers above just close up over them).
+    val sweepRaw = SweepBuffer()
+    val sweepFiltered = SweepBuffer()
     val filter = EcgFilter()
     private val baseline = BaselineRemover()
     val detector = BeatDetector()
@@ -45,6 +49,8 @@ class EcgPipeline(private val onBeat: ((Long) -> Unit)? = null) {
                 packetsLost += gap
                 detector.skip(gap * lastCount)
                 samplesSkipped += gap * lastCount
+                sweepRaw.skip(gap * lastCount)
+                sweepFiltered.skip(gap * lastCount)
             }
         }
         lastSeq = packet.seq
@@ -58,8 +64,11 @@ class EcgPipeline(private val onBeat: ((Long) -> Unit)? = null) {
             // applying to what is on screen.
             val f = filter.process(v)
             detector.process(f)?.let { onBeat?.invoke(it) }
-            filteredBuffer.push(baseline.process(f))
+            val display = baseline.process(f)
+            filteredBuffer.push(display)
             qrsBuffer.push(detector.lastBandpassed)
+            sweepRaw.push(v.toFloat())
+            sweepFiltered.push(display)
         }
         heartRate = detector.heartRate
         rmssdMs = detector.rmssdMs
