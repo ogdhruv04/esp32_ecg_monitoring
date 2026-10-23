@@ -55,9 +55,10 @@ abstract class MonitorScreenshots {
 
     private fun state(
         p: EcgPipeline, link: Link, status: String, replay: String?, research: Boolean = false,
+        dropped: Boolean = false, fix: String? = null, filtered: Boolean = true,
     ) = MonitorUiState(
-        link = link, linkFix = null, status = status, replayFile = replay?.let { "$it.csv" },
-        pipeline = p, tick = 0, gainMmPerMv = DEFAULT_GAIN_MM_PER_MV, showFiltered = true,
+        link = link, linkFix = fix, dropped = dropped, status = status, replayFile = replay?.let { "$it.csv" },
+        pipeline = p, tick = 0, gainMmPerMv = DEFAULT_GAIN_MM_PER_MV, showFiltered = filtered,
         researchMode = research,
         // Arrival rate is measured from wall-clock packet times, which a
         // render doesn't have; Diagnostics shows "not measured".
@@ -75,6 +76,8 @@ abstract class MonitorScreenshots {
                 end = (insetsPx[2] / d).dp, bottom = (insetsPx[3] / d).dp,
             ),
         )
+        // Frozen clock: the scanning ping is drawn at the same phase every run.
+        compose.mainClock.autoAdvance = false
         compose.setContent {
             MonitorTheme {
                 Surface(Modifier.fillMaxSize()) {
@@ -83,9 +86,13 @@ abstract class MonitorScreenshots {
                 }
             }
         }
+        compose.mainClock.advanceTimeBy(PING_PHASE_MS)
         val dir = File(System.getProperty("screenshots.dir") ?: error("run via Gradle"), "after")
         compose.onRoot().captureRoboImage(File(dir, "${name}_$orientation.png").path)
         if (diagnostics) {
+            // Diagnostics has nothing animated; let the clock run so the
+            // scroll can settle (with it frozen, the scroll never finishes).
+            compose.mainClock.autoAdvance = true
             compose.onNodeWithTag(DIAGNOSTICS_END).performScrollTo()
             compose.onRoot().captureRoboImage(File(dir, "${name}_end_$orientation.png").path)
         }
@@ -111,9 +118,27 @@ abstract class MonitorScreenshots {
     @Test fun scanning() =
         capture("scanning", state(EcgPipeline(), Link.SCANNING, "Scanning for ESP32-ECG...", null))
 
-    // The link dropped after 20 s of good data: nothing stale may show.
-    @Test fun notConnected() =
-        capture("not_connected", state(replayed("dual03_ring", AT_SECONDS), Link.NOT_CONNECTED, "Disconnected", null))
+    // Never connected (here: Bluetooth off): plain text, not an alert.
+    @Test fun notConnected() = capture(
+        "not_connected",
+        state(EcgPipeline(), Link.NOT_CONNECTED, "Bluetooth not available/enabled", null, fix = "Turn on Bluetooth"),
+    )
+
+    // The link dropped after 20 s of good data: the alert, reconnecting, and
+    // nothing stale showing.
+    @Test fun dropped() = capture(
+        "dropped",
+        state(
+            replayed("dual03_ring", AT_SECONDS), Link.NOT_CONNECTED, "Disconnected", null,
+            dropped = true, fix = "Reconnecting…",
+        ),
+    )
+
+    // The raw view: the caption must say so.
+    @Test fun raw() {
+        val p = replayed("dual03_ring", AT_SECONDS)
+        capture("raw", state(p, Link.RECEIVING, "Replay dual03_ring.csv", "dual03_ring", filtered = false))
+    }
 
     @Test fun diagnostics() = capture(
         "diagnostics", state(replayed("dual03_ring", AT_SECONDS), Link.RECEIVING, "Replay dual03_ring.csv", "dual03_ring"),
@@ -130,6 +155,8 @@ abstract class MonitorScreenshots {
         // All three recordings sit in their intended state here.
         const val AT_SECONDS = 20.0
         const val A56_DENSITY = 450 / 160f
+        // A third of the way through the 1.8 s ping.
+        const val PING_PHASE_MS = 600L
     }
 }
 

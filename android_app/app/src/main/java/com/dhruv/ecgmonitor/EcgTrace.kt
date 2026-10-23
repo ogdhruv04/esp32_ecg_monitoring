@@ -97,8 +97,9 @@ fun EcgTrace(
 }
 
 // Paper speed and gain, with the gain tappable to cycle 10 / 20 / 40 mm/mV.
+// "· raw" when the trace is the unfiltered signal, so the view is never ambiguous.
 @Composable
-fun TraceCaption(mmPerMv: Int, onCycleGain: () -> Unit, modifier: Modifier = Modifier) {
+fun TraceCaption(mmPerMv: Int, raw: Boolean, onCycleGain: () -> Unit, modifier: Modifier = Modifier) {
     val style = TextStyle(
         fontFamily = PlexSans, fontSize = 12.sp, fontFeatureSettings = TABULAR,
         color = MonitorColors.TextMuted,
@@ -113,7 +114,7 @@ fun TraceCaption(mmPerMv: Int, onCycleGain: () -> Unit, modifier: Modifier = Mod
                 .minimumInteractiveComponentSize()
                 .clickable(onClickLabel = "change gain", role = Role.Button, onClick = onCycleGain),
         )
-        Text(" (nominal)", style = style)
+        Text(if (raw) " (nominal) · raw" else " (nominal)", style = style)
     }
 }
 

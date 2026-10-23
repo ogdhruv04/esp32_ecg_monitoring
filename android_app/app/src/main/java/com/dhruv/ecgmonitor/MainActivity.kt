@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -87,8 +88,13 @@ private fun MonitorApp(vm: EcgViewModel) {
         ydpi = if (quarterTurn) metrics.xdpi else metrics.ydpi,
         insets = WindowInsets.safeDrawing.asPaddingValues(),
     )
+    // Screen stays on while data is arriving, and may sleep otherwise.
+    val view = LocalView.current
+    val receiving = vm.link == Link.RECEIVING
+    SideEffect { view.keepScreenOn = receiving }
+
     val state = MonitorUiState(
-        link = vm.link, linkFix = vm.linkFix, status = vm.status, replayFile = vm.replayFile,
+        link = vm.link, linkFix = vm.linkFix, dropped = vm.dropped, status = vm.status, replayFile = vm.replayFile,
         pipeline = vm.pipeline, tick = vm.packetTick, gainMmPerMv = vm.gainMmPerMv,
         showFiltered = vm.showFiltered, researchMode = vm.researchMode, sampleRate = vm.sampleRate,
     )

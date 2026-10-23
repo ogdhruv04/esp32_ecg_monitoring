@@ -29,7 +29,14 @@ UI work never changes the logic in `EcgFilter.kt`, `BeatDetector.kt`, `SignalQua
 - A small, quiet entry point to Diagnostics, and nothing else on the main screen.
 - Diagnostics screen: BLE state, packet loss, sample rate, SQI values (kSQI, pSQI), skip counts, raw/filtered view.
 - Heart rate is shown only on GOOD quality. Otherwise show "—" plus one line giving the likely cause and fix: hold still, press the finger fully on the electrode, or check the reference electrode. The rules live in `headline()` (`MonitorUi.kt`, pinned by `HeadlineTest`). "Check the reference electrode" fires when quality isn't GOOD and mains is at least 10% of raw power, a threshold from three recordings of one subject (`analysis/mains_share_dual01-03.txt`), so uncalibrated.
-- With no packets the heart-rate area reads "Scanning for ring…" or "Ring not connected" (the latter in the alert red), never a zero or -1. In debug builds a replay shows a permanent "REPLAY · <file>" tag.
+- With no packets the heart-rate area reads "Scanning for ring…" (with a quiet animated ping) or "Ring not connected", never a zero or -1. "Ring not connected" is red only after a live stream dropped this session; before the first connection it is plain text. In debug builds a replay shows a permanent "REPLAY · <file>" tag.
+- The screen is kept on only while packets are arriving (`View.keepScreenOn`).
+
+## BLE link
+
+- `BleEcgClient` never reconnects: on a drop it posts "Disconnected" and leaves its GATT open. `EcgViewModel` closes it and starts a fresh client after 1, 2, 4, 8, 16, then 30 s, resetting once data flows; it also restarts a link that goes 8 s without data and without a disconnect. `ReconnectTest` covers it (on SDK 33, so it has its own Robolectric sandbox: sharing one with the Compose tests made the clock jump mid-test).
+- The firmware restarts seq at 0 on each subscribe, so a reconnection calls `EcgPipeline.breakStream()` with the outage length by wall clock: the trace shows a gap and the RR across it is dropped, instead of counting bogus lost packets.
+- Log tag `EcgMonitor`: BLE status messages, link transitions, reconnect timing, stream breaks, and a stats line every 10 s while receiving. `adb logcat -s EcgMonitor:I` is the record of a live session.
 - RMSSD is hidden unless research mode is on, and is labelled "unvalidated" there.
 
 ## Look

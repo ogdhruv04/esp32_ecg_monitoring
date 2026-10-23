@@ -1,5 +1,11 @@
 package com.dhruv.ecgmonitor
 
+import android.animation.ValueAnimator
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -31,6 +37,7 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
@@ -59,8 +66,9 @@ sealed interface Headline {
     data class Rate(val bpm: Int) : Headline
     // Heart rate withheld: a muted dash, and the likely cause with its fix.
     data class Hidden(val cause: String) : Headline
-    // No data to judge: the message takes the number's place.
-    data class NoData(val message: String, val fix: String?) : Headline
+    // No data to judge: the message takes the number's place. `alert` only
+    // when a live stream was lost this session, never before the first one.
+    data class NoData(val message: String, val fix: String?, val alert: Boolean = false) : Headline
 }
 
 private const val RING_FIX = "Turn the ring on and keep it near the phone"
@@ -68,13 +76,14 @@ private const val RING_FIX = "Turn the ring on and keep it near the phone"
 fun headline(
     link: Link,
     linkFix: String?,
+    dropped: Boolean,
     qualityReady: Boolean,
     level: SignalQuality.Level,
     heartRate: Double?,
     mainsShare: Double,
 ): Headline = when (link) {
     Link.SCANNING -> Headline.NoData("Scanning for ring…", RING_FIX)
-    Link.NOT_CONNECTED -> Headline.NoData("Ring not connected", linkFix ?: RING_FIX)
+    Link.NOT_CONNECTED -> Headline.NoData("Ring not connected", linkFix ?: RING_FIX, alert = dropped)
     Link.REPLAY_FINISHED -> Headline.NoData("Replay finished", null)
     Link.RECEIVING -> when {
         !qualityReady -> Headline.Hidden("Hold still for a few seconds")
@@ -95,6 +104,7 @@ fun headline(
 class MonitorUiState(
     val link: Link,
     val linkFix: String?,
+    val dropped: Boolean,
     val status: String,
     val replayFile: String?,
     val pipeline: EcgPipeline,
@@ -106,7 +116,7 @@ class MonitorUiState(
 ) {
     val headline: Headline
         get() = pipeline.let {
-            headline(link, linkFix, it.qualityReady, it.signalQuality.level, it.heartRate, it.mainsShare)
+            headline(link, linkFix, dropped, it.qualityReady, it.signalQuality.level, it.heartRate, it.mainsShare)
         }
 }
 
@@ -151,6 +161,8 @@ private fun MainPortrait(state: MonitorUiState, actions: MonitorActions, geometr
                 .padding(top = insets.calculateTopPadding())
                 .padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 4.dp),
         )
+        // Air between the header and the paper, so the grid doesn't crowd the cause line.
+        Spacer(Modifier.height(12.dp))
         Trace(state, geometry, Modifier.fillMaxWidth().weight(1f))
         Row(
             Modifier.fillMaxWidth()
@@ -158,7 +170,7 @@ private fun MainPortrait(state: MonitorUiState, actions: MonitorActions, geometr
                 .padding(horizontal = 20.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            TraceCaption(state.gainMmPerMv, actions.onCycleGain)
+            TraceCaption(state.gainMmPerMv, raw = !state.showFiltered, onCycleGain = actions.onCycleGain)
             Spacer(Modifier.weight(1f))
             DiagnosticsLink(actions.onOpenDiagnostics)
         }
@@ -182,7 +194,10 @@ private fun MainLandscape(state: MonitorUiState, actions: MonitorActions, geomet
         }
         Column(Modifier.weight(1f).fillMaxHeight()) {
             Trace(state, geometry, Modifier.fillMaxWidth().weight(1f))
-            TraceCaption(state.gainMmPerMv, actions.onCycleGain, Modifier.padding(horizontal = 12.dp))
+            TraceCaption(
+                state.gainMmPerMv, raw = !state.showFiltered, onCycleGain = actions.onCycleGain,
+                modifier = Modifier.padding(horizontal = 12.dp),
+            )
         }
     }
 }
@@ -214,15 +229,17 @@ private fun HeartRateBlock(state: MonitorUiState, causeLines: Int, modifier: Mod
                 is Headline.NoData -> Text(
                     headline.message,
                     style = NumberStyle.copy(fontSize = 30.sp, lineHeight = 34.sp),
-                    // Losing the ring mid-measurement is the one alert here.
-                    color = if (state.link == Link.NOT_CONNECTED) MonitorColors.Alert else MonitorColors.Text,
+                    // Losing the ring mid-session is the one alert here.
+                    color = if (headline.alert) MonitorColors.Alert else MonitorColors.Text,
                     modifier = Modifier.padding(bottom = 6.dp),
                 )
             }
         }
         Box(Modifier.height(QUALITY_SLOT), contentAlignment = Alignment.CenterStart) {
-            if (state.link == Link.RECEIVING) {
-                QualityRow(state.pipeline.qualityReady, state.pipeline.signalQuality.level)
+            when (state.link) {
+                Link.RECEIVING -> QualityRow(state.pipeline.qualityReady, state.pipeline.signalQuality.level)
+                Link.SCANNING -> ScanningPing()
+                else -> {}
             }
         }
         val cause = when (headline) {
@@ -289,6 +306,28 @@ private fun QualityBars(filled: Int, modifier: Modifier = Modifier) {
     }
 }
 
+// A slow expanding ring while scanning: the app is working, quietly. Still
+// (one ring at rest) when the system has animations turned off.
+@Composable
+private fun ScanningPing() {
+    val animate = remember { ValueAnimator.areAnimatorsEnabled() }
+    val phase = if (animate) {
+        rememberInfiniteTransition(label = "scan").animateFloat(
+            0f, 1f, infiniteRepeatable(tween(PING_MS, easing = LinearEasing)), label = "ping",
+        ).value
+    } else 0.6f
+    Canvas(Modifier.size(18.dp).semantics { contentDescription = "Searching" }) {
+        val r = size.minDimension / 2
+        drawCircle(MonitorColors.TextMuted, radius = 2.dp.toPx())
+        drawCircle(
+            MonitorColors.TextMuted.copy(alpha = 1f - phase), radius = 2.dp.toPx() + (r - 2.dp.toPx()) * phase,
+            style = Stroke(1.dp.toPx()),
+        )
+    }
+}
+
+private const val PING_MS = 1800
+
 // Permanent in replay, so a recording is never mistaken for live data.
 @Composable
 private fun ReplayTag(file: String) {
@@ -306,7 +345,7 @@ private fun ReplayTag(file: String) {
 @Composable
 private fun DiagnosticsLink(onClick: () -> Unit) {
     Text(
-        "Diagnostics",
+        "Diagnostics ›",
         style = MaterialTheme.typography.bodySmall, color = MonitorColors.TextMuted,
         modifier = Modifier
             .minimumInteractiveComponentSize()
@@ -343,7 +382,9 @@ fun DiagnosticsScreen(state: MonitorUiState, actions: MonitorActions, geometry: 
 
         Section("Connection")
         Field("Source", state.replayFile?.let { "Replay of $it" } ?: "Bluetooth, ESP32-ECG")
-        Field("Status", state.status)
+        // The client's own messages ("Found …, connecting…"); in a replay they
+        // only repeat the source.
+        if (state.replayFile == null) Field("Status", state.status.replace("...", "…"))
         Field("Stream", when (state.link) {
             Link.SCANNING -> "Scanning"
             Link.RECEIVING -> "Receiving"
@@ -362,7 +403,7 @@ fun DiagnosticsScreen(state: MonitorUiState, actions: MonitorActions, geometry: 
         Section("Signal quality", "Thresholds are from published convention, not calibrated on our hardware.")
         val sq = p.signalQuality
         if (p.qualityReady) {
-            Field("Verdict", "${sq.level.name.lowercase().replaceFirstChar { it.uppercase() }} (${sq.label})")
+            Field("Verdict", sq.level.name.lowercase().replaceFirstChar { it.uppercase() })
             Field("kSQI, kurtosis", "%.1f".format(sq.kSqi))
             Field("pSQI, 5–15 Hz share", "%.2f".format(sq.pSqi))
             Field("Mains share, raw", "%.1f%%".format(100 * p.mainsShare))

@@ -29,3 +29,16 @@
 #    and could not show it. QualityRow now takes values; MonitorRecompositionTest fails on the old code.
 
 ## Earlier ruler check (steps 4-5 build, portrait, by the user): calibration pulse 10 mm x 5 mm at 10 mm/mV.
+
+## Step 8 (polish + reconnection), same phone, 23 Oct 2026
+# Keep screen on: window flags from `dumpsys window windows` (FLAG_KEEP_SCREEN_ON = 0x80):
+#   BLE scanning, no ring        fl=81810100  not set
+#   replay, data arriving        fl=81810180  set   (dumpsys power: SCREEN_BRIGHT_WAKE_LOCK for com.dhruv.ecgmonitor)
+#   after the replay ended       fl=81810100  not set
+# Scanning ping animates: 632 pixels changed in the ping region between two screencaps ~0.6 s apart
+#   (global animator_duration_scale = 1).
+# device_raw_portrait.png: Raw chosen by tapping Diagnostics > Raw on the phone; caption ends "· raw".
+# device_replay_finished_portrait.png: "Replay finished" after dual03 ran out.
+# device_logcat_replay.txt: `adb logcat -s EcgMonitor:I` for that replay. Stats lines every 10 s show
+#   rate 256.0-256.1 SPS and mains 1.1-4.0% (analysis/mains_share_dual01-03.txt has 1.2-4.2% for dual03 ring).
+# Reconnection was not exercised on the phone (no ring); ReconnectTest covers it.

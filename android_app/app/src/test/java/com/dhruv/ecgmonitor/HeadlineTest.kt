@@ -10,7 +10,7 @@ import org.junit.Test
 // The heart-rate area's rules (android_app/CLAUDE.md, Screens).
 class HeadlineTest {
     private fun h(level: SignalQuality.Level, hr: Double? = 72.4, mains: Double = 0.02, ready: Boolean = true) =
-        headline(Link.RECEIVING, null, ready, level, hr, mains)
+        headline(Link.RECEIVING, null, dropped = false, qualityReady = ready, level = level, heartRate = hr, mainsShare = mains)
 
     @Test fun onlyGoodShowsANumber() {
         assertEquals(Headline.Rate(72), h(GOOD))
@@ -34,11 +34,18 @@ class HeadlineTest {
     }
 
     @Test fun noData() {
-        val scanning = headline(Link.SCANNING, null, false, POOR, null, 0.0)
+        val scanning = headline(Link.SCANNING, null, false, false, POOR, null, 0.0)
         assertEquals("Scanning for ring…", (scanning as Headline.NoData).message)
-        val lost = headline(Link.NOT_CONNECTED, "Turn on Bluetooth", true, GOOD, 72.0, 0.0)
-        // Stale data must not show through once the link is gone.
-        assertEquals(Headline.NoData("Ring not connected", "Turn on Bluetooth"), lost)
+        // Before any connection: not an alert, and stale data can't show through.
+        assertEquals(
+            Headline.NoData("Ring not connected", "Turn on Bluetooth", alert = false),
+            headline(Link.NOT_CONNECTED, "Turn on Bluetooth", false, true, GOOD, 72.0, 0.0),
+        )
+        // A live stream lost this session: the alert.
+        assertEquals(
+            Headline.NoData("Ring not connected", "Reconnecting…", alert = true),
+            headline(Link.NOT_CONNECTED, "Reconnecting…", true, true, GOOD, 72.0, 0.0),
+        )
     }
 
     @Test fun bleStatusStrings() {
@@ -46,6 +53,8 @@ class HeadlineTest {
         assertEquals(Link.SCANNING to null, linkFromStatus("Subscribed to ECG notifications"))
         assertEquals(Link.NOT_CONNECTED to "Turn on Bluetooth", linkFromStatus("Bluetooth not available/enabled"))
         assertEquals(Link.NOT_CONNECTED to null, linkFromStatus("Disconnected"))
+        assertEquals(Link.NOT_CONNECTED to null, linkFromStatus("Scan failed: code 2"))
+        assertEquals(Link.SCANNING to null, linkFromStatus("Found AA:BB:CC:DD:EE:FF, connecting..."))
         assertEquals(null, linkFromStatus("something new"))
     }
 }

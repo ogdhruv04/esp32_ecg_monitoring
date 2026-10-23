@@ -33,7 +33,7 @@ class MonitorRecompositionTest {
             MonitorTheme {
                 MainScreen(
                     MonitorUiState(
-                        Link.RECEIVING, null, "Replay dual03_ring.csv", "dual03_ring.csv", p, tick,
+                        Link.RECEIVING, null, false, "Replay dual03_ring.csv", "dual03_ring.csv", p, tick,
                         DEFAULT_GAIN_MM_PER_MV, showFiltered = true, researchMode = false, sampleRate = null,
                     ),
                     MonitorActions(), ScreenGeometry(386.3662f, 388.47058f, PaddingValues()),

@@ -43,6 +43,25 @@ class EcgPipeline(private val onBeat: ((Long) -> Unit)? = null) {
         private set
     private var sinceQuality = 0
 
+    // Times the stream restarted after a reconnection.
+    var streamBreaks = 0; private set
+
+    // The stream stopped and is starting again on a new connection, about
+    // `samplesMissed` samples later by the wall clock. The firmware restarts
+    // seq at 0 on every subscribe, so the next packet's seq says nothing about
+    // what was lost: forget the last one rather than count a bogus gap, and
+    // tell the detector and the trace about the hole directly.
+    fun breakStream(samplesMissed: Int) {
+        lastSeq = -1
+        streamBreaks++
+        if (samplesMissed > 0) {
+            detector.skip(samplesMissed)
+            samplesSkipped += samplesMissed
+            sweepRaw.skip(samplesMissed)
+            sweepFiltered.skip(samplesMissed)
+        }
+    }
+
     fun onPacket(packet: EcgPacket) {
         // seq is a byte that wraps at 256. A gap means the notification never
         // arrived, which is 6 missing samples and one corrupted RR interval -
