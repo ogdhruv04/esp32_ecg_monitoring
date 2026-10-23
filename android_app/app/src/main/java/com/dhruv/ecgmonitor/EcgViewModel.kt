@@ -247,6 +247,10 @@ class EcgViewModel(app: Application) : AndroidViewModel(app) {
         setLink(Link.NOT_CONNECTED, "Allow Bluetooth access in Settings")
     }
 
+    // Release builds bundle no captures, so a replay request is ignored there.
+    val replayAvailable: Boolean
+        get() = getApplication<Application>().assets.list(REPLAY_DIR).orEmpty().isNotEmpty()
+
     // Plays a bundled capture (debug builds only; see copyReplayCaptures in
     // app/build.gradle.kts) through the same path BLE uses, in real time.
     // Lost packets keep their time hole. `name` is an asset name, with or

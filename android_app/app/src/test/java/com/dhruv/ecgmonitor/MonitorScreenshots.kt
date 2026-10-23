@@ -17,6 +17,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import java.io.File
@@ -150,6 +151,27 @@ abstract class MonitorScreenshots {
         state(replayed("dual03_ring", AT_SECONDS), Link.RECEIVING, "Replay dual03_ring.csv", "dual03_ring", research = true),
         diagnostics = true,
     )
+
+    // ---- system font size: the main screen at 1.3 and 2.0, as <state>_font<130|200>_<orientation>
+
+    private fun atFontScale(scale: Float, name: String, s: () -> MonitorUiState) {
+        RuntimeEnvironment.setFontScale(scale)
+        capture("${name}_font${(scale * 100).toInt()}", s())
+    }
+
+    private fun goodState() = state(replayed("dual03_ring", AT_SECONDS), Link.RECEIVING, "Replay dual03_ring.csv", "dual03_ring")
+    private fun fairState() = state(replayed("dual02_ring", AT_SECONDS), Link.RECEIVING, "Replay dual02_ring.csv", "dual02_ring")
+    private fun scanningState() = state(EcgPipeline(), Link.SCANNING, "Scanning for ESP32-ECG...", null)
+    private fun droppedState() = state(EcgPipeline(), Link.NOT_CONNECTED, "Disconnected", null, dropped = true, fix = "Reconnecting…")
+
+    @Test fun goodFont130() = atFontScale(1.3f, "good", ::goodState)
+    @Test fun goodFont200() = atFontScale(2.0f, "good", ::goodState)
+    @Test fun fairFont130() = atFontScale(1.3f, "fair", ::fairState)
+    @Test fun fairFont200() = atFontScale(2.0f, "fair", ::fairState)
+    @Test fun scanningFont130() = atFontScale(1.3f, "scanning", ::scanningState)
+    @Test fun scanningFont200() = atFontScale(2.0f, "scanning", ::scanningState)
+    @Test fun droppedFont130() = atFontScale(1.3f, "dropped", ::droppedState)
+    @Test fun droppedFont200() = atFontScale(2.0f, "dropped", ::droppedState)
 
     companion object {
         // All three recordings sit in their intended state here.

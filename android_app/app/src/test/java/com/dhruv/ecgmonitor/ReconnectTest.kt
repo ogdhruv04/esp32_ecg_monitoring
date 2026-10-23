@@ -129,6 +129,36 @@ class ReconnectTest {
         assertEquals(2, links.size)
     }
 
+    // The real BleEcgClient through Robolectric's Bluetooth shadows: ten
+    // rounds of connect, data, drop and automatic reconnect must leave no
+    // GATT open and at most the one scan that is looking for the ring.
+    @Test fun tenReconnectCyclesLeaveNoConnectionOpen() {
+        val ring = SimulatedRing(ApplicationProvider.getApplicationContext())
+        val real = ViewModelProvider(
+            store, ViewModelProvider.AndroidViewModelFactory(ApplicationProvider.getApplicationContext<Application>()),
+        )["real", EcgViewModel::class.java]
+        real.startBle()
+        repeat(10) { cycle ->
+            ring.advertise()
+            ring.connect()
+            idle(50)
+            repeat(5) { ring.notifyPacket(it); idle(23) }
+            assertEquals("cycle $cycle receiving", Link.RECEIVING, real.link)
+            assertEquals("cycle $cycle: one GATT open while connected", 1, ring.openGatts)
+            ring.drop()
+            idle(50)
+            assertEquals("cycle $cycle: dropped GATT released", 0, ring.openGatts)
+            // Data flowed, so the backoff is back at 1 s.
+            idle(1_100)
+            assertEquals("cycle $cycle: scanning again", 1, ring.activeScans)
+        }
+        assertEquals(10, ring.gatts.size)
+        assertEquals("no connection left open after 10 cycles", 0, ring.openGatts)
+        assertEquals(1, ring.activeScans)
+        assertEquals(0, real.pipeline.packetsLost)
+        assertEquals(10, real.pipeline.streamBreaks + 1)
+    }
+
     @Test fun beforeTheFirstConnectionItIsNotAnAlert() {
         vm.startBle()
         links[0].listener.onStatus("Bluetooth not available/enabled")

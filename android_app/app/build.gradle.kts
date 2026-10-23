@@ -22,6 +22,9 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = false
+            // Signed with the debug key so it installs for on-phone checks.
+            // A build for anyone else needs its own release key.
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
 

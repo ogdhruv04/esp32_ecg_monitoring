@@ -33,8 +33,9 @@ class BleEcgClient(private val context: Context, private val listener: BleEcgLis
 
     private val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
     private val mainHandler = Handler(Looper.getMainLooper())
-    private var gatt: BluetoothGatt? = null
-    private var scanning = false
+    // Written from Binder callbacks and from the caller's thread.
+    @Volatile private var gatt: BluetoothGatt? = null
+    @Volatile private var scanning = false
 
     // BLE callbacks land on a background Binder thread, not the main thread -
     // Compose state must only be touched from the UI thread, so every listener
@@ -77,10 +78,13 @@ class BleEcgClient(private val context: Context, private val listener: BleEcgLis
             bluetoothManager.adapter?.bluetoothLeScanner?.stopScan(this)
             scanning = false
             postStatus("Found ${result.device.address}, connecting...")
+            // Never hold two: a GATT not closed stays registered with the stack.
+            gatt?.close()
             gatt = result.device.connectGatt(context, false, gattCallback)
         }
 
         override fun onScanFailed(errorCode: Int) {
+            scanning = false
             postStatus("Scan failed: code $errorCode")
         }
     }
@@ -93,6 +97,10 @@ class BleEcgClient(private val context: Context, private val listener: BleEcgLis
                     g.discoverServices()
                 }
                 BluetoothGatt.STATE_DISCONNECTED -> {
+                    // Release the connection fully. disconnect() alone leaves
+                    // the GATT client registered, so each reconnect would leak
+                    // one until the stack runs out (BleConnectionReleaseTest).
+                    release(g)
                     postStatus("Disconnected")
                 }
             }
@@ -101,6 +109,8 @@ class BleEcgClient(private val context: Context, private val listener: BleEcgLis
         override fun onServicesDiscovered(g: BluetoothGatt, status: Int) {
             val characteristic = g.getService(ECG_SERVICE_UUID)?.getCharacteristic(ECG_CHAR_UUID)
             if (characteristic == null) {
+                g.disconnect()
+                release(g)
                 postStatus("ECG characteristic not found")
                 return
             }
@@ -121,6 +131,11 @@ class BleEcgClient(private val context: Context, private val listener: BleEcgLis
             val value = characteristic.value ?: return
             parsePacket(value)?.let { postPacket(it) }
         }
+    }
+
+    private fun release(g: BluetoothGatt) {
+        g.close()
+        if (gatt === g) gatt = null
     }
 
     private fun parsePacket(value: ByteArray): EcgPacket? {

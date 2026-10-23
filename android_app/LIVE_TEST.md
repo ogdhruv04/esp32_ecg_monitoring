@@ -11,6 +11,7 @@ A checklist for the first run of the app against the real ring board (ESP32-C3 +
 - [ ] **Expect an inverted trace.** The clips are swapped relative to ECGP/ECGN, so we record lead −II and the QRS points down. Don't flip it in the app.
 - [ ] **Expect a small trace.** The default gain is 40 mm/mV because the signal measures about 0.14 mV at the nominal scale (open issue in root `CLAUDE.md`).
 - [ ] **The debug APK is installed:** `cd android_app && ./gradlew assembleDebug`, then `adb install -r app/build/outputs/apk/debug/app-debug.apk`.
+- [ ] **Start with no stale scanner registrations.** On 23 Oct, `dumpsys bluetooth_manager` listed six LE scanner registrations for this app, all but one from processes that no longer existed (force-stopped test runs; see `screenshots/after/device_check.txt`). The phone's stack doesn't drop them when a process dies, and Android limits how many an app may hold, so a session that starts with leftovers can fail to scan with `Scan failed: code 2`. Turn the phone's Bluetooth off and on to clear them, then check that `adb shell dumpsys bluetooth_manager | grep -c 'app: com.dhruv.ecgmonitor'` prints 0 before launching the app.
 - [ ] **Start one log for the whole session**, in a second terminal, and leave it running until the end:
   ```bash
   adb logcat -c
@@ -113,13 +114,14 @@ A checklist for the first run of the app against the real ring board (ESP32-C3 +
 - [ ] **Do:**
   1. Attach the ring to WSL again if step 5 dropped it.
   2. Start a serial capture alongside the phone: `./capture.py --port /dev/ttyACM0 --seconds 300 --label live01_serial`. The firmware sends every sample to both serial and BLE, so this is the ground truth for what the phone should have received.
-  3. Sit still with good contact for the full 5 minutes. The screen should stay on by itself while data arrives.
+  3. Hold the phone at arm's length from the ring, not on the desk beside it, since the loss target is set for that distance.
+  4. Sit still with good contact for the full 5 minutes. The screen should stay on by itself while data arrives.
 - [ ] **Look for, in Diagnostics at the end:**
   - [ ] "Lost" (packets and %) and "Samples skipped".
   - [ ] "Sample rate, last 5 s" near the firmware's `rate:` on serial. The phone measures arrival rate by its own clock, so a small difference from 256.20 is expected.
 - [ ] **Look for, in logcat:** 30 stats lines, with `lost=` and `rate=` steady and no `link ... -> NOT_CONNECTED`.
 - [ ] **Look for, in the capture:** check the CSV with `./analyze.py captures/<stamp>_live01_serial.csv`. It checks integrity first.
-- [ ] **There is no agreed pass threshold for packet loss yet.** Record the numbers. The replay gave 0 lost and 256.0 SPS, but a replay has no radio.
+- [ ] **Provisional target: packet loss under 1% with the phone at arm's length from the ring** (Diagnostics "Lost", in %). It is provisional: a starting point, not derived from any measurement. Revise it after this run, using the number this run gives. The replay gave 0 lost and 256.0 SPS, but a replay has no radio.
 - [ ] **Save:**
   - [ ] Diagnostics at the end (`5min_diagnostics`, scrolled to show the Packets section)
   - [ ] the main screen (`5min`)

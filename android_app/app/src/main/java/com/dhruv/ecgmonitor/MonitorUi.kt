@@ -44,12 +44,16 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextOverflow
@@ -72,6 +76,16 @@ sealed interface Headline {
 }
 
 private const val RING_FIX = "Turn the ring on and keep it near the phone"
+
+// Every line the cause slot and the message slot can show (from headline()
+// and EcgViewModel). The slots are sized for the longest of these at the
+// current width and font, so they never clip and never change size.
+private val CAUSE_TEXTS = listOf(
+    RING_FIX, "Turn on Bluetooth", "Allow Bluetooth access in Settings", "Reconnecting…",
+    "Hold still for a few seconds", "Measuring", "Check the reference electrode", "Hold still",
+    "Press your finger fully on the electrode",
+)
+private val MESSAGE_TEXTS = listOf("Scanning for ring…", "Ring not connected", "Replay finished")
 
 fun headline(
     link: Link,
@@ -137,9 +151,7 @@ private val NumberStyle = TextStyle(
     lineHeight = 80.sp, fontFeatureSettings = TABULAR,
     lineHeightStyle = LineHeightStyle(LineHeightStyle.Alignment.Bottom, LineHeightStyle.Trim.Both),
 )
-private val NUMBER_SLOT = 84.dp
-private val QUALITY_SLOT = 28.dp
-private val CAUSE_SLOT = 22.dp
+private val NoDataStyle = NumberStyle.copy(fontSize = 30.sp, lineHeight = 34.sp)
 
 // ---------------------------------------------------------------- main screen
 
@@ -156,7 +168,7 @@ private fun MainPortrait(state: MonitorUiState, actions: MonitorActions, geometr
     val insets = geometry.insets
     Column(Modifier.fillMaxSize()) {
         HeartRateBlock(
-            state, causeLines = 1,
+            state, maxCauseLines = 2, maxMessageLines = 2,
             modifier = Modifier
                 .padding(top = insets.calculateTopPadding())
                 .padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 4.dp),
@@ -170,8 +182,12 @@ private fun MainPortrait(state: MonitorUiState, actions: MonitorActions, geometr
                 .padding(horizontal = 20.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            TraceCaption(state.gainMmPerMv, raw = !state.showFiltered, onCycleGain = actions.onCycleGain)
-            Spacer(Modifier.weight(1f))
+            // The caption wraps by phrase; the link keeps its width, so at a
+            // large font it can't be squeezed into a column one letter wide.
+            TraceCaption(
+                state.gainMmPerMv, raw = !state.showFiltered, onCycleGain = actions.onCycleGain,
+                modifier = Modifier.weight(1f),
+            )
             DiagnosticsLink(actions.onOpenDiagnostics)
         }
     }
@@ -187,17 +203,22 @@ private fun MainLandscape(state: MonitorUiState, actions: MonitorActions, geomet
             end = insets.calculateEndPadding(dir), bottom = insets.calculateBottomPadding(),
         )
     ) {
-        Column(Modifier.width(SIDE_COLUMN).fillMaxHeight().padding(start = 16.dp, end = 12.dp, top = 8.dp)) {
-            HeartRateBlock(state, causeLines = 3)
-            Spacer(Modifier.weight(1f))
-            DiagnosticsLink(actions.onOpenDiagnostics)
+        // Wider with the system font, so messages wrap rather than clip.
+        val side = SIDE_COLUMN * LocalConfiguration.current.fontScale.coerceIn(1f, 1.6f)
+        Column(Modifier.width(side).fillMaxHeight().padding(start = 16.dp, end = 12.dp, top = 8.dp)) {
+            HeartRateBlock(state, maxCauseLines = 3, maxMessageLines = 2)
         }
         Column(Modifier.weight(1f).fillMaxHeight()) {
             Trace(state, geometry, Modifier.fillMaxWidth().weight(1f))
-            TraceCaption(
-                state.gainMmPerMv, raw = !state.showFiltered, onCycleGain = actions.onCycleGain,
-                modifier = Modifier.padding(horizontal = 12.dp),
-            )
+            // The link sits with the caption, as in portrait: in the side column a
+            // large font pushed it off the bottom.
+            Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                TraceCaption(
+                    state.gainMmPerMv, raw = !state.showFiltered, onCycleGain = actions.onCycleGain,
+                    modifier = Modifier.weight(1f),
+                )
+                DiagnosticsLink(actions.onOpenDiagnostics)
+            }
         }
     }
 }
@@ -215,27 +236,50 @@ private fun Trace(state: MonitorUiState, geometry: ScreenGeometry, modifier: Mod
 }
 
 // Heart rate, quality and the cause line, in fixed-height slots so the block
-// is the same size whatever it says and the trace below never moves.
+// is the same size whatever it says and the trace below never moves. Slot
+// heights come from each slot's type style through the system font scale, and
+// the cause and message slots take as many lines as their longest possible
+// text needs here: constant within a session, never too short at 1.3x or 2x.
 @Composable
-private fun HeartRateBlock(state: MonitorUiState, causeLines: Int, modifier: Modifier = Modifier) {
+private fun HeartRateBlock(state: MonitorUiState, maxCauseLines: Int, maxMessageLines: Int, modifier: Modifier = Modifier) {
     val headline = state.headline
-    Column(modifier) {
+    val type = MaterialTheme.typography
+    val measurer = rememberTextMeasurer()
+    BoxWithConstraints(modifier) {
+    val width = constraints.maxWidth
+    // Measured, not converted from sp by hand: at a large font scale the
+    // layout's line height and TextUnit.toDp() disagree by a few pixels, which
+    // was enough to drop the second line of a cause.
+    fun tallest(texts: List<String>, style: TextStyle, maxLines: Int) = texts.maxOf {
+        measurer.measure(it, style, maxLines = maxLines, constraints = Constraints(maxWidth = width)).size.height
+    }
+    val density = LocalDensity.current
+    // The number's line is trimmed to its 80 sp line height, which measuring
+    // the text would overstate; large type barely scales with the font anyway.
+    val numberSlot = with(density) {
+        maxOf(NumberStyle.lineHeight.toDp() + 4.dp, tallest(MESSAGE_TEXTS, NoDataStyle, maxMessageLines).toDp() + 6.dp)
+    }
+    val qualitySlot = with(density) { tallest(listOf("Checking signal"), type.bodyLarge, 1).toDp() + 4.dp }
+    val causeSlot = with(density) { tallest(CAUSE_TEXTS, type.bodyMedium, maxCauseLines).toDp() + 2.dp }
+    val causeLines = maxCauseLines
+    val messageLines = maxMessageLines
+    Column {
         state.replayFile?.let { ReplayTag(it) }
-        Box(Modifier.height(NUMBER_SLOT).fillMaxWidth(), contentAlignment = Alignment.BottomStart) {
+        Box(Modifier.height(numberSlot).fillMaxWidth(), contentAlignment = Alignment.BottomStart) {
             when (headline) {
                 is Headline.Rate -> Number("${headline.bpm}", MonitorColors.Text)
                 // The dash alone: next to it, "bpm" read as a separate label.
                 is Headline.Hidden -> Text("—", style = NumberStyle, color = MonitorColors.TextMuted)
                 is Headline.NoData -> Text(
                     headline.message,
-                    style = NumberStyle.copy(fontSize = 30.sp, lineHeight = 34.sp),
+                    style = NoDataStyle, maxLines = messageLines, overflow = TextOverflow.Ellipsis,
                     // Losing the ring mid-session is the one alert here.
                     color = if (headline.alert) MonitorColors.Alert else MonitorColors.Text,
                     modifier = Modifier.padding(bottom = 6.dp),
                 )
             }
         }
-        Box(Modifier.height(QUALITY_SLOT), contentAlignment = Alignment.CenterStart) {
+        Box(Modifier.height(qualitySlot), contentAlignment = Alignment.CenterStart) {
             when (state.link) {
                 Link.RECEIVING -> QualityRow(state.pipeline.qualityReady, state.pipeline.signalQuality.level)
                 Link.SCANNING -> ScanningPing()
@@ -247,12 +291,13 @@ private fun HeartRateBlock(state: MonitorUiState, causeLines: Int, modifier: Mod
             is Headline.NoData -> headline.fix
             is Headline.Rate -> null
         }
-        Box(Modifier.height(CAUSE_SLOT * causeLines), contentAlignment = Alignment.TopStart) {
+        Box(Modifier.height(causeSlot), contentAlignment = Alignment.TopStart) {
             if (cause != null) Text(
                 cause, style = MaterialTheme.typography.bodyMedium, color = MonitorColors.TextMuted,
                 maxLines = causeLines, overflow = TextOverflow.Ellipsis,
             )
         }
+    }
     }
 }
 
@@ -347,6 +392,7 @@ private fun DiagnosticsLink(onClick: () -> Unit) {
     Text(
         "Diagnostics ›",
         style = MaterialTheme.typography.bodySmall, color = MonitorColors.TextMuted,
+        maxLines = 1, softWrap = false,
         modifier = Modifier
             .minimumInteractiveComponentSize()
             .clickable(role = Role.Button, onClick = onClick),

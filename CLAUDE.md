@@ -78,6 +78,7 @@ A third board, the custom ESP32-C3 in `docs/ESP32C3_custom_schematic.pdf`: a bar
 - `K,sync_count,sync_micros,sample_index`: a rising edge on SYNC_PIN, for aligning the two devices.
 - `# ...`: diagnostics. Every 5 s there is a counter line: `valid ovf empty other rate | life: ... logdrop depth_max isr sweep pin status isr_gap_us`.
 - Input: `b` toggles the body-bias drive (RBIAS), `r` resets the FIFO.
+- BLE notify (ring only): `[seq][count=6][6 x 3-byte little-endian samples]`, 20 bytes (`sendEcgSampleOverBle`). `seq` is an **8-bit counter only**, restarted at 0 on every subscribe; the packet does not carry the sample index. So the phone infers lost packets from seq gaps (ambiguous past 255 in a row), and an outage across a reconnection only by its own wall clock, not on the board's clock. Adding the sample index to the packet is a firmware follow-up.
 
 **The sample index is the clock.** Sample N was taken at N/256 s, timed by the MAX30003's own 32.768 kHz oscillator. Do timing work on the index, not on host time. Across two devices the oscillators drift by up to ±20 ppm; this figure is from memory and has not been checked against a datasheet. RR intervals are unaffected by a constant offset between devices, but matching individual beats needs the SYNC edges.
 

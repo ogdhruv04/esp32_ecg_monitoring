@@ -42,3 +42,18 @@
 # device_logcat_replay.txt: `adb logcat -s EcgMonitor:I` for that replay. Stats lines every 10 s show
 #   rate 256.0-256.1 SPS and mains 1.1-4.0% (analysis/mains_share_dual01-03.txt has 1.2-4.2% for dual03 ring).
 # Reconnection was not exercised on the phone (no ring); ReconnectTest covers it.
+
+## Release build, same phone, 23 Oct 2026
+# app-release.apk (signed with the debug key for local testing): 0 files under assets/replay (debug APK: 4).
+# Fresh install (uninstall first): BLUETOOTH_SCAN, BLUETOOTH_CONNECT and ACCESS_FINE_LOCATION were requested;
+#   all three ended granted=true with USER_SET. They were granted by hand on the phone; the scripted taps
+#   did not match the prompt text (the location prompt came first: "While using the app" / "Only this time").
+# After granting: logcat "EcgMonitor: ble status: Scanning for ESP32-ECG..."; release_scanning_portrait.png.
+# Launched with `--es replay dual03_ring`: ignored, scanning for the ring; uiautomator found no "REPLAY" text
+#   on screen (release_replay_ignored_portrait.png).
+# Debug APK reinstalled over it afterwards (adb install -r; same signing key, permissions kept).
+
+## Stale scanner registrations (dumpsys bluetooth_manager, "LE Scanner:" list, 23 Oct)
+# Six entries for com.dhruv.ecgmonitor, pids 30658, 4710, 13788, 14661 (uid 10383, the debug install, since
+# uninstalled), 25494 and 25903 (uid 10412, release). Only 25903 was running. Each is a run ended with
+# `am force-stop`, which kills the process without stopping its scan; the stack kept the registration.

@@ -2,7 +2,9 @@ package com.dhruv.ecgmonitor
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
@@ -104,17 +106,20 @@ fun TraceCaption(mmPerMv: Int, raw: Boolean, onCycleGain: () -> Unit, modifier: 
         fontFamily = PlexSans, fontSize = 12.sp, fontFeatureSettings = TABULAR,
         color = MonitorColors.TextMuted,
     )
-    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
-        Text("${PAPER_SPEED_MM_PER_S.roundToInt()} mm/s · ", style = style)
+    // Phrases wrap as units at a large system font instead of being squeezed.
+    @OptIn(ExperimentalLayoutApi::class)
+    FlowRow(modifier, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        val center = Modifier.align(Alignment.CenterVertically)
+        Text("${PAPER_SPEED_MM_PER_S.roundToInt()} mm/s ·", style = style, modifier = center)
         Text(
             "$mmPerMv mm/mV",
             // Underlined so it reads as tappable without relying on colour.
             style = style.copy(textDecoration = TextDecoration.Underline),
-            modifier = Modifier
+            modifier = center
                 .minimumInteractiveComponentSize()
                 .clickable(onClickLabel = "change gain", role = Role.Button, onClick = onCycleGain),
         )
-        Text(if (raw) " (nominal) · raw" else " (nominal)", style = style)
+        Text(if (raw) "(nominal) · raw" else "(nominal)", style = style, modifier = center)
     }
 }
 
