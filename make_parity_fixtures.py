@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Write fixtures for BeatDetectorParityTest (android_app/.../src/test).
 
-BeatDetector.kt must find exactly the beats pan_tompkins.py finds (CLAUDE.md).
-This runs the Python detector over real recordings and saves its input and its
-beats; the Kotlin test feeds the same input and compares. Re-run this whenever
+BeatDetector.kt must find exactly the beats pan_tompkins.py finds, at the same
+tp2 positions, with the same flags and the same HRV (CLAUDE.md). This runs the
+Python detector over real recordings and saves its input and its outputs; the
+Kotlin test feeds the same input and compares. Re-run this whenever
 pan_tompkins.py changes, then run the test:
 
     ./make_parity_fixtures.py && (cd android_app && ./gradlew testDebugUnitTest)
@@ -37,7 +38,8 @@ def load(path, seconds):
     return causal_filter(v)[: int(seconds * FS)].astype(np.float32)
 
 def run(x, skips, stall=True):
-    """The beats process() returns - what BeatDetector.kt emits on the phone.
+    """What BeatDetector.kt emits on the phone: (position, flagged) for every
+    beat process() returns, and the detector, for its HRV history.
 
     Not pt.peaks: that offline list also keeps beats found during the 2 s
     warm-up, which the phone deliberately does not show.
@@ -51,61 +53,25 @@ def run(x, skips, stall=True):
             pt.skip(int(skips[i]))
         r = pt.process(float(v))
         if r is not None:
-            out.append(r)
-    return out
+            out.append((r, pt.beats[-1]["flagged"]))   # the beat just located
+    return out, pt
 
-def phone_rmssd(x, skips):
-    """RMSSD by the phone's rules (BeatDetector.rrHist / rmssdMs), in ms.
-
-    Intervals between consecutive primary detections' refined R-peaks; a
-    search-back beat or a lost-data gap breaks the series; intervals outside
-    300-2000 ms and successive differences over 300 ms are left out. Python's
-    detector has no HRV of its own, so this is the reference the Kotlin HRV
-    path is held to.
-    """
-    pt = pan_tompkins.PanTompkins(FS)
-    sb = {"hit": False}
-    orig = pt._search_back
-    def flagged():
-        r = orig()
-        if r is not None:
-            sb["hit"] = True
-        return r
-    pt._search_back = flagged
-    # Every accepted beat lands in pt.peaks, including those in the warm-up,
-    # which the phone also feeds into rrHist (it only hides them from display).
-    # At most one beat is accepted per sample.
-    hist, last_r, gap = [], None, False
-    for i, v in enumerate(x):
-        if skips[i]:
-            pt.skip(int(skips[i])); gap = True
-        sb["hit"] = False
-        before = len(pt.peaks)
-        pt.process(float(v))
-        if len(pt.peaks) == before:
-            continue
-        r = pt.peaks[-1]
-        if sb["hit"]:
-            if last_r is not None: hist.append(None)
-            last_r = None
-        else:
-            if last_r is not None: hist.append(None if gap else r - last_r)
-            last_r = r
-        gap = False
-    ms = [None if h is None else 1000.0 * h / FS for h in hist]
-    ok = lambda m: m is not None and 300.0 <= m <= 2000.0
-    d = [ms[i] - ms[i-1] for i in range(1, len(ms))
-         if ok(ms[i]) and ok(ms[i-1]) and abs(ms[i] - ms[i-1]) <= 300.0]
-    return float(np.sqrt(np.mean(np.square(d)))) if d else float("nan")
-
-def write(name, x, skips, peaks):
+def write(name, x, skips, beats, pt):
+    """Input; expected beats as `position,flagged`; expected HRV as
+    `rmssd,accepted,dropped` (rmssd 'nan' when the phone would show none),
+    computed by pan_tompkins.rr_history + rmssd_nn - the reference for
+    BeatDetector.rmssdMs and nnDropped."""
     OUT.mkdir(parents=True, exist_ok=True)
     with open(OUT / f"{name}_input.csv", "w") as f:
         f.write("value,skip_before\n")
         for v, s in zip(x, skips):
             f.write(f"{repr(float(v))},{int(s)}\n")
-    (OUT / f"{name}_expected.txt").write_text("\n".join(str(p) for p in peaks) + "\n")
-    (OUT / f"{name}_rmssd.txt").write_text(f"{phone_rmssd(x, skips)!r}\n")
+    (OUT / f"{name}_expected.txt").write_text(
+        "".join(f"{p!r},{int(fl)}\n" for p, fl in beats))
+    rm, acc, drop = pan_tompkins.rmssd_nn(pan_tompkins.rr_history(pt.beats, FS))
+    (OUT / f"{name}_rmssd.txt").write_text(
+        f"{(rm if rm is not None else float('nan'))!r},{acc},{drop}\n")
+    return rm, acc, drop
 
 cases = {}
 chest = load(CAP + "_ring.csv", 60)
@@ -124,14 +90,24 @@ for t, n in ((20, 6), (30, 12), (45, 30)):
     sk[int(t * FS)] = n
 cases["artifact_gaps"] = (art, sk)
 
+# Polarity case: the finger recording with its sign inverted from 30 s on. The
+# rolling median beat passes through undecided (beats flagged, fallback
+# position, kept out of HRV) and settles on the other sign - the path that
+# matters on ambiguous morphology such as MIT-BIH 108, built from our own data
+# because MIT-BIH's licence is not yet checked (docs/datasets.md).
+flip = finger[: int(60 * FS)].copy()
+flip[int(30 * FS):] *= -1
+cases["polarity_flip"] = (flip, np.zeros(len(flip), int))
+
 for name, (x, s) in cases.items():
-    peaks = run(x, s)
-    write(name, x, s, peaks)
-    after = sum(1 for p in peaks if p > (11.5 * FS))
-    line = f"{name:14} {len(x):6d} samples  {len(peaks):4d} beats"
+    beats, pt = run(x, s)
+    rm, acc, drop = write(name, x, s, beats, pt)
+    after = sum(1 for p, _ in beats if p > (11.5 * FS))
+    line = (f"{name:14} {len(x):6d} samples  {len(beats):4d} beats, {sum(f for _, f in beats)} flagged; "
+            f"RMSSD {rm if rm is None else round(rm, 2)} ms on {acc} NN, {drop} dropped")
     if name == "artifact_gaps":
-        old = run(x, s, stall=False)
-        old_after = sum(1 for p in old if p > (11.5 * FS))
+        old, _ = run(x, s, stall=False)
+        old_after = sum(1 for p, _ in old if p > (11.5 * FS))
         line += (f"   beats after the artifact: {after} with stall decay, "
                  f"{old_after} without")
     print(line)

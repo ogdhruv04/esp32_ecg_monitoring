@@ -3,6 +3,7 @@ package com.dhruv.ecgmonitor
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos
+import kotlin.math.roundToLong
 import kotlin.math.sin
 import kotlin.math.sqrt
 
@@ -10,16 +11,18 @@ import kotlin.math.sqrt
  * Streaming Pan-Tompkins R-peak detector.
  *
  * Direct port of pan_tompkins.py, which is benchmarked against MIT-BIH expert
- * annotations under ANSI/AAMI EC57 by benchmark_mitdb.py. Measured on 12
- * records / 27,574 beats, resampled to this exact 256 SPS rate
- * (analysis/ec57_benchmark.txt):
+ * annotations under ANSI/AAMI EC57 by benchmark_mitdb.py on a 12-record subset,
+ * resampled to this exact 256 SPS rate. The figures for the current timing
+ * point are in analysis/ec57_benchmark_tp2.txt; the phone does not compute
+ * bSQI, so the ungated result is the one that applies here.
+ * BeatDetectorParityTest checks that this port and pan_tompkins.py give the
+ * same beat positions, flags and RMSSD on real recordings.
  *
- *     ungated                      Se 98.50%   P+ 97.31%
- *     with bSQI >= 0.9 gate        Se 99.54%   P+ 99.41%   (11.9% rejected)
- *
- * The phone does not compute bSQI, so the ungated row is the one that applies
- * here. BeatDetectorParityTest checks that this port and pan_tompkins.py find
- * the same beats on a real recording.
+ * Beat positions are timing point 2 (tp2): the peak of the dominant QRS
+ * deflection in the input, with parabolic sub-sample interpolation and an
+ * artifact guard, validated against finger-vs-chest recordings in fiducial.py
+ * v2. Detection itself (thresholds, search-back, heart rate) still runs on
+ * integrator-peak indices, unchanged.
  *
  * Those numbers belong to THIS algorithm, not to a library we cannot run here.
  * If you change anything below, the benchmark has to be re-run before the heart
@@ -61,30 +64,20 @@ class BeatDetector(private val fs: Double = EcgFilter.ECG_SAMPLE_RATE) {
     private var ii = 0
     private var isum = 0.0
 
-    // |bandpassed| history, to map an integrator peak back to the real QRS peak.
-    // The integrator lags the complex by ~half a window; reporting its peak
-    // directly puts wide complexes outside the 150 ms match window and scores
-    // them as a false positive AND a false negative at once.
-    private val bpHist = DoubleArray((0.250 * fs).toInt() + 1)
-    private var bpI = 0
+    // History of the input and of |bandpassed|, indexed by absolute sample
+    // number (slot i % H). The integrator peaks ~half a window (75 ms) after
+    // the QRS, so the beat is located back in these. Search-back can refine a
+    // beat up to ~3.5 s old, hence 4 s. Slots skipped by skip() hold NaN, so no
+    // window can silently read stale data.
+    private val histLen = (HIST_S * fs).toInt()
+    private val xHist = DoubleArray(histLen) { Double.NaN }
+    private val bpHist = DoubleArray(histLen) { Double.NaN }
 
     private var spk = 0.0
     private var npk = 0.0
     private var n = 0L
     private var lastPeak = Long.MIN_VALUE / 4
     private val rr = ArrayDeque<Long>()
-    // Separate, longer RR history for HRV. The 8-interval window above exists to
-    // adapt the detection threshold; RMSSD over 8 beats is not a heart-rate
-    // variability measurement, it is noise. Real HRV wants minutes.
-    //
-    // rrHist is measured between REFINED R-peaks, not between the integrator
-    // peaks that `rr` and the thresholds use. The integrator peak trails the R
-    // peak by a variable amount (sd 26-31 ms on our recordings), and RMSSD,
-    // being built from differences of differences, amplifies that jitter: the
-    // same finger recording read 58.3 ms from integrator times and 43.8 ms from
-    // R-peaks. Detection stays on integrator times, as in pan_tompkins.py.
-    private val rrHist = ArrayDeque<Long>()
-    private var lastR = NO_BEAT              // refined index of the last primary beat
     private var prev = 0.0
     private var rising = false
     private val refractory = (0.200 * fs).toLong()   // absolute cardiac refractory
@@ -107,10 +100,49 @@ class BeatDetector(private val fs: Double = EcgFilter.ECG_SAMPLE_RATE) {
     private val pendingIdx = ArrayDeque<Long>()
     private val pendingVal = ArrayDeque<Double>()
 
+    // tp2 state. A beat is located only once its whole R window has arrived:
+    // the integrator often fires less than 60 ms after the 5-15 Hz peak (on
+    // 30-70% of beats), and a truncated window shifts the detrend and starves
+    // the polarity template. Beats are >= 200 ms apart, so at most one waits,
+    // for at most R_AFTER_S.
+    private val lo = (R_BEFORE_S * fs).toInt()
+    private val hi = (R_AFTER_S * fs).toInt()
+    private val segs = ArrayDeque<DoubleArray>()     // previous beats' windows, for polarity
+    private class Unfinished(val mwi: Long, val d: Long, val ok: Boolean,
+                             val searchBack: Boolean, val gap: Boolean, val warm: Boolean)
+    private var unfinished: Unfinished? = null
+
+    // Separate, longer RR history for HRV, in samples between tp2 positions;
+    // NaN marks a break (flagged or searched-back beat, or a lost-data gap).
+    // The 8-interval `rr` window exists to adapt the detection threshold;
+    // RMSSD over 8 beats is noise. Real HRV wants minutes.
+    private val rrHist = ArrayDeque<Double>()
+    private var lastR = Double.NaN                     // tp2 position of the last usable primary beat
+
     /** Last 5-15 Hz bandpassed value. Exposed so SignalQuality can compute a
      *  real QRS-band energy ratio instead of comparing the signal to itself. */
     var lastBandpassed: Float = 0f
         private set
+
+    /** tp2 position (fractional sample index) of the beat [process] last returned. */
+    var lastBeatPosition: Double = Double.NaN
+        private set
+
+    /** True when that beat could not be located by tp2 (polarity undecided, a
+     *  gap in its window, or no true peak in it). Its position then falls back
+     *  to the 5-15 Hz peak, and it is kept out of every HRV interval. */
+    var lastBeatFlagged: Boolean = false
+        private set
+
+    /** Beats located before their R window had arrived. Should stay 0. */
+    var clamped: Int = 0
+        private set
+
+    private fun xAt(i: Long): Double =
+        if (i >= 0 && i >= n - histLen && i <= n - 1) xHist[(i % histLen).toInt()] else Double.NaN
+
+    private fun bpAt(i: Long): Double =
+        if (i >= 0 && i >= n - histLen && i <= n - 1) bpHist[(i % histLen).toInt()] else Double.NaN
 
     /**
      * Tell the detector that [samples] samples were lost in transit.
@@ -124,15 +156,22 @@ class BeatDetector(private val fs: Double = EcgFilter.ECG_SAMPLE_RATE) {
      */
     fun skip(samples: Int) {
         if (samples <= 0) return
+        var i = n
+        while (i < n + minOf(samples, histLen)) {
+            val s = (i % histLen).toInt(); xHist[s] = Double.NaN; bpHist[s] = Double.NaN; i++
+        }
         n += samples
         gapPending = true
     }
 
-    /** Feed one filtered sample. Returns the sample index of a confirmed R-peak, or null. */
+    /** Feed one filtered sample. Returns the sample index (rounded tp2 position)
+     *  of a confirmed beat, or null; [lastBeatPosition] has the exact position. */
     fun process(x: Float): Long? {
-        val y = lp.process(hp.process(x.toDouble()))
+        val xd = x.toDouble()
+        val y = lp.process(hp.process(xd))
         lastBandpassed = y.toFloat()
-        bpHist[bpI] = abs(y); bpI = (bpI + 1) % bpHist.size
+        val slot = (n % histLen).toInt()
+        xHist[slot] = xd; bpHist[slot] = abs(y)
 
         for (k in 0 until 4) deriv[k] = deriv[k + 1]
         deriv[4] = y
@@ -143,9 +182,15 @@ class BeatDetector(private val fs: Double = EcgFilter.ECG_SAMPLE_RATE) {
         val mwi = isum / win
 
         n++
-        var out: Long? = null
+        var out: Double? = null
+        val u = unfinished
+        if (u != null && u.d + hi <= n - 1) out = finish()
+
         if (mwi > prev) rising = true
-        else if (rising) { rising = false; out = candidate(prev, n - 1) }
+        else if (rising) {
+            rising = false
+            candidate(prev, n - 1)?.let { out = it }
+        }
         prev = mwi
 
         if (n < warmup) {
@@ -164,15 +209,17 @@ class BeatDetector(private val fs: Double = EcgFilter.ECG_SAMPLE_RATE) {
         // was probably missed under the threshold. Re-scan rejected candidates
         // at half the threshold. Without this, sensitivity on MIT-BIH record
         // 228 is 52.1% (95.7% with it); overall Se 94.86% -> 98.49%.
-        // See analysis/ablation_searchback_refine.txt.
-        if (out == null && rr.isNotEmpty()) {
+        // See analysis/ablation_searchback_refine.txt (measured with tp1).
+        if (rr.isNotEmpty() && unfinished == null) {
             val avg = rr.sum().toDouble() / rr.size
-            if ((n - lastPeak) > 1.66 * avg) out = searchBack()
+            if ((n - lastPeak) > 1.66 * avg) searchBack()?.let { out = it }
         }
-        return out
+        val o = out ?: return null
+        lastBeatPosition = o
+        return o.roundToLong()
     }
 
-    private fun candidate(peak: Double, idx: Long): Long? {
+    private fun candidate(peak: Double, idx: Long): Double? {
         val thr1 = npk + 0.25 * (spk - npk)
         if (peak > thr1 && (idx - lastPeak) > refractory) {
             // T-wave discrimination: a candidate 200-360 ms after a confirmed
@@ -185,13 +232,11 @@ class BeatDetector(private val fs: Double = EcgFilter.ECG_SAMPLE_RATE) {
             if (lastPeak > Long.MIN_VALUE / 8 && !gapPending) {
                 rr.addLast(idx - lastPeak); if (rr.size > 8) rr.removeFirst()
             }
-            val r = refine()
-            if (lastR != NO_BEAT) pushHist(if (gapPending) RR_BREAK else r - lastR)
-            lastR = r
+            val gap = gapPending
             gapPending = false
             lastPeak = idx
             pendingIdx.clear(); pendingVal.clear()
-            return r
+            return accept(idx, searchBack = false, gap = gap)
         }
         npk = 0.875 * npk + 0.125 * peak
         if (idx - lastPeak > refractory) {
@@ -201,7 +246,7 @@ class BeatDetector(private val fs: Double = EcgFilter.ECG_SAMPLE_RATE) {
         return null
     }
 
-    private fun searchBack(): Long? {
+    private fun searchBack(): Double? {
         val thr2 = 0.5 * (npk + 0.25 * (spk - npk))
         var bestIdx = -1L; var bestVal = -1.0
         for (k in pendingIdx.indices) {
@@ -215,34 +260,109 @@ class BeatDetector(private val fs: Double = EcgFilter.ECG_SAMPLE_RATE) {
         if (lastPeak > Long.MIN_VALUE / 8 && !gapPending) {
             rr.addLast(bestIdx - lastPeak); if (rr.size > 8) rr.removeFirst()
         }
-        // A searched-back beat stays out of rrHist, and so does the interval
-        // after it: refine() looks back from the current sample, which for a
-        // search-back can be over a second past the beat, so its position is
-        // unreliable. It goes in as a break, not a silent omission - omitting
-        // it let RMSSD difference two intervals that were not adjacent.
-        if (lastR != NO_BEAT) pushHist(RR_BREAK)
-        lastR = NO_BEAT
+        val gap = gapPending
         gapPending = false
         lastPeak = bestIdx
         while (pendingIdx.isNotEmpty() && pendingIdx.first() <= bestIdx) {
             pendingIdx.removeFirst(); pendingVal.removeFirst()
         }
-        return refine()
+        return accept(bestIdx, searchBack = true, gap = gap)
     }
 
-    private fun pushHist(d: Long) {
-        rrHist.addLast(d); if (rrHist.size > 256) rrHist.removeFirst()
+    // ------------------------------------------------------------- locating
+
+    /** A beat was detected. Locate it now if its R window has arrived (always
+     *  so for search-back), otherwise when it has. Returns the position if it
+     *  was located now and the warm-up is over. */
+    private fun accept(mwiIdx: Long, searchBack: Boolean, gap: Boolean): Double? {
+        if (unfinished != null) finish()          // cannot happen at >= 200 ms spacing
+        val (d, ok) = bpRefine(mwiIdx)
+        unfinished = Unfinished(mwiIdx, d, ok, searchBack, gap, n < warmup)
+        if (!ok || d + hi <= n - 1) return finish()
+        return null
     }
 
-    /** Max of |bandpassed| over the last 200 ms, i.e. index n-1-offset. */
-    private fun refine(): Long {
-        val back = (0.200 * fs).toInt()
-        var bestOff = 0; var bestVal = -1.0
-        for (k in 0 until back) {
-            val j = ((bpI - 1 - k) % bpHist.size + bpHist.size) % bpHist.size
-            if (bpHist[j] > bestVal) { bestVal = bpHist[j]; bestOff = k }
+    private fun finish(): Double? {
+        val u = unfinished!!; unfinished = null
+        val sign = polarity()
+        var flagged = true
+        val pos = if (u.ok) {
+            val (p, f) = tp2(u.d, sign); flagged = f; p
+        } else u.mwi.toDouble()
+        // This beat's window joins the polarity template AFTER its own sign was
+        // set, and only when the whole window has arrived.
+        if (u.ok && u.d + hi <= n - 1) {
+            val seg = DoubleArray(lo + hi + 1) { xAt(u.d - lo + it) }
+            if (seg.none { it.isNaN() }) {
+                segs.addLast(seg); if (segs.size > POL_KEEP) segs.removeFirst()
+            }
         }
-        return n - 1 - bestOff
+        // HRV history (pan_tompkins.rr_history is the reference).
+        if (!u.searchBack && !flagged) {
+            if (!lastR.isNaN()) pushHist(if (u.gap) Double.NaN else pos - lastR)
+            lastR = pos
+        } else {
+            if (!lastR.isNaN()) pushHist(Double.NaN)
+            lastR = Double.NaN
+        }
+        if (u.warm) return null
+        lastBeatFlagged = flagged
+        return pos
+    }
+
+    /** The 5-15 Hz peak (tp1): max |bandpassed| over the 200 ms ending at the
+     *  beat's own integrator index. Up to 23 Oct 2026 this searched back from
+     *  the CURRENT sample instead, which for search-back - firing up to 1.66 RR
+     *  later - could land on a different beat. */
+    private fun bpRefine(mwiIdx: Long): Pair<Long, Boolean> {
+        val back = (0.200 * fs).toInt()
+        var bestI = mwiIdx; var bestV = -1.0
+        for (k in 0 until back) {
+            val v = bpAt(mwiIdx - k)
+            if (!v.isNaN() && v > bestV) { bestV = v; bestI = mwiIdx - k }
+        }
+        return Pair(bestI, bestV >= 0.0)
+    }
+
+    /** Sign of the median of the previous beats' windows: +1/-1 when one lobe is
+     *  at least POL_RATIO x the other, 0 (undecided) otherwise or with fewer than
+     *  POL_MIN beats. Never decided from the current beat alone - deciding per
+     *  beat is what made the 5-15 Hz peak jump between QRS lobes. */
+    private fun polarity(): Int {
+        if (segs.size < POL_MIN) return 0
+        val len = segs.first().size
+        val col = DoubleArray(segs.size)
+        val t = detrend(DoubleArray(len) { i ->
+            for (k in segs.indices) col[k] = segs[k][i]
+            median(col)
+        })
+        val pos = t.max(); val neg = -t.min()
+        if (pos >= POL_RATIO * neg) return 1
+        if (neg >= POL_RATIO * pos) return -1
+        return 0
+    }
+
+    /** R peak + parabolic + guard around the 5-15 Hz peak [d]. Returns (position, flagged). */
+    private fun tp2(d: Long, sign: Int): Pair<Double, Boolean> {
+        val a = bpAt(d - 1); val b = bpAt(d); val c = bpAt(d + 1)
+        val fallback = d.toDouble() + (if (!a.isNaN() && !b.isNaN() && !c.isNaN()) parabolic(a, b, c) else 0.0)
+        if (sign == 0) return Pair(fallback, true)
+        val start = d - lo
+        var end = d + hi
+        if (end > n - 1) { end = n - 1; clamped++ }
+        val len = (end - start + 1).toInt()
+        if (len < 2 * EDGE + 3) return Pair(fallback, true)
+        val w = DoubleArray(len) { sign.toDouble() * xAt(start + it) }
+        if (w.any { it.isNaN() }) return Pair(fallback, true)
+        val wd = detrend(w)
+        var k = 0
+        for (i in 1 until wd.size) if (wd[i] > wd[k]) k = i
+        if (k < EDGE || k > wd.size - 1 - EDGE) return Pair(fallback, true)
+        return Pair((start + k).toDouble() + parabolic(wd[k - 1], wd[k], wd[k + 1]), false)
+    }
+
+    private fun pushHist(d: Double) {
+        rrHist.addLast(d); if (rrHist.size > HRV_DEPTH) rrHist.removeFirst()
     }
 
     /** Median of recent RR intervals -> bpm. Median, not mean: one missed beat
@@ -258,38 +378,84 @@ class BeatDetector(private val fs: Double = EcgFilter.ECG_SAMPLE_RATE) {
             return if (bpm in 25.0..250.0) bpm else null
         }
 
-    /** RMSSD over the recent RR window, in ms. Indicative only - a 8-beat
-     *  window is far too short for a real HRV figure, which needs minutes. */
-    val beatCount: Int get() = rrHist.count { it != RR_BREAK }
+    /** Usable intervals in the HRV history (before NN cleaning). */
+    val beatCount: Int get() = rrHist.count { !it.isNaN() }
 
-    /** RMSSD in ms over the long RR history. Null until there are enough beats
-     *  for the figure to mean anything. Intervals outside 300-2000 ms are
-     *  dropped first: a missed beat merges two intervals into one and would
-     *  otherwise dominate the result - an unfiltered 8-beat window produced a
-     *  reading of 425 ms, which is not a physiological value.
-     *  A difference is only taken between two valid intervals that were
-     *  adjacent in time: dropping a bad interval and then differencing its
-     *  neighbours would invent a successive difference that never happened. */
+    private fun rrMs(): DoubleArray = DoubleArray(rrHist.size) { 1000.0 * rrHist[it] / fs }
+
+    /** Intervals the NN cleaning dropped from the current HRV history. */
+    val nnDropped: Int get() = cleanNn(rrMs()).second
+
+    /** RMSSD in ms on the cleaned NN series of the HRV history; null with fewer
+     *  than [MIN_BEATS_FOR_HRV] accepted intervals or 5 differences.
+     *  Cleaning (pan_tompkins.clean_nn is the reference): valid = 300-2000 ms; a
+     *  valid interval more than 20% from the previous ACCEPTED one is dropped;
+     *  the reference is seeded from the median of the first 5 valid intervals and
+     *  re-seeded after 5 consecutive drops, so neither one spurious interval nor
+     *  a real step change in rate can lock it out. A difference is only taken
+     *  between two accepted intervals that are adjacent in time: differencing
+     *  across a dropped one would invent a successive difference. */
     val rmssdMs: Double?
         get() {
-            val ms = rrHist.map { if (it == RR_BREAK) Double.NaN else 1000.0 * it / fs }
-            val valid = { v: Double -> v in 300.0..2000.0 }   // false for NaN
-            if (ms.count(valid) < MIN_BEATS_FOR_HRV) return null
-            var acc = 0.0; var k = 0
+            val ms = rrMs()
+            val acc = cleanNn(ms).first
+            var s = 0.0; var k = 0
             for (i in 1 until ms.size) {
-                if (!valid(ms[i]) || !valid(ms[i - 1])) continue
-                val d = ms[i] - ms[i - 1]
-                if (abs(d) > 300.0) continue   // ectopic / detector slip
-                acc += d * d; k++
+                if (acc[i] && acc[i - 1]) { val dd = ms[i] - ms[i - 1]; s += dd * dd; k++ }
             }
-            if (k < 5) return null
-            return sqrt(acc / k)
+            if (acc.count { it } < MIN_BEATS_FOR_HRV || k < 5) return null
+            return sqrt(s / k)
         }
 
     companion object {
         const val MIN_BEATS_FOR_HRV = 30
-        /** Marks a break in rrHist: a lost-data gap or a searched-back beat. */
-        private const val RR_BREAK = -1L
-        private const val NO_BEAT = Long.MIN_VALUE
+        private const val HRV_DEPTH = 256
+        private const val NN_STEP = 0.20
+        private const val NN_SEED = 5
+        // tp2 parameters (fiducial.py v2 validated these values)
+        private const val R_BEFORE_S = 0.100
+        private const val R_AFTER_S = 0.060
+        private const val POL_KEEP = 16
+        private const val POL_MIN = 8
+        private const val POL_RATIO = 1.5
+        private const val EDGE = 2
+        private const val HIST_S = 4.0
+
+        private fun parabolic(a: Double, b: Double, c: Double): Double {
+            val den = a - 2.0 * b + c
+            if (!(den < 0.0 && b >= a && b >= c)) return 0.0
+            return minOf(0.5, maxOf(-0.5, 0.5 * (a - c) / den))
+        }
+
+        private fun detrend(w: DoubleArray): DoubleArray {
+            val n = w.size
+            val a = (w[0] + w[1] + w[2]) / 3.0
+            val b = (w[n - 3] + w[n - 2] + w[n - 1]) / 3.0
+            return DoubleArray(n) { i -> w[i] - (a + (b - a) * i / (n - 1)) }
+        }
+
+        private fun median(v: DoubleArray): Double {
+            val s = v.sortedArray(); val m = s.size / 2
+            return if (s.size % 2 == 1) s[m] else (s[m - 1] + s[m]) / 2.0
+        }
+
+        /** (accepted mask, dropped count) - see [rmssdMs]. */
+        private fun cleanNn(ms: DoubleArray): Pair<BooleanArray, Int> {
+            val acc = BooleanArray(ms.size)
+            val valid = ms.indices.filter { !ms[it].isNaN() && ms[it] >= 300.0 && ms[it] <= 2000.0 }
+            if (valid.isEmpty()) return Pair(acc, 0)
+            var ref = median(DoubleArray(minOf(NN_SEED, valid.size)) { ms[valid[it]] })
+            val run = ArrayList<Double>(); var dropped = 0
+            for (i in valid) {
+                val m = ms[i]
+                if (abs(m - ref) > NN_STEP * ref) {
+                    dropped++; run.add(m)
+                    if (run.size >= NN_SEED) { ref = median(run.toDoubleArray()); run.clear() }
+                    continue
+                }
+                acc[i] = true; ref = m; run.clear()
+            }
+            return Pair(acc, dropped)
+        }
     }
 }

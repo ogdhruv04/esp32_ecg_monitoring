@@ -20,6 +20,9 @@ from scipy import signal as sps
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--dir", default="data/mitdb")
+ap.add_argument("--positions", choices=["tp2", "bp"], default="tp2",
+                help="method ours: score tp2 positions (default) or the 5-15 Hz peak "
+                     "(tp1 location, with the 23 Oct search-back fix) - for attribution")
 ap.add_argument("--fs-target", type=float, default=None,
                 help="resample to this rate first (e.g. 256 to match our device)")
 ap.add_argument("--method", default="neurokit")
@@ -70,7 +73,11 @@ if not recs:
 
 label = f"{args.fs_target:g} Hz (resampled)" if args.fs_target else "native 360 Hz"
 print(f"\nANSI/AAMI EC57 QRS detection - {len(recs)} records, {label}, "
-      f"method={args.method}, tolerance={args.tolerance_ms:g} ms\n")
+      f"method={args.method}, tolerance={args.tolerance_ms:g} ms")
+if args.method == "ours":
+    import pan_tompkins
+    print(f"timing point: {pan_tompkins.TIMING_POINT if args.positions == 'tp2' else 'bp (5-15 Hz peak, search-back fixed)'} (pan_tompkins.py)")
+print()
 print(f"{'rec':>5} {'beats':>7} {'TP':>7} {'FP':>6} {'FN':>6} {'Se%':>7} {'P+%':>7}")
 print("-" * 50)
 
@@ -94,7 +101,12 @@ for rec in recs:
     y = filter_chain(x, fs)
     if args.method == "ours":
         import pan_tompkins
-        test = pan_tompkins.detect(y, fs)
+        if args.positions == "bp":
+            pt = pan_tompkins.PanTompkins(fs)
+            for v in y: pt.process(v)
+            test = np.array(pt.bp_peaks, dtype=int)
+        else:
+            test = pan_tompkins.detect(y, fs)
     else:
         _, info = nk.ecg_peaks(y, sampling_rate=fs, method=args.method)
         test = np.asarray(info["ECG_R_Peaks"], dtype=int)
@@ -125,7 +137,8 @@ for rec in recs:
                 keep[start:end] = True
         rejected_frac = 1.0 - keep.mean()
         ref = ref[keep[np.clip(ref, 0, len(y) - 1)]]
-        test = test[keep[np.clip(test, 0, len(y) - 1)]]
+        # Our positions are fractional (tp2); round only to look up the window.
+        test = test[keep[np.clip(np.round(test).astype(int), 0, len(y) - 1)]]
         REJ.append(rejected_frac)
 
     tp, fp, fn = evaluate(ref, test, tol)
