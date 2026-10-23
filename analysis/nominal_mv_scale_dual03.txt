@@ -1,0 +1,19 @@
+# Raw-code amplitude of dual03 under the nominal MAX30003 mV scale (datasheet check #23)
+# nominal LSB = 0.3815 uV ; 1 mV = 2621.44 codes
+# raw 'value' column, ETAG 0/2 only, no filtering; p0.1 / p50 / p99.9 percentiles
+file	n	p0.1	p50	p99.9	span_codes	span_mV_nominal
+ring(chest)	29606	-379	-112	-22	357	0.136
+ref(finger)	29606	-274	-114	128	402	0.153
+# generated 2026-10-23 by:
+#   import csv
+#   LSB_MV = 1000 / (2**17 * 20)   # nominal: VREF 1000 mV, 2^17, gain 20 V/V (datasheet check #23)
+#   print("# Raw-code amplitude of dual03 under the nominal MAX30003 mV scale (datasheet check #23)")
+#   print(f"# nominal LSB = {LSB_MV*1000:.4f} uV ; 1 mV = {1/LSB_MV:.2f} codes")
+#   print("# raw 'value' column, ETAG 0/2 only, no filtering; p0.1 / p50 / p99.9 percentiles")
+#   print("file\tn\tp0.1\tp50\tp99.9\tspan_codes\tspan_mV_nominal")
+#   for site, f in [("ring(chest)", "captures/20260929_163314_dual03_both3wire_c3chest_wroomfinger_ring.csv"),
+#                   ("ref(finger)", "captures/20260929_163314_dual03_both3wire_c3chest_wroomfinger_ref.csv")]:
+#       v = sorted(int(r["value"]) for r in csv.DictReader(open(f)) if r["etag"] in ("0", "2"))
+#       n = len(v); p = lambda q: v[int(q * (n - 1))]
+#       span = p(.999) - p(.001)
+#       print(f"{site}\t{n}\t{p(.001)}\t{p(.5)}\t{p(.999)}\t{span}\t{span*LSB_MV:.3f}")
