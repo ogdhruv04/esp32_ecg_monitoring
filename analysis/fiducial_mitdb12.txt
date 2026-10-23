@@ -1,0 +1,42 @@
+# ./fiducial.py mitdb
+# fs=256 skip=10s; detector pan_tompkins.py unchanged; R window -100..+60 ms
+
+MIT-BIH, 12 records in data/mitdb: 100 101 103 105 106 108 109 119 203 208 222 228
+Front end as benchmark_mitdb.py: resampled to 256 Hz, 0.5-40 Hz, single 60 Hz notch.
+Annotation times kept unrounded (s), not snapped to the 256 Hz grid.
+Only AAMI class-N beats (N L R e j) whose neighbouring beats are also class N are used;
+detections matched to
+annotations within 150 ms. Three-cornered hat on robust variances (1.4826 x MAD)^2,
+per record, then the median across records. 'neg' = the estimate came out negative,
+which happens when the independence assumption fails.
+
+robust sd(lead-0 fiducial - annotation), ms. This mixes our jitter with the annotation's.
+ rec |               | zero-phase       bp bp+parab        R  R+parab | causal       bp bp+parab        R  R+parab
+ 100 |  2169 N beats | zero-phase     1.54     1.05     1.67     1.11 | causal     2.19     1.33     1.54     1.09
+ 101 |  1847 N beats | zero-phase     1.54     1.04     1.54     1.06 | causal    12.48     9.66     1.54     1.08
+ 103 |  2075 N beats | zero-phase     1.54     1.04     1.54     1.01 | causal     1.67     1.10     1.42     1.00
+ 105 |  2427 N beats | zero-phase     2.83     2.61     1.67     1.05 | causal     2.32     2.20     1.67     1.13
+ 106 |   987 N beats | zero-phase     4.89     3.12     1.67     1.04 | causal     1.80     1.33     1.54     1.05
+ 108 |  1687 N beats | zero-phase     5.41     4.64    13.58    13.11 | causal     4.63     3.84    15.44    12.70
+ 109 |  2409 N beats | zero-phase     2.06     1.60     1.80     1.21 | causal     1.93     1.52     1.93     1.39
+ 119 |   823 N beats | zero-phase     1.54     1.07     1.54     1.08 | causal     1.54     1.01     1.42     1.07
+ 203 |  1873 N beats | zero-phase     2.57     2.07     2.06     1.57 | causal     2.32     1.93     2.57     2.24
+ 208 |   242 N beats | zero-phase     2.19     1.31     1.67     1.14 | causal     2.12     1.54     1.80     1.15
+ 222 |  1997 N beats | zero-phase     2.19     1.55     1.67     1.24 | causal     3.60     2.50     1.67     1.27
+ 228 |  1164 N beats | zero-phase     2.32     1.61     1.67     1.15 | causal     2.70     1.93     1.80     1.23
+
+=== zero-phase: three-cornered hat, own jitter sd (ms), median over records ===
+fiducial    annotation   lead 0   lead 1 |  RMSSD(fiducial) - RMSSD(annotation), ms: median       [min, max]
+bp                2.19      neg      neg |                                            +2.71 [  +0.0,  +12.0]
+bp+parab          1.54     0.15     1.43 |                                            +2.62 [  -0.2,  +12.0]
+R                 1.84      neg     1.37 |                                            +0.13 [  -0.5,  +16.5]
+R+parab           1.15     0.25     1.85 |                                            +0.01 [  -0.3,  +16.7]
+
+=== causal: three-cornered hat, own jitter sd (ms), median over records ===
+fiducial    annotation   lead 0   lead 1 |  RMSSD(fiducial) - RMSSD(annotation), ms: median       [min, max]
+bp                2.25      neg      neg |                                            +4.21 [  -0.1,  +18.9]
+bp+parab          1.77      neg     1.51 |                                            +4.33 [  -0.2,  +19.2]
+R                 1.62      neg     4.39 |                                            +0.13 [  -0.4,  +13.9]
+R+parab           1.17     0.26     2.11 |                                            +0.01 [  -0.2,  +14.0]
+
+RMSSD from annotations alone (N-N, phone rules), per record, ms: 27.5 37.7 31.5 20.5 54.5 71.7 24.6 31.8 153.6 25.2 109.1 69.0

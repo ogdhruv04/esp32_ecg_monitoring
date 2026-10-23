@@ -291,6 +291,10 @@ with contextlib.redirect_stdout(buf):
     # that omits them cannot be reproduced from itself.
     print(f"settings: fs={args.fs:g} mains={args.mains:g} window={args.window:g}s "
           f"tol={args.tol_ms:g}ms skip={args.skip_s:g}s max_offset={args.max_offset:g}s")
+    for d, name in ((ref, "chest"), (ring, "finger")):
+        print(f"integrity {name}: {d['n']} samples, {d['missing']} missing, {d['gaps']} gaps, "
+              f"{d['dups']} duplicate idx, {d['bad_etag']} fast-mode; clean run {d['kept']/FS:.1f} s")
+    print(f"shared span {ref_c[-1]-ref_c[0]:.1f} s: chest {len(ref_c)} beats, finger {len(ring_c)} beats")
     print(f"offset {offset*1000:+.0f} ms, drift {drift_ppm:+.1f} +/- {drift_se_ppm:.1f} ppm")
     print(f"beats matched {tp} missed {fn} extra {fp}  Se {se:.2f}%  P+ {pp:.2f}%")
     if ok.sum() >= 3:

@@ -1,0 +1,12 @@
+# ./integrity.py captures/20260929_152557_linktest_noelectrodes_ring.csv captures/20260929_152557_linktest_noelectrodes_ref.csv
+20260929_152557_linktest_noelectrodes_ring.csv
+  rows 44548  malformed 0  index 22603..67150 (span 44548)
+  missing 0  gaps 0  duplicates 0  backward jumps 0
+  44548 samples over 174.61 s host time = 255.12 SPS
+20260929_152557_linktest_noelectrodes_ref.csv
+  rows 44545  malformed 0  index 9303..53847 (span 44545)
+  missing 0  gaps 0  duplicates 0  backward jumps 0
+  44545 samples over 174.61 s host time = 255.11 SPS
+# host-time rate, added 2026-10-23: the whole-capture figure includes delivery stalls
+  ring: middle-80% fit 256.04 SPS; whole capture 255.12 SPS; largest arrival gaps 20 ms at 39%, 20 ms at 30%, 20 ms at 21%
+  ref: middle-80% fit 256.04 SPS; whole capture 255.11 SPS; largest arrival gaps 31 ms at 13%, 29 ms at 20%, 29 ms at 22%

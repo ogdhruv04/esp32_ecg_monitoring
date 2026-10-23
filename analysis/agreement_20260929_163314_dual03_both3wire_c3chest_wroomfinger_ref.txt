@@ -1,5 +1,8 @@
 source: captures/20260929_163314_dual03_both3wire_c3chest_wroomfinger_ref.csv + captures/20260929_163314_dual03_both3wire_c3chest_wroomfinger_ring.csv
 settings: fs=256 mains=50 window=10s tol=150ms skip=10s max_offset=5s
+integrity chest: 27046 samples, 0 missing, 0 gaps, 0 duplicate idx, 0 fast-mode; clean run 105.6 s
+integrity finger: 27046 samples, 0 missing, 0 gaps, 0 duplicate idx, 0 fast-mode; clean run 105.6 s
+shared span 104.8 s: chest 179 beats, finger 179 beats
 offset -16 ms, drift -22.7 +/- 10.3 ppm
 beats matched 178 missed 1 extra 1  Se 99.44%  P+ 99.44%
 HR bias -0.02 bpm  LoA -1.15..+1.12  ICC 0.9806  CCC 0.9784

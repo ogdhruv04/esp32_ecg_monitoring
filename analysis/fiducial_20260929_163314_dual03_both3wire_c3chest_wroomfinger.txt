@@ -1,0 +1,35 @@
+# ./fiducial.py dual captures/20260929_163314_dual03_both3wire_c3chest_wroomfinger_ring.csv captures/20260929_163314_dual03_both3wire_c3chest_wroomfinger_ref.csv --chest ring
+# fs=256 skip=10s; detector pan_tompkins.py unchanged; R window -100..+60 ms
+
+chest  captures/20260929_163314_dual03_both3wire_c3chest_wroomfinger_ring.csv
+finger captures/20260929_163314_dual03_both3wire_c3chest_wroomfinger_ref.csv
+skip 10 s; chest 105.6 s, finger 105.6 s clean
+
+=== zero-phase filter ===
+beats detected chest 180, finger 180; matched pairs 179; polarity chest -1, finger -1
+beat dt = finger - chest beat time, median removed. 'sd' is every pair; 'jitter' excludes
+pairs off by >20 ms (gross mislocations, counted separately). Robust sd is not
+meaningful for integer fiducials, which move in 3.9 ms steps.
+fiducial   beat dt sd  jitter  >20ms | RR diff sd             LoA | RMSSD ch   fing   diff    n | all-beats RMSSD ch   fing
+bp             2.97ms  2.03ms      1 |     4.35ms    -8.5.. +8.5 |   25.4ms   26.3   +0.9  176 |             32.4ms   26.3
+bp+parab       2.47ms  0.82ms      1 |     3.41ms    -6.7.. +6.7 |   25.2ms   25.9   +0.7  176 |             32.5ms   25.9
+R              6.85ms  1.70ms      1 |     9.80ms   -19.2..+19.2 |   25.1ms   30.1   +5.0  176 |             25.1ms   34.5
+R+parab        6.58ms  0.68ms      1 |     9.47ms   -18.6..+18.6 |   25.1ms   30.2   +5.1  176 |             25.1ms   34.8
+  bp gross: +27 ms at 37.0 s
+  bp+parab gross: +31 ms at 37.0 s
+  R gross: -90 ms at 37.5 s
+  R+parab gross: -88 ms at 37.5 s
+
+=== causal filter ===
+beats detected chest 180, finger 180; matched pairs 179; polarity chest -1, finger -1
+beat dt = finger - chest beat time, median removed. 'sd' is every pair; 'jitter' excludes
+pairs off by >20 ms (gross mislocations, counted separately). Robust sd is not
+meaningful for integer fiducials, which move in 3.9 ms steps.
+fiducial   beat dt sd  jitter  >20ms | RR diff sd             LoA | RMSSD ch   fing   diff    n | all-beats RMSSD ch   fing
+bp            14.20ms  1.98ms     48 |    19.15ms   -37.6..+37.5 |   34.4ms   44.1   +9.7  177 |             38.0ms   47.0
+bp+parab      14.43ms  1.30ms     48 |    19.45ms   -38.1..+38.1 |   34.1ms   44.3  +10.2  177 |             37.7ms   47.3
+R              2.07ms  2.07ms      0 |     3.07ms    -6.0.. +6.0 |   25.4ms   25.6   +0.3  176 |             25.4ms   25.6
+R+parab        0.68ms  0.68ms      0 |     0.84ms    -1.6.. +1.6 |   25.1ms   25.2   +0.1  176 |             25.1ms   25.2
+  bp gross: 48 pairs, dt -39..+35 ms
+  bp+parab gross: 48 pairs, dt -39..+36 ms
+
