@@ -3,21 +3,23 @@
 Public datasets used, or planned, for algorithm development. None of them is committed to this
 repository: `data/` is gitignored, and each dataset is downloaded locally.
 
-Licences as recorded on 23 Oct 2026. Before publishing results or redistributing anything
-derived from a dataset, confirm the licence on the dataset's own page and fill in the
-`Confirmed` column.
+Rows marked confirmed were checked against the dataset's PhysioNet page on 23 Oct 2026.
+Confirm the others the same way before using them, and record the date here.
 
-| Dataset | Licence | Confirmed | Planned use |
-|---|---|---|---|
-| PhysioNet/CinC Challenge 2017 (AF classification, single-lead) | ODC-By | not yet | Rhythm / AF detection (item 3) |
-| BUT QDB (Brno University of Technology ECG Quality Database) | CC BY 4.0 | not yet | Learned signal-quality model (item 2) |
-| MIT-BIH Noise Stress Test Database (NSTDB) | ODC-By | not yet | Real electrode-motion / muscle / baseline noise for quality and robustness tests (item 2) |
-| BIDMC PPG and Respiration Dataset | ODC-By | not yet | Respiration rate from ECG (item 4) |
-| WESAD | **unknown, to be checked** | not yet | Stress from HRV (item 5); do not use until the licence is known |
-| MIT-BIH Arrhythmia Database | **not recorded, to be checked** | not yet | Already in use: detector benchmark (`benchmark_mitdb.py`, 12-record subset in `data/mitdb/`) and fiducial check (`fiducial.py`) |
+| Dataset | Licence | Confirmed | Content (as confirmed) | Planned use |
+|---|---|---|---|---|
+| PhysioNet/CinC Challenge 2017 (AF classification, single lead) | ODC-By 1.0 | ✅ 23 Oct 2026, PhysioNet | 8,528 training recordings at 300 Hz | Rhythm / AF detection (item 3) |
+| BUT QDB (Brno University of Technology ECG Quality Database) | CC BY 4.0 | ✅ 23 Oct 2026, PhysioNet | 18 recordings from 15 subjects at 1000 Hz | Learned signal-quality model (item 2) |
+| MIT-BIH Noise Stress Test Database (NSTDB) | ODC-By 1.0 | ✅ 23 Oct 2026, PhysioNet | | Real electrode-motion / muscle / baseline noise for quality and robustness tests (item 2) |
+| BIDMC PPG and Respiration Dataset | ODC-By 1.0 | ✅ 23 Oct 2026, PhysioNet | 53 recordings of 8 min at 125 Hz | Respiration rate from ECG (item 4) |
+| MIT-BIH Arrhythmia Database | **to be checked** | not yet | | Already in use: detector benchmark (`benchmark_mitdb.py`, 12-record subset) and timing-point check (`fiducial.py`) |
+| WESAD | **to be checked** | not yet (not hosted on PhysioNet) | | Stress from HRV (item 5); do not use until the licence is known |
 
 ## Notes
 
+- **Sample rates differ from ours.** The confirmed public datasets run from 125 Hz (BIDMC) to
+  1000 Hz (BUT QDB); our boards record at 256 Hz. Models have to be trained and tested on data
+  resampled to 256 Hz, and the resampling belongs inside the evaluation.
 - **ODC-By** and **CC BY 4.0** both require attribution. Cite each dataset as its page asks,
   and cite PhysioNet itself for PhysioNet-hosted data.
 - The detector benchmark uses **12 of the 48 MIT-BIH Arrhythmia records** (100, 101, 103, 105,

@@ -3,40 +3,55 @@
 interpolation helps. Item 1 of the algorithm plan: HRV is built from beat
 times, so their jitter sets how far any HRV figure can be trusted.
 
-    ./fiducial.py dual  captures/<..>_ring.csv captures/<..>_ref.csv --chest ring   # ring CSV first
+    ./fiducial.py dual  captures/<..>_ring.csv captures/<..>_ref.csv --chest ring [--zoom 35.5 39.5]
     ./fiducial.py mitdb [--dir data/mitdb]
 
-Four fiducials, each located around the beats pan_tompkins.detect() finds
-(the detector itself is not changed):
+The ring CSV comes first. Five timing points, each located around the beats the
+detector finds (located from the detector's 5-15 Hz peak, `bp`):
 
-  bp        index of max |5-15 Hz bandpassed| - what pan_tompkins reports today
-  bp+parab  the same, with parabolic sub-sample interpolation
-  R         peak of the dominant QRS deflection in the filtered ECG, after
-            correcting each channel's polarity from its median beat
-  R+parab   the same, with parabolic sub-sample interpolation
+  bp             index of max |5-15 Hz bandpassed| - timing point 1 (tp1), what
+                 pan_tompkins.py reported up to 23 Oct 2026
+  bp+parab       the same, with parabolic sub-sample interpolation
+  R              peak of the dominant QRS deflection in the filtered ECG, with
+                 ONE polarity per channel from the whole recording's median beat
+  R+parab        the same, with parabolic sub-sample interpolation
+  R+parab+guard  timing point 2 (tp2), the version proposed for the detectors:
+                 - polarity from a ROLLING median beat (the previous 16 beats,
+                   needing at least 8), so the phone never decides it beat by
+                   beat. The sign is set only while one lobe of that median beat
+                   is at least 1.5x the other; otherwise polarity is UNDECIDED
+                   (on MIT-BIH 108, 24% of beats have lobes within 1.5x, and
+                   picking a sign there moves the beat by a whole lobe)
+                 - the R search window is detrended (a straight line through the
+                   mean of its first and last 3 samples is subtracted), so
+                   baseline wander cannot hand it a slope instead of a peak
+                 - a maximum within 2 samples of either window edge is not a
+                   peak: the beat falls back to bp+parab and is FLAGGED, which
+                   keeps it out of every RR interval used for HRV
+                 - beats while polarity is undecided are also fallback+flagged
 
-Every fiducial is computed under the zero-phase filter (offline analysis) and
-the causal one (what the phone runs).
+Every RMSSD here is computed on a cleaned NN series: intervals outside
+300-2000 ms or touching a flagged beat are invalid; a valid interval more than
+20% away from the previous accepted interval is dropped; successive differences
+are taken only between two accepted intervals that are adjacent in time.
 
 PRIMARY validation - dual: finger and chest record the same heartbeats, so the
-same fiducial on both should give the same RR intervals. All fiducials are
-scored on one fixed set of matched beat pairs, so they are compared like for
-like. The finger-minus-chest beat-time spread is the two channels' combined
-jitter (plus any real beat-to-beat change in propagation, which is not
-separable here).
+same timing point on both should give the same RR intervals. All timing points
+are scored on one fixed set of matched beat pairs.
 
 SECONDARY - mitdb: annotation times are a reference with their own jitter, not
-ground truth. With three timings per beat (annotation, fiducial on lead 0,
-fiducial on lead 1), a three-cornered hat estimates each one's own jitter,
-assuming the three errors are independent.
+ground truth. A three-cornered hat across annotation, lead 0 and lead 1
+estimates each one's own jitter, assuming the three errors are independent
+(v1 found that assumption does not hold - kept for comparison).
 
-Saves analysis/fiducial_<name>.txt (and a .png for dual).
+Saves analysis/fiducial_<name>_v2.txt (and .png for dual). v1 outputs are kept.
 """
 import argparse, io, contextlib, pathlib, sys
 import numpy as np
 from scipy import signal as sps
 import pan_tompkins
 
+VERSION = "v2"
 ap = argparse.ArgumentParser()
 ap.add_argument("mode", choices=["dual", "mitdb"])
 ap.add_argument("files", nargs="*")
@@ -45,10 +60,20 @@ ap.add_argument("--chest", choices=["ring", "ref"], default="ring",
 ap.add_argument("--dir", default="data/mitdb")
 ap.add_argument("--fs", type=float, default=256.0)
 ap.add_argument("--skip-s", type=float, default=10.0)
+ap.add_argument("--zoom", type=float, nargs=2, metavar=("T0", "T1"),
+                help="dual: also plot this stretch (s) with the timing points marked")
 args = ap.parse_args()
 FS = args.fs
-FIDS = ["bp", "bp+parab", "R", "R+parab"]
+FIDS = ["bp", "bp+parab", "R", "R+parab", "R+parab+guard"]
 FILTERS = ["zero-phase", "causal"]
+
+# Window and polarity parameters, shared with the detectors once ported.
+R_BEFORE_S, R_AFTER_S = 0.100, 0.060     # R search: 100 ms before .. 60 ms after the bp index
+POL_KEEP, POL_MIN, POL_RATIO = 16, 8, 1.5 # rolling template: beats kept, needed, lobe ratio to decide
+EDGE = 2                                   # a max this close to the window edge is not a peak
+NN_STEP = 0.20                             # RR cleaning: max change from previous accepted
+NN_SEED = 5                                # ...seeded from the median of this many valid intervals,
+                                           # and re-seeded after this many consecutive drops
 
 # ------------------------------------------------------------------ filters
 def filt(x, fs, mains, harmonic, causal):
@@ -70,10 +95,19 @@ def bandpassed(y, fs):
         out = sps.lfilter(q.b, (1.0,) + q.a, out)
     return out
 
+def detect_bp(y, fs):
+    """Beat locations from the detector's 5-15 Hz peak. After the tp2 port the
+    detector reports tp2 positions in `peaks` and keeps the 5-15 Hz ones in
+    `bp_peaks`; before it, `peaks` is the 5-15 Hz peak."""
+    pt = pan_tompkins.PanTompkins(fs)
+    for v in y:
+        pt.process(v)
+    return np.array(getattr(pt, "bp_peaks", pt.peaks), dtype=int)
+
 # ---------------------------------------------------------------- fiducials
 def parabolic(v, k):
     """Vertex offset of the parabola through v[k-1..k+1], in samples (|d|<=0.5).
-    0 when k is on an edge or is not a strict local maximum."""
+    0 when k is on an edge or is not a local maximum."""
     if k <= 0 or k >= len(v) - 1:
         return 0.0
     a, b, c = v[k - 1], v[k], v[k + 1]
@@ -82,30 +116,74 @@ def parabolic(v, k):
         return 0.0
     return float(np.clip(0.5 * (a - c) / den, -0.5, 0.5))
 
-def polarity(y, det, fs):
-    """+1 or -1: sign of the dominant deflection of the median beat."""
+def detrend(w):
+    """Subtract the straight line through the means of the first and last 3 samples."""
+    a, b = np.mean(w[:3]), np.mean(w[-3:])
+    return w - (a + (b - a) * np.arange(len(w)) / (len(w) - 1))
+
+def polarity_whole(y, det, fs):
+    """v1: +1 or -1 from the dominant deflection of the whole recording's median beat."""
     w = int(0.10 * fs)
     segs = [y[d - w:d + w] for d in det if d - w >= 0 and d + w < len(y)]
     m = np.median(np.array(segs), axis=0)
     return 1.0 if m[np.argmax(np.abs(m))] > 0 else -1.0
 
-def fiducials(y, det, fs, sign=None):
-    """Times in samples (float) for each fiducial, one per detection; NaN if
-    the R search window runs off the signal."""
+def polarity_rolling(y, det, fs):
+    """tp2: per-beat sign from the median of the PREVIOUS beats' windows (no
+    beat votes on its own sign). 0 (undecided) until POL_MIN beats are in, and
+    whenever neither lobe of the median beat is POL_RATIO x the other.
+    Returns (signs, flips) - flips counts +1 <-> -1 changes."""
+    lo, hi = int(R_BEFORE_S * fs), int(R_AFTER_S * fs)
+    segs, signs, last, flips = [], np.zeros(len(det)), 0.0, 0
+    for i, d in enumerate(det):
+        cur = 0.0
+        if len(segs) >= POL_MIN:
+            t = detrend(np.median(np.array(segs), axis=0))
+            pos, neg = t.max(), -t.min()
+            if pos >= POL_RATIO * neg:
+                cur = 1.0
+            elif neg >= POL_RATIO * pos:
+                cur = -1.0
+        if cur != 0.0 and last != 0.0 and cur != last:
+            flips += 1
+        if cur != 0.0:
+            last = cur
+        signs[i] = cur
+        if d - lo >= 0 and d + hi < len(y):
+            segs.append(y[d - lo:d + hi + 1]); segs = segs[-POL_KEEP:]
+    return signs, flips
+
+def fiducials(y, det, fs):
+    """Times in samples (float) per timing point, one per detection; NaN if the
+    window runs off the signal. Also the tp2 flags and polarity diagnostics."""
     bp = np.abs(bandpassed(y, fs))
-    s = polarity(y, det, fs) if sign is None else sign
-    ys = s * y
-    lo, hi = int(0.100 * fs), int(0.060 * fs)       # R search: 100 ms before .. 60 ms after
+    s1 = polarity_whole(y, det, fs)
+    s2, flips = polarity_rolling(y, det, fs)
+    lo, hi = int(R_BEFORE_S * fs), int(R_AFTER_S * fs)
     out = {k: np.full(len(det), np.nan) for k in FIDS}
+    flag = np.zeros(len(det), bool); why = {"undecided": 0, "edge": 0}
     for i, d in enumerate(det):
         out["bp"][i] = d
         out["bp+parab"][i] = d + parabolic(bp, d)
         if d - lo < 1 or d + hi >= len(y) - 1:
             continue
-        k = d - lo + int(np.argmax(ys[d - lo:d + hi + 1]))
-        out["R"][i] = k
-        out["R+parab"][i] = k + parabolic(ys, k)
-    return out, s
+        w = s1 * y[d - lo:d + hi + 1]
+        k = int(np.argmax(w))
+        out["R"][i] = d - lo + k
+        out["R+parab"][i] = d - lo + k + parabolic(w, k)
+        # tp2
+        if s2[i] == 0:
+            out["R+parab+guard"][i] = out["bp+parab"][i]; flag[i] = True; why["undecided"] += 1
+            continue
+        wd = detrend(s2[i] * y[d - lo:d + hi + 1])
+        k = int(np.argmax(wd))
+        if k < EDGE or k > len(wd) - 1 - EDGE:
+            out["R+parab+guard"][i] = out["bp+parab"][i]; flag[i] = True; why["edge"] += 1
+            continue
+        out["R+parab+guard"][i] = d - lo + k + parabolic(wd, k)
+    pol = dict(whole=s1, decided=int(np.sum(s2 != 0)), flips=flips,
+               agree=int(np.sum(s2 == s1)), n=len(det))
+    return out, flag, why, pol
 
 # --------------------------------------------------------------------- stats
 def rsd(x):
@@ -113,13 +191,52 @@ def rsd(x):
     x = np.asarray(x, float); x = x[np.isfinite(x)]
     return float(1.4826 * np.median(np.abs(x - np.median(x)))) if len(x) else float("nan")
 
-def rmssd_ms(rr_ms):
-    """Phone rules (BeatDetector.rmssdMs): intervals 300-2000 ms; successive
-    differences only between two valid adjacent intervals, and <= 300 ms."""
-    v = lambda m: np.isfinite(m) and 300.0 <= m <= 2000.0
-    d = [rr_ms[i] - rr_ms[i - 1] for i in range(1, len(rr_ms))
-         if v(rr_ms[i]) and v(rr_ms[i - 1]) and abs(rr_ms[i] - rr_ms[i - 1]) <= 300.0]
-    return float(np.sqrt(np.mean(np.square(d)))) if d else float("nan"), len(d)
+def clean_nn(rr_ms, stats=None):
+    """NN cleaning. rr_ms may hold NaN for intervals that touch a flagged beat
+    or span a break. Returns (accepted mask, n_invalid, n_dropped_20pct).
+
+    A valid interval (300-2000 ms) is dropped when it differs by more than 20%
+    from the previous ACCEPTED interval, carried across invalid ones.
+    Seeding: the reference starts as the median of the first NN_SEED valid
+    intervals, not the first one - a single spurious first interval (two
+    warm-up beats 328 ms apart on dual03) otherwise rejects every real interval
+    after it. Recovery: after NN_SEED consecutive drops the reference is reset
+    to their median, so a genuine step change in rate cannot lock it out."""
+    rr_ms = np.asarray(rr_ms, float)
+    valid = np.isfinite(rr_ms) & (rr_ms >= 300.0) & (rr_ms <= 2000.0)
+    acc = np.zeros(len(rr_ms), bool); n_inv = int(np.sum(~valid)); n_drop = 0; reseeds = 0
+    vi = np.flatnonzero(valid)
+    if len(vi) == 0:
+        return acc, n_inv, 0
+    ref = float(np.median(rr_ms[vi[:NN_SEED]]))
+    run = []
+    for i in vi:
+        m = rr_ms[i]
+        if abs(m - ref) > NN_STEP * ref:
+            n_drop += 1; run.append(m)
+            if len(run) >= NN_SEED:
+                ref = float(np.median(run)); run = []; reseeds += 1
+            continue
+        acc[i] = True; ref = m; run = []
+    if stats is not None:
+        stats["reseeds"] = stats.get("reseeds", 0) + reseeds
+    return acc, n_inv, n_drop
+
+def rmssd_clean(rr_ms):
+    """RMSSD on the cleaned NN series; differences only between two accepted,
+    adjacent intervals. Returns (rmssd, n_differences, n_invalid, n_dropped)."""
+    rr_ms = np.asarray(rr_ms, float)
+    acc, n_inv, n_drop = clean_nn(rr_ms)
+    d = [rr_ms[i] - rr_ms[i - 1] for i in range(1, len(rr_ms)) if acc[i] and acc[i - 1]]
+    r = float(np.sqrt(np.mean(np.square(d)))) if d else float("nan")
+    return r, len(d), n_inv, n_drop
+
+def intervals(t_ms, flag):
+    """RR between successive beats; NaN where either beat is flagged."""
+    rr = np.diff(t_ms)
+    if flag is not None:
+        rr[flag[:-1] | flag[1:]] = np.nan
+    return rr
 
 def greedy(ref_t, test_t, tol):
     """One-to-one nearest matching within tol (same rule as EC57 / agreement.py).
@@ -159,11 +276,11 @@ def run_dual():
         ch = {}
         for site, x, h0 in (("chest", cx, ch0), ("finger", fx, fh0)):
             y = filt(x, FS, 50.0, True, causal)
-            det = pan_tompkins.detect(y, FS)
-            fid, sign = fiducials(y, det, FS)
-            ch[site] = dict(h0=h0, det=det, fid=fid, sign=sign)
+            det = detect_bp(y, FS)
+            fid, flag, why, pol = fiducials(y, det, FS)
+            ch[site] = dict(h0=h0, det=det, fid=fid, flag=flag, why=why, pol=pol, y=y)
         # Fix the beat pairs once, from the detector's own beat times, so every
-        # fiducial is scored on exactly the same beats.
+        # timing point is scored on exactly the same beats.
         tc = ch["chest"]["h0"] + ch["chest"]["det"] / FS
         tf = ch["finger"]["h0"] + ch["finger"]["det"] / FS
         off = 0.0
@@ -180,73 +297,102 @@ def run_dual():
     return res
 
 def report_dual(res):
+    print("beat dt = finger - chest beat time on matched beats, median removed. 'jitter' excludes")
+    print("pairs off by >20 ms (gross mislocations, counted separately). For R+parab+guard, pairs")
+    print("where either beat is flagged are left out of dt and RR and counted under 'flag'.")
+    print("RMSSD columns use the cleaned NN series (see the docstring); 'drop' is intervals")
+    print("removed by the 20% rule, as chest/finger.\n")
     for fname in FILTERS:
         r = res[fname]; ch = r["ch"]; pairs = r["pairs"]
         print(f"=== {fname} filter ===")
-        print(f"beats detected chest {r['n_det'][0]}, finger {r['n_det'][1]}; matched pairs {len(pairs)}; "
-              f"polarity chest {ch['chest']['sign']:+.0f}, finger {ch['finger']['sign']:+.0f}")
+        print(f"beats detected chest {r['n_det'][0]}, finger {r['n_det'][1]}; matched pairs {len(pairs)}")
+        for site in ("chest", "finger"):
+            p, w = ch[site]["pol"], ch[site]["why"]
+            print(f"  {site:6} polarity: whole-recording {p['whole']:+.0f}; rolling decided on "
+                  f"{p['decided']}/{p['n']} beats, agrees on {p['agree']}, flips {p['flips']}; "
+                  f"tp2 flagged {int(ch[site]['flag'].sum())} (undecided {w['undecided']}, edge {w['edge']})")
         ic = np.array([p[0] for p in pairs]); jf = np.array([p[1] for p in pairs])
-        # consecutive pairs: chest i,i+1 matched to finger j,j+1
         cons = np.flatnonzero((np.diff(ic) == 1) & (np.diff(jf) == 1))
-        print("beat dt = finger - chest beat time, median removed. 'sd' is every pair; 'jitter' excludes")
-        print("pairs off by >20 ms (gross mislocations, counted separately). Robust sd is not")
-        print("meaningful for integer fiducials, which move in 3.9 ms steps.")
-        print(f"{'fiducial':10} {'beat dt sd':>10} {'jitter':>7} {'>20ms':>6} | "
-              f"{'RR diff sd':>10} {'LoA':>15} | {'RMSSD ch':>8} {'fing':>6} {'diff':>6} {'n':>4} | "
-              f"{'all-beats RMSSD ch':>18} {'fing':>6}")
+        print(f"{'timing point':14} {'dt sd':>7} {'jitter':>7} {'>20ms':>5} {'flag':>4} | "
+              f"{'RR diff sd':>10} {'LoA':>14} | {'RMSSD ch':>8} {'fing':>5} {'diff':>5} {'n':>4} {'drop':>5} | "
+              f"{'all-beats ch':>12} {'fing':>5} {'drop':>5}")
         r["rows"] = {}
         for k in FIDS:
+            g = k == "R+parab+guard"
+            fc = ch["chest"]["flag"] if g else np.zeros(len(ch["chest"]["det"]), bool)
+            ff = ch["finger"]["flag"] if g else np.zeros(len(ch["finger"]["det"]), bool)
             t_c = ch["chest"]["fid"][k] / FS * 1000; t_f = ch["finger"]["fid"][k] / FS * 1000
-            dt = t_f[jf] - t_c[ic]; dt = dt - np.median(dt)
-            rr_c = t_c[ic[cons + 1]] - t_c[ic[cons]]
-            rr_f = t_f[jf[cons + 1]] - t_f[jf[cons]]
-            drr = rr_f - rr_c; bias, sd = float(np.mean(drr)), float(np.std(drr, ddof=1))
-            # like-for-like RMSSD: successive differences only where both
-            # channels have two valid adjacent intervals, same beats on both
-            valid = lambda m: 300.0 <= m <= 2000.0
+            okp = ~(fc[ic] | ff[jf])
+            dt = t_f[jf] - t_c[ic]; dt = dt - np.median(dt[okp]); dtu = dt[okp]
+            big = np.abs(dtu) > 20
+            # RR on consecutive matched pairs, NaN where a flagged beat is involved
+            rr_c = t_c[ic[cons + 1]] - t_c[ic[cons]]; rr_f = t_f[jf[cons + 1]] - t_f[jf[cons]]
+            bad = fc[ic[cons]] | fc[ic[cons + 1]] | ff[jf[cons]] | ff[jf[cons + 1]]
+            drr = (rr_f - rr_c)[~bad]; bias, sd = float(np.mean(drr)), float(np.std(drr, ddof=1))
+            # Cleaning per channel on its FULL beat series (as the phone would),
+            # then like-for-like differences where both channels accepted both
+            # adjacent intervals.
+            rr_full_c = intervals(t_c, fc); rr_full_f = intervals(t_f, ff)
+            acc_c, _, drop_c = clean_nn(rr_full_c); acc_f, _, drop_f = clean_nn(rr_full_f)
             sd_c, sd_f = [], []
             for q in range(1, len(cons)):
                 if cons[q] != cons[q - 1] + 1:
-                    continue                       # not adjacent intervals
-                a1, a2, b1, b2 = rr_c[q - 1], rr_c[q], rr_f[q - 1], rr_f[q]
-                if not all(valid(v) for v in (a1, a2, b1, b2)):
                     continue
-                if abs(a2 - a1) > 300 or abs(b2 - b1) > 300:
-                    continue
-                sd_c.append(a2 - a1); sd_f.append(b2 - b1)
+                i1, i2 = ic[cons[q - 1]], ic[cons[q]]      # chest interval starts
+                j1, j2 = jf[cons[q - 1]], jf[cons[q]]
+                if acc_c[i1] and acc_c[i2] and acc_f[j1] and acc_f[j2]:
+                    sd_c.append(rr_full_c[i2] - rr_full_c[i1]); sd_f.append(rr_full_f[j2] - rr_full_f[j1])
             rm_c = float(np.sqrt(np.mean(np.square(sd_c)))); rm_f = float(np.sqrt(np.mean(np.square(sd_f))))
-            # all detected beats per channel, independently (as the phone would)
-            ac, _ = rmssd_ms(np.diff(t_c)); af, _ = rmssd_ms(np.diff(t_f))
-            r["rows"][k] = dict(dt=dt, drr=drr)
-            big = np.abs(dt) > 20
-            r["rows"][k]["out"] = [(float(ch["chest"]["fid"][k][ic[q]] / FS), float(dt[q]))
-                                   for q in np.flatnonzero(big)]
-            print(f"{k:10} {np.std(dt, ddof=1):8.2f}ms {np.std(dt[~big], ddof=1):5.2f}ms {int(big.sum()):6d} | "
-                  f"{sd:8.2f}ms {bias-1.96*sd:+7.1f}..{bias+1.96*sd:+5.1f} | "
-                  f"{rm_c:6.1f}ms {rm_f:6.1f} {rm_f-rm_c:+6.1f} {len(sd_c):4d} | "
-                  f"{ac:16.1f}ms {af:6.1f}")
-        for k in FIDS:
-            o = r["rows"][k]["out"]
-            if 0 < len(o) <= 6:
-                print(f"  {k} gross: " + ", ".join(f"{dtv:+.0f} ms at {t:.1f} s" for t, dtv in o))
-            elif o:
-                print(f"  {k} gross: {len(o)} pairs, dt {min(v for _, v in o):+.0f}..{max(v for _, v in o):+.0f} ms")
+            ac, _, _, adc = rmssd_clean(rr_full_c); af, _, _, adf = rmssd_clean(rr_full_f)
+            r["rows"][k] = dict(dt=dtu)
+            print(f"{k:14} {np.std(dtu, ddof=1):5.2f}ms {np.std(dtu[~big], ddof=1):5.2f}ms {int(big.sum()):5d} "
+                  f"{int((~okp).sum()):4d} | {sd:8.2f}ms {bias-1.96*sd:+6.1f}..{bias+1.96*sd:+5.1f} | "
+                  f"{rm_c:6.1f}ms {rm_f:5.1f} {rm_f-rm_c:+5.1f} {len(sd_c):4d} {drop_c:2d}/{drop_f:<2d} | "
+                  f"{ac:10.1f}ms {af:5.1f} {adc:2d}/{adf:<2d}")
+            if 0 < big.sum() <= 6:
+                tt = (ch["chest"]["fid"][k][ic] / FS)[okp][big]
+                print(f"{'':14} gross: " + ", ".join(f"{v:+.0f} ms at {t:.1f} s" for t, v in zip(tt, dtu[big])))
+            elif big.sum():
+                print(f"{'':14} gross: {int(big.sum())} pairs, dt {dtu[big].min():+.0f}..{dtu[big].max():+.0f} ms")
         print()
 
 def plot_dual(res, png):
     import matplotlib; matplotlib.use("Agg")
     import matplotlib.pyplot as plt
-    fig, axes = plt.subplots(2, 4, figsize=(15, 6.2), sharex=True)
+    fig, axes = plt.subplots(2, len(FIDS), figsize=(18, 6.2), sharex=True)
     bins = np.arange(-40, 41, 1.0)
     for row, fname in enumerate(FILTERS):
         for col, k in enumerate(FIDS):
             ax = axes[row, col]; dt = res[fname]["rows"][k]["dt"]
             ax.hist(np.clip(dt, -40, 40), bins=bins, color="#2a78d6" if "R" in k else "#eb6834")
-            ax.set_title(f"{fname} | {k}\nsd {np.std(dt, ddof=1):.1f} ms, robust {rsd(dt):.1f} ms", fontsize=10)
+            ax.set_title(f"{fname} | {k}\nsd {np.std(dt, ddof=1):.1f} ms", fontsize=10)
             ax.axvline(0, color="0.6", lw=.8)
             if row == 1: ax.set_xlabel("finger - chest, ms")
-    fig.suptitle("Finger minus chest beat time on the same beats (median removed, clipped at +-40 ms)", fontsize=12)
+    fig.suptitle("Finger minus chest beat time on the same beats (median removed, clipped at +-40 ms; "
+                 "R+parab+guard excludes flagged beats)", fontsize=12)
     fig.tight_layout(); fig.savefig(png, dpi=110)
+
+def plot_zoom(res, t0, t1, png):
+    import matplotlib; matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    fig, axes = plt.subplots(2, 2, figsize=(15, 6.4), sharex=True)
+    for col, fname in enumerate(FILTERS):
+        for row, site in enumerate(("chest", "finger")):
+            ax = axes[row, col]; c = res[fname]["ch"][site]; y = c["y"]
+            s = c["pol"]["whole"]; t = np.arange(len(y)) / FS; m = (t >= t0) & (t <= t1)
+            ax.plot(t[m], s * y[m], lw=1.1, color="#2a78d6" if site == "chest" else "#eb6834")
+            for k, mk, kw in (("bp", "v", dict(mfc="none", color="0.45")),
+                              ("R+parab", "o", dict(mfc="none", color="k")),
+                              ("R+parab+guard", "x", dict(color="#c0392b", mew=2))):
+                tt = c["fid"][k] / FS; sel = (tt >= t0) & (tt <= t1)
+                ax.plot(tt[sel], np.interp(tt[sel], t, s * y), mk, ms=8, label=k, **kw)
+            fl = c["det"][c["flag"]] / FS
+            for f in fl[(fl >= t0) & (fl <= t1)]:
+                ax.axvline(f, color="#c0392b", ls=":", lw=1)
+            ax.set_title(f"{site}, {fname} filter (polarity-corrected); dotted = tp2 flagged", fontsize=10)
+            if row == 0 and col == 0: ax.legend(fontsize=8)
+    for ax in axes[1]: ax.set_xlabel("s")
+    fig.tight_layout(); fig.savefig(png, dpi=100)
 
 # ====================================================================== mitdb
 def run_mitdb():
@@ -258,17 +404,18 @@ def run_mitdb():
     print("Front end as benchmark_mitdb.py: resampled to 256 Hz, 0.5-40 Hz, single 60 Hz notch.")
     print("Annotation times kept unrounded (s), not snapped to the 256 Hz grid.")
     print("Only AAMI class-N beats (N L R e j) whose neighbouring beats are also class N are used;")
-    print("detections matched to")
-    print("annotations within 150 ms. Three-cornered hat on robust variances (1.4826 x MAD)^2,")
-    print("per record, then the median across records. 'neg' = the estimate came out negative,")
-    print("which happens when the independence assumption fails.\n")
-    pooled = {f: {k: [] for k in FIDS} for f in FILTERS}
+    print("detections matched to annotations within 150 ms. For R+parab+guard, flagged beats are")
+    print("left out of the timing statistics and counted. Three-cornered hat on robust variances")
+    print("(1.4826 x MAD)^2, per record, then the median across records; 'neg' = the estimate came")
+    print("out negative (the independence assumption fails).\n")
     hat = {f: {k: {"A": [], "L0": [], "L1": []} for k in FIDS} for f in FILTERS}
     rms = {f: {k: [] for k in FIDS} for f in FILTERS}
     rms_ann = []
-    print("robust sd(lead-0 fiducial - annotation), ms. This mixes our jitter with the annotation's.")
-    print(f"{'rec':>4} | {'':13} | zero-phase " + " ".join(f"{k:>8}" for k in FIDS)
-          + " | causal " + " ".join(f"{k:>8}" for k in FIDS))
+    print("robust sd(lead-0 timing point - annotation), ms - mixes our jitter with the annotation's;")
+    print(">20 = matched beats off by more than 20 ms (lead 0); flag = tp2 beats flagged; pol = rolling")
+    print("polarity decided/agrees-with-whole-recording/flips")
+    print(f"{'rec':>4} {'beats':>6} | {'filter':10} " + " ".join(f"{k:>13}" for k in FIDS)
+          + f" | {'>20 R+p':>7} {'>20 tp2':>7} {'flag':>5} {'pol':>14}")
     for rec in recs:
         r = wfdb.rdrecord(f"{args.dir}/{rec}"); ann = wfdb.rdann(f"{args.dir}/{rec}", "atr")
         fs0 = float(r.fs)
@@ -276,75 +423,81 @@ def run_mitdb():
         x0 = sps.resample(r.p_signal[:, 0].astype(float), n_new)
         x1 = sps.resample(r.p_signal[:, 1].astype(float), n_new)
         sym = np.array(ann.symbol); samp = np.array(ann.sample)
-        isbeat = np.array([s in BEAT for s in sym])
-        bidx = np.flatnonzero(isbeat)
-        # class-N beats with class-N neighbours on both sides (so N-N intervals exist)
+        bidx = np.flatnonzero([s in BEAT for s in sym])
         nmask = np.zeros(len(sym), bool)
         for q in range(1, len(bidx) - 1):
             k = bidx[q]
             if sym[k] in AAMI_N and sym[bidx[q - 1]] in AAMI_N and sym[bidx[q + 1]] in AAMI_N:
                 nmask[k] = True
         ann_t = samp[nmask] / fs0                   # seconds, unrounded
-        cells = {f: [] for f in FILTERS}
         for fname in FILTERS:
             causal = fname == "causal"
             y0 = filt(x0, FS, 60.0, False, causal); y1 = filt(x1, FS, 60.0, False, causal)
-            det = pan_tompkins.detect(y0, FS)
-            f0, _ = fiducials(y0, det, FS); f1, _ = fiducials(y1, det, FS)
+            det = detect_bp(y0, FS)
+            f0, fl0, _, pol0 = fiducials(y0, det, FS); f1, fl1, _, _ = fiducials(y1, det, FS)
             pairs = greedy(ann_t, det / FS, 0.15)
             ia = np.array([p[0] for p in pairs], dtype=int); jd = np.array([p[1] for p in pairs], dtype=int)
-            good = np.array([all(np.isfinite(f0[k][j]) and np.isfinite(f1[k][j]) for k in FIDS) for j in jd])
-            ia, jd = ia[good.astype(bool)], jd[good.astype(bool)]
+            fin = np.array([all(np.isfinite(f0[k][j]) and np.isfinite(f1[k][j]) for k in FIDS) for j in jd],
+                           dtype=bool)
+            ia, jd = ia[fin], jd[fin]
             if len(ia) < 30:
-                cells[fname] = None
-                continue
+                print(f"{rec:>4} skipped ({fname}): fewer than 30 matched class-N beats"); continue
             A = ann_t[ia] * 1000
+            cells = []
             for k in FIDS:
+                use = ~(fl0[jd] | fl1[jd]) if k == "R+parab+guard" else np.ones(len(jd), bool)
                 L0 = f0[k][jd] / FS * 1000; L1 = f1[k][jd] / FS * 1000
-                v = lambda u: rsd(u) ** 2
+                v = lambda u: rsd(u[use]) ** 2
                 vA0, vA1, v01 = v(L0 - A), v(L1 - A), v(L0 - L1)
                 hat[fname][k]["A"].append((vA0 + vA1 - v01) / 2)
                 hat[fname][k]["L0"].append((vA0 + v01 - vA1) / 2)
                 hat[fname][k]["L1"].append((vA1 + v01 - vA0) / 2)
-                pooled[fname][k].append(rsd(L0 - A))
-                cells[fname].append(rsd(L0 - A))
-                # RMSSD on runs of consecutive matched N beats: fiducial vs annotation
-                cons = np.flatnonzero(np.diff(ia) == 1)
-                rr_f = L0[cons + 1] - L0[cons]; rr_a = A[cons + 1] - A[cons]
-                # break the series where consecutive intervals are not adjacent
-                rf = []; ra = []
-                for q in range(len(cons)):
-                    if q > 0 and cons[q] != cons[q - 1] + 1:
-                        rf.append(np.nan); ra.append(np.nan)
-                    rf.append(rr_f[q]); ra.append(rr_a[q])
-                mf, _ = rmssd_ms(rf); ma, _ = rmssd_ms(ra)
+                cells.append(rsd((L0 - A)[use]))
+                if k == "R+parab":
+                    e = L0 - A; gross_rp = int(np.sum(np.abs(e - np.median(e)) > 20))
+                if k == "R+parab+guard":
+                    e = (L0 - A)[use]; gross_g = int(np.sum(np.abs(e - np.median(e)) > 20))
+                # RMSSD on runs of consecutive matched beats: timing point vs annotation,
+                # both cleaned by the same rules; flagged beats break the fiducial series
+                fbad = fl0[jd] if k == "R+parab+guard" else np.zeros(len(jd), bool)
+                rf, ra = [], []
+                for q in range(len(ia) - 1):
+                    if ia[q + 1] != ia[q] + 1:
+                        rf.append(np.nan); ra.append(np.nan); continue
+                    ra.append(A[q + 1] - A[q])
+                    rf.append(np.nan if (fbad[q] or fbad[q + 1]) else L0[q + 1] - L0[q])
+                mf = rmssd_clean(rf)[0]; ma = rmssd_clean(ra)[0]
                 rms[fname][k].append(mf - ma)
                 if fname == "zero-phase" and k == "bp":
                     rms_ann.append(ma)
-        if cells["zero-phase"] is None or cells["causal"] is None:
-            print(f"{rec:>4} | skipped: fewer than 30 matched class-N beats"); continue
-        print(f"{rec:>4} | {len(ia):5d} N beats | zero-phase " + " ".join(f"{v:8.2f}" for v in cells["zero-phase"])
-              + " | causal " + " ".join(f"{v:8.2f}" for v in cells["causal"]))
+            nflag = int(fl0[jd].sum())
+            print(f"{rec:>4} {len(ia):6d} | {fname:10} " + " ".join(f"{v:13.2f}" for v in cells)
+                  + f" | {gross_rp:7d} {gross_g:7d} {nflag:5d} "
+                  f"{pol0['decided']:>5}/{pol0['agree']}/{pol0['flips']}")
     print()
     for fname in FILTERS:
         print(f"=== {fname}: three-cornered hat, own jitter sd (ms), median over records ===")
-        print(f"{'fiducial':10} {'annotation':>11} {'lead 0':>8} {'lead 1':>8} | "
-              f"{'RMSSD(fiducial) - RMSSD(annotation), ms: median':>48} {'[min, max]':>16}")
+        print(f"{'timing point':14} {'annotation':>11} {'lead 0':>8} {'lead 1':>8} | "
+              f"{'RMSSD(tp) - RMSSD(annotation), ms, median':>42} {'[min, max]':>16}")
         for k in FIDS:
             def s(lst):
                 m = float(np.median(lst)); return f"{np.sqrt(m):8.2f}" if m > 0 else "     neg"
             d = np.array(rms[fname][k])
-            print(f"{k:10} {s(hat[fname][k]['A']):>11} {s(hat[fname][k]['L0'])} {s(hat[fname][k]['L1'])} | "
-                  f"{np.median(d):+48.2f} [{d.min():+6.1f}, {d.max():+6.1f}]")
+            print(f"{k:14} {s(hat[fname][k]['A']):>11} {s(hat[fname][k]['L0'])} {s(hat[fname][k]['L1'])} | "
+                  f"{np.median(d):+42.2f} [{d.min():+6.1f}, {d.max():+6.1f}]")
         print()
-    print(f"RMSSD from annotations alone (N-N, phone rules), per record, ms: "
+    print("RMSSD from annotations alone (class-N runs, cleaned), per record, ms: "
           + " ".join(f"{v:.1f}" for v in rms_ann))
 
 # ======================================================================= main
 buf = io.StringIO()
 with contextlib.redirect_stdout(buf):
-    print(f"# ./fiducial.py {' '.join(sys.argv[1:])}")
-    print(f"# fs={FS:g} skip={args.skip_s:g}s; detector pan_tompkins.py unchanged; R window -100..+60 ms\n")
+    print(f"# ./fiducial.py {' '.join(sys.argv[1:])}   (analysis {VERSION})")
+    print(f"# fs={FS:g} skip={args.skip_s:g}s; R window -{R_BEFORE_S*1000:.0f}..+{R_AFTER_S*1000:.0f} ms; "
+          f"rolling polarity keep {POL_KEEP} / need {POL_MIN} / lobe ratio {POL_RATIO}x; edge {EDGE}; "
+          f"NN step {NN_STEP:.0%}")
+    print(f"# beat locations from the detector's 5-15 Hz peak "
+          f"({'bp_peaks' if hasattr(pan_tompkins.PanTompkins(FS), 'bp_peaks') else 'peaks'})\n")
     if args.mode == "dual":
         res = run_dual(); report_dual(res)
     else:
@@ -352,7 +505,10 @@ with contextlib.redirect_stdout(buf):
 text = buf.getvalue(); print(text, end="")
 name = (pathlib.Path(args.files[0]).stem.replace("_ring", "").replace("_ref", "")
         if args.mode == "dual" else "mitdb12")
-out = pathlib.Path("analysis") / f"fiducial_{name}.txt"
+out = pathlib.Path("analysis") / f"fiducial_{name}_{VERSION}.txt"
 out.write_text(text); print(f"saved {out}")
 if args.mode == "dual":
     png = str(out).replace(".txt", ".png"); plot_dual(res, png); print(f"saved {png}")
+    if args.zoom:
+        z = str(out).replace(".txt", f"_zoom_{args.zoom[0]:g}-{args.zoom[1]:g}s.png")
+        plot_zoom(res, args.zoom[0], args.zoom[1], z); print(f"saved {z}")
