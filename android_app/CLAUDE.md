@@ -35,4 +35,9 @@ UI work never changes the logic in `EcgFilter.kt`, `BeatDetector.kt`, `SignalQua
 
 A UI change isn't done until it has been rendered (Roborazzi or `adb exec-out screencap`), the screenshot inspected, and any problems fixed. Check the mm grid on a real device, because a JVM render only knows the DPI it was told.
 
+- **Roborazzi** runs inside `./gradlew testDebugUnitTest` (record mode is always on; Robolectric native graphics). `MonitorScreenshotTest` renders the screen from replay at 20 s and asserts the quality state each image is meant to show. Renders are byte-identical run to run.
+- Device config is the test phone, a Galaxy A56 (SM-A566E): 1080 x 2340 px, logical density 450, app area 384 x 748 dp, so a render is the app area of a screencap (rows 101-2204; above is the status bar, below the nav bar). Physical DPI is 386 x 388, not 450.
+- `screenshots/before/` is the frozen pre-redesign baseline. Before the first visual change, point `MonitorScreenshotTest` at a different folder, or it will overwrite the baseline with the new screen.
+- Device screencaps are in Display P3, not sRGB: `#C0392B` captures as (177, 68, 52) (`screenshots/before/device_check.txt`). Convert before comparing colour values.
+
 Design and screenshot work uses replay mode fed from real `captures/` files, never synthetic sine waves. Debug builds bundle `dual03_ring`, `dual03_ref`, `dual02_ring` and `dual01_ring` (mapping in `app/build.gradle.kts`); start one with `adb shell am start -n com.dhruv.ecgmonitor/.MainActivity --es replay dual03_ring`. Replay feeds `EcgPipeline.onPacket` exactly as BLE does, and `ReplayPipelineTest` pins that path to direct detector calls.

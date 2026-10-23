@@ -1,0 +1,32 @@
+# Device check, 23 Oct 2026: debug APK (step 3 build) on Galaxy A56 (SM-A566E), Android SDK 36, USB adb
+# Screen: wm size 1080x2340, wm density 450; dumpsys display xDpi=386.3662 yDpi=388.47058
+# App config reported by WindowManager: w384dp h748dp 450dpi port widecg
+
+## Replay ran in real time (am start -S -W ... --es replay dual03_ring; t = host seconds after am start returned)
+# Packet count read from the app's own counter line in each screencap (mid-time of a ~0.4 s capture).
+capture              t_s     packets  status
+A_portrait           5.199   203      Replay dual03_ring.csv
+B_landscape          9.772   410      Replay dual03_ring.csv
+C_portrait_again    14.265   612      Replay dual03_ring.csv
+D_portrait_late     67.859   2869     Replay dual03_ring.csv
+# rate A->D = (2869-203)/(67.859-5.199) = 42.55 packets/s; real time is 256/6 = 42.667 -> 99.7%
+# Separate run for device_dual03.png: screencap at t=21.16 s shows 845 packets
+#   (Roborazzi render at exactly 20.0 s of replay shows 854).
+
+## Rotation (settings put system user_rotation 1, then 0; auto-rotate was off, restored to 0)
+# pid before and after: 24402 / 24402
+# logcat: WindowManager "Checking to restart ...MainActivity: changed={CONFIG_ORIENTATION} ... not-handles={CONFIG_ORIENTATION}"
+#         and "finishDrawing of relaunch" -> the activity was recreated; replay kept counting (203 -> 410 -> 612), no reload.
+
+## BLE mode across rotation (no replay; ring not advertising, so scan only)
+# dumpsys bluetooth_manager, LE Scanner list, before and after rotation, identical:
+#   app_if: 6, app: com.dhruv.ecgmonitor[null](63d8fe8b-95ea-42c2-9213-837154e1264c,uid=10383,pid=25273,...)
+# one registration, same id and UUID; status "Scanning for ESP32-ECG..." before and after.
+
+## Render vs device (dual03, aligned on the app area: device rows 101..2204)
+# device status bar rows 0..100 (117,117,117); nav bar rows 2205..2339 (1,1,2)
+# trace colour: render (192,57,43) = #C0392B; device capture (177,68,52) -> screencap is Display P3
+# background: render (254,247,255); device (253,247,254)
+# pixels differing by >32 (of grey diff): text block 1.72%, chart 11.67%, below chart 1.05%
+#   text: same typefaces and positions; differences are the changed digits (seq/packets/kSQI) and anti-aliasing
+#   chart: device frame is 9 packets (0.21 s) earlier, so the trace is shifted

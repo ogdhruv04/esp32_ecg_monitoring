@@ -71,16 +71,24 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 private fun MonitorScreen(vm: EcgViewModel) {
+    MonitorContent(vm.status, vm.pipeline, vm.packetTick)
+}
+
+// Split from MonitorScreen so screenshot tests can render it from a pipeline
+// fed by replay, with no ViewModel or BLE. `tick` must be a parameter: the
+// pipeline is the same instance every time, so without a changing argument
+// Compose would skip this function and the screen would freeze.
+@Composable
+internal fun MonitorContent(status: String, p: EcgPipeline, tick: Int) {
     var showFiltered by rememberSaveable { mutableStateOf(true) }
     // Reading the tick (unused otherwise) ties this composable's recomposition
     // to each new packet; everything below re-reads the pipeline fresh.
-    @Suppress("UNUSED_EXPRESSION") vm.packetTick
-    val p = vm.pipeline
+    @Suppress("UNUSED_EXPRESSION") tick
 
     MaterialTheme {
         Surface(modifier = Modifier.fillMaxSize()) {
             Column(modifier = Modifier.fillMaxSize().padding(24.dp)) {
-                Text("Status: ${vm.status}")
+                Text("Status: $status")
                 Spacer(modifier = Modifier.height(8.dp))
                 val lossPct = if (p.packetsSeen + p.packetsLost > 0)
                     100.0 * p.packetsLost / (p.packetsSeen + p.packetsLost) else 0.0

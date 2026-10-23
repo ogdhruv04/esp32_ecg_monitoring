@@ -5,6 +5,7 @@ compile_commands.json
 android_app/local.properties
 android_app/**/build/
 android_app/.gradle/
+android_app/.kotlin/
 android_app/.idea/
 
 # reference-board and diagnostic builds (build/ and src_build/ are above)

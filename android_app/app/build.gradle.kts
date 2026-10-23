@@ -39,9 +39,15 @@ android {
     }
 
     testOptions {
+        // Robolectric needs merged resources and assets (replay captures).
+        unitTests.isIncludeAndroidResources = true
         unitTests.all {
             // ReplayPipelineTest reads real recordings straight from the repo.
             it.systemProperty("captures.dir", capturesDir.absolutePath)
+            // Screenshot tests render on every testDebugUnitTest run, into
+            // android_app/screenshots/ (paths are chosen per test).
+            it.systemProperty("roborazzi.test.record", "true")
+            it.systemProperty("screenshots.dir", rootProject.file("screenshots").absolutePath)
         }
     }
 }
@@ -97,4 +103,11 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.6")
 
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.robolectric:robolectric:4.13")
+    testImplementation("io.github.takahirom.roborazzi:roborazzi:1.26.0")
+    testImplementation("io.github.takahirom.roborazzi:roborazzi-compose:1.26.0")
+    testImplementation("androidx.compose.ui:ui-test-junit4")
+    testImplementation("androidx.test.ext:junit:1.2.1")
+    // Hosts createComposeRule()'s activity in debug builds.
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
 }
