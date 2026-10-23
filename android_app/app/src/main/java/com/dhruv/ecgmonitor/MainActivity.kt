@@ -51,6 +51,13 @@ class MainActivity : ComponentActivity() {
             }
 
             LaunchedEffect(Unit) {
+                // Debug: `adb shell am start -n com.dhruv.ecgmonitor/.MainActivity
+                // --es replay dual03_ring` plays a bundled capture instead of BLE.
+                val replay = intent.getStringExtra("replay")
+                if (replay != null) {
+                    vm.startReplay(replay)
+                    return@LaunchedEffect
+                }
                 val granted = blePermissions.all {
                     checkSelfPermission(it) == PackageManager.PERMISSION_GRANTED
                 }

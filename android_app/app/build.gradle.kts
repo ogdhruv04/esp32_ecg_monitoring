@@ -4,6 +4,9 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+// The repo's recordings, used by replay mode and ReplayPipelineTest.
+val capturesDir = rootProject.file("../captures")
+
 android {
     namespace = "com.dhruv.ecgmonitor"
     compileSdk = 34
@@ -33,6 +36,54 @@ android {
 
     buildFeatures {
         compose = true
+    }
+
+    testOptions {
+        unitTests.all {
+            // ReplayPipelineTest reads real recordings straight from the repo.
+            it.systemProperty("captures.dir", capturesDir.absolutePath)
+        }
+    }
+}
+
+// Recordings bundled into debug builds for replay mode, renamed to short
+// asset names (`--es replay dual03_ring`). In these runs the ring board (C3)
+// was on the chest and the reference (WROOM) on the finger. Chosen to cover
+// every state of the app's gate (analysis/sqi_replay_app_gate_dual01-03.txt):
+// dual03 both GOOD 100%, dual02 chest FAIR 85.3%, dual01 chest POOR 90.9%.
+val replayCaptures = mapOf(
+    "dual03_ring.csv" to "20260929_163314_dual03_both3wire_c3chest_wroomfinger_ring.csv",
+    "dual03_ref.csv" to "20260929_163314_dual03_both3wire_c3chest_wroomfinger_ref.csv",
+    "dual02_ring.csv" to "20260929_155511_dual02_rbias_c3chest_wroomfinger_ring.csv",
+    "dual01_ring.csv" to "20260929_153252_dual01_c3chest_wroomfinger_ring.csv",
+)
+
+abstract class CopyReplayCaptures : DefaultTask() {
+    @get:InputFiles abstract val sources: ConfigurableFileCollection
+    @get:Input abstract val names: MapProperty<String, String>
+    @get:OutputDirectory abstract val outputDir: DirectoryProperty
+
+    @TaskAction
+    fun copy() {
+        val dir = outputDir.get().asFile.resolve("replay")
+        dir.deleteRecursively()
+        dir.mkdirs()
+        val byName = sources.files.associateBy { it.name }
+        names.get().forEach { (asset, capture) ->
+            byName.getValue(capture).copyTo(dir.resolve(asset))
+        }
+    }
+}
+
+val copyReplayCaptures = tasks.register<CopyReplayCaptures>("copyReplayCaptures") {
+    sources.from(replayCaptures.values.map { capturesDir.resolve(it) })
+    names.set(replayCaptures)
+    outputDir.set(layout.buildDirectory.dir("generated/replayAssets"))
+}
+
+androidComponents {
+    onVariants(selector().withBuildType("debug")) { variant ->
+        variant.sources.assets?.addGeneratedSourceDirectory(copyReplayCaptures, CopyReplayCaptures::outputDir)
     }
 }
 

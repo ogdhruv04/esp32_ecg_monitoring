@@ -35,4 +35,4 @@ UI work never changes the logic in `EcgFilter.kt`, `BeatDetector.kt`, `SignalQua
 
 A UI change isn't done until it has been rendered (Roborazzi or `adb exec-out screencap`), the screenshot inspected, and any problems fixed. Check the mm grid on a real device, because a JVM render only knows the DPI it was told.
 
-Design and screenshot work uses replay mode fed from real `captures/` files, never synthetic sine waves.
+Design and screenshot work uses replay mode fed from real `captures/` files, never synthetic sine waves. Debug builds bundle `dual03_ring`, `dual03_ref`, `dual02_ring` and `dual01_ring` (mapping in `app/build.gradle.kts`); start one with `adb shell am start -n com.dhruv.ecgmonitor/.MainActivity --es replay dual03_ring`. Replay feeds `EcgPipeline.onPacket` exactly as BLE does, and `ReplayPipelineTest` pins that path to direct detector calls.

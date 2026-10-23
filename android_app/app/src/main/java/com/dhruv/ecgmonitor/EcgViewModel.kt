@@ -1,11 +1,18 @@
 package com.dhruv.ecgmonitor
 
 import android.app.Application
+import android.os.SystemClock
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 // Owns the data source and the pipeline, so both survive rotation. Before this,
 // they lived inside setContent: recreating the activity re-requested
@@ -31,9 +38,12 @@ class EcgViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    private var replayJob: Job? = null
+    val isReplay: Boolean get() = replayJob != null
+
     // Safe to call again after rotation; only the first call starts a client.
     fun startBle() {
-        if (bleClient != null) return
+        if (bleClient != null || replayJob != null) return
         status = "Permissions granted, starting scan..."
         bleClient = BleEcgClient(getApplication(), listener).also { it.start() }
     }
@@ -42,7 +52,41 @@ class EcgViewModel(app: Application) : AndroidViewModel(app) {
         status = "Bluetooth permissions denied - cannot scan/connect"
     }
 
+    // Plays a bundled capture (debug builds only; see copyReplayCaptures in
+    // app/build.gradle.kts) through the same listener BLE uses, in real time.
+    // Lost packets keep their time hole. `name` is an asset name, with or
+    // without ".csv". Replaces BLE for the life of the ViewModel.
+    fun startReplay(name: String) {
+        if (bleClient != null || replayJob != null) return
+        val app = getApplication<Application>()
+        val file = if (name.endsWith(".csv")) name else "$name.csv"
+        val available = app.assets.list(REPLAY_DIR).orEmpty()
+        if (file !in available) {
+            status = "Replay '$name' not found. Bundled: " +
+                available.joinToString { it.removeSuffix(".csv") }.ifEmpty { "none (release build)" }
+            return
+        }
+        replayJob = viewModelScope.launch {
+            status = "Replay $file: loading"
+            val packets = withContext(Dispatchers.IO) {
+                app.assets.open("$REPLAY_DIR/$file").use { CaptureReplay.packets(it) }
+            }
+            status = "Replay $file"
+            val start = SystemClock.elapsedRealtime()
+            for (p in packets) {
+                val due = start + (p.sampleOffset * 1000 / EcgFilter.ECG_SAMPLE_RATE).toLong()
+                delay(due - SystemClock.elapsedRealtime())
+                listener.onPacket(p.packet)
+            }
+            status = "Replay $file: finished"
+        }
+    }
+
     override fun onCleared() {
         bleClient?.stop()
+    }
+
+    companion object {
+        const val REPLAY_DIR = "replay"
     }
 }
