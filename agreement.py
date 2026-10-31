@@ -20,7 +20,8 @@ shared clock, so the constant offset between them is estimated from the beat
 trains themselves. RR intervals are differences, so a constant offset cancels
 in sections 4 and 5 - it only matters for matching individual beats in 3.
 """
-import argparse, pathlib, sys
+import argparse, os, pathlib, sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))   # runs under python -I
 import numpy as np
 from scipy import signal as sps
 import pan_tompkins
@@ -280,13 +281,17 @@ if len(pairs) > 3:
         # HRV on each channel's cleaned NN series (pan_tompkins.rmssd_nn, the
         # phone's rules): unusable intervals are breaks, a valid interval more
         # than 20% from the previous accepted one is dropped.
-        rm_ref, _, drop_r = pan_tompkins.rmssd_nn(list(np.where(usable, rr_ref, np.nan)))
-        rm_ring, _, drop_f = pan_tompkins.rmssd_nn(list(np.where(usable, rr_ring, np.nan)))
+        rm_ref, acc_r, drop_r, _ = pan_tompkins.rmssd_nn(list(np.where(usable, rr_ref, np.nan)))
+        rm_ring, acc_f, drop_f, _ = pan_tompkins.rmssd_nn(list(np.where(usable, rr_ring, np.nan)))
+        # Coverage: share of each channel's beats (in the span both recordings
+        # share) whose interval survives into the NN series behind its RMSSD.
+        cov_r = acc_r / max(1, len(ref_c) - 1); cov_f = acc_f / max(1, len(ring_c) - 1)
         rm_ref = float("nan") if rm_ref is None else rm_ref
         rm_ring = float("nan") if rm_ring is None else rm_ring
         print(f"   RMSSD (cleaned NN) chest {rm_ref:.1f} ms   finger {rm_ring:.1f} ms   "
-              f"dropped by the 20% rule: chest {drop_r}, finger {drop_f}")
-        rr_saved = (int(usable.sum()), bias, lo, hi, rm_ref, rm_ring, n_flag, drop_r, drop_f)
+              f"dropped by the 20% rule: chest {drop_r}, finger {drop_f}   "
+              f"coverage chest {100*cov_r:.0f}%, finger {100*cov_f:.0f}%")
+        rr_saved = (int(usable.sum()), bias, lo, hi, rm_ref, rm_ring, n_flag, drop_r, drop_f, cov_r, cov_f)
     else:
         print("   too few consecutive matched pairs")
 else:
@@ -318,9 +323,10 @@ with contextlib.redirect_stdout(buf):
         print(f"HR bias {bias:+.2f} bpm  LoA {lo:+.2f}..{hi:+.2f}  ICC {icc21(hr_ring[ok], hr_ref[ok]):.4f}"
               f"  CCC {lins_ccc(hr_ring[ok], hr_ref[ok]):.4f}")
     if rr_saved is not None:
-        n_rr, rb, rlo, rhi, rm_ref, rm_ring, n_flag, drop_r, drop_f = rr_saved
+        n_rr, rb, rlo, rhi, rm_ref, rm_ring, n_flag, drop_r, drop_f, cov_r, cov_f = rr_saved
         print(f"RR {n_rr} intervals ({n_flag} flagged out)  bias {rb:+.2f} ms  LoA {rlo:+.2f}..{rhi:+.2f}")
-        print(f"RMSSD cleaned NN: chest {rm_ref:.1f} ms  finger {rm_ring:.1f} ms  "
+        print(f"RMSSD cleaned NN: chest {rm_ref:.1f} ms (coverage {100*cov_r:.0f}%)  "
+              f"finger {rm_ring:.1f} ms (coverage {100*cov_f:.0f}%)  "
               f"(20% rule dropped chest {drop_r}, finger {drop_f})")
 rep.write_text(buf.getvalue())
 print(f"\nsaved {rep}")

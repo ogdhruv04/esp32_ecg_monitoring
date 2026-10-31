@@ -1,0 +1,31 @@
+{
+  "version": "tp2.1",
+  "frozen": "2026-10-31",
+  "description": "Timing point 2 (R peak + parabolic + guard) with the per-beat correlation check, and the HRV cleaning rules. Read by pan_tompkins.py; BeatDetector.kt hard-codes the same values and BeatDetectorConfigTest asserts they match this file.",
+  "tuned_on": "Development data only: the 12-record MIT-BIH subset in data/mitdb (100 101 103 105 106 108 109 119 203 208 222 228) and the dual capture 20260929_163314_dual03. The Pan-Tompkins core (thresholds, search-back, refractory, T-wave rule, stall decay) is fixed in code and was also developed on that subset.",
+  "detector": {
+    "R_BEFORE_S": 0.100,
+    "R_AFTER_S": 0.060,
+    "POL_KEEP": 16,
+    "POL_MIN": 8,
+    "POL_RATIO": 1.5,
+    "EDGE": 2,
+    "HIST_S": 4.0,
+    "CORR_MIN": 0.0,
+    "CORR_LAG": 10
+  },
+  "hrv": {
+    "NN_STEP": 0.20,
+    "NN_SEED": 5,
+    "HRV_DEPTH": 256,
+    "MIN_BEATS_FOR_HRV": 30
+  },
+  "heldout_protocol": {
+    "records": "the 36 MIT-BIH Arrhythmia records not in the development subset, downloaded once, evaluated once",
+    "lead": "MLII wherever the record has it (record 114 has it on channel 1); otherwise channel 0. The other channel is lead 1 for the three-cornered hat.",
+    "paced_records": "102 104 107 217 are reported separately, as ANSI/AAMI EC57 excludes paced records from the main figures",
+    "variants": "both reported from the same single run: tp2 (CORR_MIN off) and tp2.1 (CORR_MIN as above)",
+    "metrics": "EC57 Se and P+ ungated and with the bSQI 0.9 gate plus its rejection rate; timing spread against annotations; RMSSD error against annotations, each with its coverage",
+    "rule": "no parameter in this file is changed in response to held-out results"
+  }
+}

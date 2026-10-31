@@ -37,7 +37,7 @@ def load(path, seconds):
                       invalid_raise=False)["value"].astype(float)
     return causal_filter(v)[: int(seconds * FS)].astype(np.float32)
 
-def run(x, skips, stall=True):
+def run(x, skips, stall=True, corr=True):
     """What BeatDetector.kt emits on the phone: (position, flagged) for every
     beat process() returns, and the detector, for its HRV history.
 
@@ -47,6 +47,8 @@ def run(x, skips, stall=True):
     pt = pan_tompkins.PanTompkins(FS)
     if not stall:
         pt.stall = 10**12                      # the detector before the fix
+    if not corr:
+        pt.CORR_MIN = None                     # tp2 without the per-beat check
     out = []
     for i, v in enumerate(x):
         if skips[i]:
@@ -58,9 +60,9 @@ def run(x, skips, stall=True):
 
 def write(name, x, skips, beats, pt):
     """Input; expected beats as `position,flagged`; expected HRV as
-    `rmssd,accepted,dropped` (rmssd 'nan' when the phone would show none),
-    computed by pan_tompkins.rr_history + rmssd_nn - the reference for
-    BeatDetector.rmssdMs and nnDropped."""
+    `rmssd,accepted,dropped,coverage` (rmssd 'nan' when the phone would show
+    none), computed by pan_tompkins.rr_history + rmssd_nn - the reference for
+    BeatDetector.rmssdMs, nnDropped and hrvCoverage."""
     OUT.mkdir(parents=True, exist_ok=True)
     with open(OUT / f"{name}_input.csv", "w") as f:
         f.write("value,skip_before\n")
@@ -68,10 +70,20 @@ def write(name, x, skips, beats, pt):
             f.write(f"{repr(float(v))},{int(s)}\n")
     (OUT / f"{name}_expected.txt").write_text(
         "".join(f"{p!r},{int(fl)}\n" for p, fl in beats))
-    rm, acc, drop = pan_tompkins.rmssd_nn(pan_tompkins.rr_history(pt.beats, FS))
+    rm, acc, drop, cov = pan_tompkins.rmssd_nn(pan_tompkins.rr_history(pt.beats, FS))
     (OUT / f"{name}_rmssd.txt").write_text(
-        f"{(rm if rm is not None else float('nan'))!r},{acc},{drop}\n")
-    return rm, acc, drop
+        f"{(rm if rm is not None else float('nan'))!r},{acc},{drop},{cov!r}\n")
+    return rm, acc, drop, cov
+
+def mistimed(flipped_pt, unflipped_pt, t0):
+    """Beats after t0 in the flipped run that are NOT flagged yet sit >= 1 sample
+    from the same beat (same 5-15 Hz index) in the unflipped run. The flipped
+    input is exactly the negated filtered signal, so a correctly timed beat lands
+    on the identical position. Returns (beats after t0, flagged, mistimed)."""
+    ref = {b["bp"]: b["pos"] for b in unflipped_pt.beats}
+    after = [b for b in flipped_pt.beats if b["bp"] >= t0]
+    mis = sum(1 for b in after if not b["flagged"] and b["bp"] in ref and abs(b["pos"] - ref[b["bp"]]) >= 1.0)
+    return len(after), sum(b["flagged"] for b in after), mis
 
 cases = {}
 chest = load(CAP + "_ring.csv", 60)
@@ -93,22 +105,34 @@ cases["artifact_gaps"] = (art, sk)
 # Polarity case: the finger recording with its sign inverted from 30 s on. The
 # rolling median beat passes through undecided (beats flagged, fallback
 # position, kept out of HRV) and settles on the other sign - the path that
-# matters on ambiguous morphology such as MIT-BIH 108, built from our own data
-# because MIT-BIH's licence is not yet checked (docs/datasets.md).
+# matters on ambiguous morphology such as MIT-BIH 108. Built from our own data,
+# so the test needs no external dataset.
 flip = finger[: int(60 * FS)].copy()
 flip[int(30 * FS):] *= -1
 cases["polarity_flip"] = (flip, np.zeros(len(flip), int))
 
 for name, (x, s) in cases.items():
     beats, pt = run(x, s)
-    rm, acc, drop = write(name, x, s, beats, pt)
+    rm, acc, drop, cov = write(name, x, s, beats, pt)
     after = sum(1 for p, _ in beats if p > (11.5 * FS))
-    line = (f"{name:14} {len(x):6d} samples  {len(beats):4d} beats, {sum(f for _, f in beats)} flagged; "
-            f"RMSSD {rm if rm is None else round(rm, 2)} ms on {acc} NN, {drop} dropped")
+    line = (f"{name:14} {len(x):6d} samples  {len(beats):4d} beats, {sum(f for _, f in beats)} flagged "
+            f"({pt.corr_flagged} by the check); RMSSD {rm if rm is None else round(rm, 2)} ms, "
+            f"coverage {100*cov:.0f}% ({acc} NN), {drop} dropped")
     if name == "artifact_gaps":
         old, _ = run(x, s, stall=False)
         old_after = sum(1 for p, _ in old if p > (11.5 * FS))
         line += (f"   beats after the artifact: {after} with stall decay, "
                  f"{old_after} without")
     print(line)
+    if name == "polarity_flip":
+        unflipped = finger[: int(60 * FS)]
+        z = np.zeros(len(unflipped), int)
+        for corr in (False, True):
+            _, pf = run(x, s, corr=corr); _, pu = run(unflipped, z, corr=corr)
+            n, fl, mis = mistimed(pf, pu, int(30 * FS))
+            rmf = pan_tompkins.rmssd_nn(pan_tompkins.rr_history(pf.beats, FS))
+            rmu = pan_tompkins.rmssd_nn(pan_tompkins.rr_history(pu.beats, FS))
+            print(f"{'':14} check {'on ' if corr else 'off'}: after the flip {n} beats, {fl} flagged, "
+                  f"MISTIMED {mis}; RMSSD {rmf[0]:.2f} ms (coverage {100*rmf[3]:.0f}%) vs "
+                  f"{rmu[0]:.2f} ms unflipped (coverage {100*rmu[3]:.0f}%)")
 print(f"wrote {OUT}/")

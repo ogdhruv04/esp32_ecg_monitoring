@@ -118,6 +118,7 @@ class BeatDetector(private val fs: Double = EcgFilter.ECG_SAMPLE_RATE) {
     // RMSSD over 8 beats is noise. Real HRV wants minutes.
     private val rrHist = ArrayDeque<Double>()
     private var lastR = Double.NaN                     // tp2 position of the last usable primary beat
+    private var seenBeat = false
 
     /** Last 5-15 Hz bandpassed value. Exposed so SignalQuality can compute a
      *  real QRS-band energy ratio instead of comparing the signal to itself. */
@@ -132,6 +133,10 @@ class BeatDetector(private val fs: Double = EcgFilter.ECG_SAMPLE_RATE) {
      *  gap in its window, or no true peak in it). Its position then falls back
      *  to the 5-15 Hz peak, and it is kept out of every HRV interval. */
     var lastBeatFlagged: Boolean = false
+        private set
+
+    /** Beats flagged by the per-beat correlation check. */
+    var corrFlagged: Int = 0
         private set
 
     /** Beats located before their R window had arrived. Should stay 0. */
@@ -284,11 +289,20 @@ class BeatDetector(private val fs: Double = EcgFilter.ECG_SAMPLE_RATE) {
 
     private fun finish(): Double? {
         val u = unfinished!!; unfinished = null
-        val sign = polarity()
+        val (sign, tmpl) = polarity()
         var flagged = true
-        val pos = if (u.ok) {
-            val (p, f) = tp2(u.d, sign); flagged = f; p
-        } else u.mwi.toDouble()
+        var pos: Double
+        if (u.ok) {
+            val (p, f, fallback) = tp2(u.d, sign); pos = p; flagged = f
+            // Per-beat CHECK against the median beat (not a per-beat decision): a
+            // beat whose window anti-correlates with it is inverted relative to
+            // the template - after a real polarity change, the template keeps the
+            // old sign for several beats and would time them on the wrong lobe.
+            if (!flagged && tmpl != null) {
+                val r = corrWith(tmpl, u.d)
+                if (!(r >= CORR_MIN)) { pos = fallback; flagged = true; corrFlagged++ }
+            }
+        } else pos = u.mwi.toDouble()
         // This beat's window joins the polarity template AFTER its own sign was
         // set, and only when the whole window has arrived.
         if (u.ok && u.d + hi <= n - 1) {
@@ -297,14 +311,13 @@ class BeatDetector(private val fs: Double = EcgFilter.ECG_SAMPLE_RATE) {
                 segs.addLast(seg); if (segs.size > POL_KEEP) segs.removeFirst()
             }
         }
-        // HRV history (pan_tompkins.rr_history is the reference).
-        if (!u.searchBack && !flagged) {
-            if (!lastR.isNaN()) pushHist(if (u.gap) Double.NaN else pos - lastR)
-            lastR = pos
-        } else {
-            if (!lastR.isNaN()) pushHist(Double.NaN)
-            lastR = Double.NaN
-        }
+        // HRV history (pan_tompkins.rr_history is the reference): ONE entry per
+        // inter-beat interval, NaN unless both beats are primary and unflagged
+        // and nothing was lost between them - so coverage is well defined.
+        val usable = !u.searchBack && !flagged
+        if (seenBeat) pushHist(if (usable && !lastR.isNaN() && !u.gap) pos - lastR else Double.NaN)
+        seenBeat = true
+        lastR = if (usable) pos else Double.NaN
         if (u.warm) return null
         lastBeatFlagged = flagged
         return pos
@@ -328,8 +341,8 @@ class BeatDetector(private val fs: Double = EcgFilter.ECG_SAMPLE_RATE) {
      *  at least POL_RATIO x the other, 0 (undecided) otherwise or with fewer than
      *  POL_MIN beats. Never decided from the current beat alone - deciding per
      *  beat is what made the 5-15 Hz peak jump between QRS lobes. */
-    private fun polarity(): Int {
-        if (segs.size < POL_MIN) return 0
+    private fun polarity(): Pair<Int, DoubleArray?> {
+        if (segs.size < POL_MIN) return Pair(0, null)
         val len = segs.first().size
         val col = DoubleArray(segs.size)
         val t = detrend(DoubleArray(len) { i ->
@@ -337,28 +350,61 @@ class BeatDetector(private val fs: Double = EcgFilter.ECG_SAMPLE_RATE) {
             median(col)
         })
         val pos = t.max(); val neg = -t.min()
-        if (pos >= POL_RATIO * neg) return 1
-        if (neg >= POL_RATIO * pos) return -1
-        return 0
+        if (pos >= POL_RATIO * neg) return Pair(1, t)
+        if (neg >= POL_RATIO * pos) return Pair(-1, t)
+        return Pair(0, t)
     }
 
-    /** R peak + parabolic + guard around the 5-15 Hz peak [d]. Returns (position, flagged). */
-    private fun tp2(d: Long, sign: Int): Pair<Double, Boolean> {
+    /** Correlation of this beat's window with the median beat [t] at the lag
+     *  (within +-CORR_LAG samples) where |r| is largest, both detrended and
+     *  mean-removed over their overlap. Taking the best alignment matters: the
+     *  window is anchored on the 5-15 Hz peak, which can sit +-39 ms off the R
+     *  peak, and an unaligned normal beat can correlate negatively with its own
+     *  median beat. An inverted beat still gives r near -1. NaN if not computable. */
+    private fun corrWith(t: DoubleArray, d: Long): Double {
+        val raw = DoubleArray(lo + hi + 1) { xAt(d - lo + it) }
+        if (raw.size != t.size || raw.any { it.isNaN() }) return Double.NaN
+        val w = detrend(raw)
+        val len = w.size
+        var best = Double.NaN
+        for (lag in -CORR_LAG..CORR_LAG) {
+            val i0 = maxOf(0, -lag); val i1 = minOf(len, len - lag)
+            val m = i1 - i0
+            if (m < len / 2) continue
+            var sw = 0.0; var st = 0.0
+            for (i in i0 until i1) sw += w[i + lag]
+            for (i in i0 until i1) st += t[i]
+            val mw = sw / m; val mt = st / m
+            var sab = 0.0; var saa = 0.0; var sbb = 0.0
+            for (i in i0 until i1) {
+                val a = w[i + lag] - mw; val b = t[i] - mt
+                sab += a * b; saa += a * a; sbb += b * b
+            }
+            if (saa <= 0.0 || sbb <= 0.0) continue
+            val r = sab / sqrt(saa * sbb)
+            if (best.isNaN() || abs(r) > abs(best)) best = r
+        }
+        return best
+    }
+
+    /** R peak + parabolic + guard around the 5-15 Hz peak [d].
+     *  Returns (position, flagged, fallback position). */
+    private fun tp2(d: Long, sign: Int): Triple<Double, Boolean, Double> {
         val a = bpAt(d - 1); val b = bpAt(d); val c = bpAt(d + 1)
         val fallback = d.toDouble() + (if (!a.isNaN() && !b.isNaN() && !c.isNaN()) parabolic(a, b, c) else 0.0)
-        if (sign == 0) return Pair(fallback, true)
+        if (sign == 0) return Triple(fallback, true, fallback)
         val start = d - lo
         var end = d + hi
         if (end > n - 1) { end = n - 1; clamped++ }
         val len = (end - start + 1).toInt()
-        if (len < 2 * EDGE + 3) return Pair(fallback, true)
+        if (len < 2 * EDGE + 3) return Triple(fallback, true, fallback)
         val w = DoubleArray(len) { sign.toDouble() * xAt(start + it) }
-        if (w.any { it.isNaN() }) return Pair(fallback, true)
+        if (w.any { it.isNaN() }) return Triple(fallback, true, fallback)
         val wd = detrend(w)
         var k = 0
         for (i in 1 until wd.size) if (wd[i] > wd[k]) k = i
-        if (k < EDGE || k > wd.size - 1 - EDGE) return Pair(fallback, true)
-        return Pair((start + k).toDouble() + parabolic(wd[k - 1], wd[k], wd[k + 1]), false)
+        if (k < EDGE || k > wd.size - 1 - EDGE) return Triple(fallback, true, fallback)
+        return Triple((start + k).toDouble() + parabolic(wd[k - 1], wd[k], wd[k + 1]), false, fallback)
     }
 
     private fun pushHist(d: Double) {
@@ -386,6 +432,15 @@ class BeatDetector(private val fs: Double = EcgFilter.ECG_SAMPLE_RATE) {
     /** Intervals the NN cleaning dropped from the current HRV history. */
     val nnDropped: Int get() = cleanNn(rrMs()).second
 
+    /** Share (0-1) of the beats in the HRV history whose interval survives into
+     *  the NN series. Report it next to RMSSD: an RMSSD from a few surviving
+     *  intervals is not the recording's RMSSD. */
+    val hrvCoverage: Double
+        get() {
+            if (rrHist.isEmpty()) return 0.0
+            return cleanNn(rrMs()).first.count { it }.toDouble() / rrHist.size
+        }
+
     /** RMSSD in ms on the cleaned NN series of the HRV history; null with fewer
      *  than [MIN_BEATS_FOR_HRV] accepted intervals or 5 differences.
      *  Cleaning (pan_tompkins.clean_nn is the reference): valid = 300-2000 ms; a
@@ -408,18 +463,21 @@ class BeatDetector(private val fs: Double = EcgFilter.ECG_SAMPLE_RATE) {
         }
 
     companion object {
+        // Frozen in tp2_config.json (version tp2.1); BeatDetectorConfigTest
+        // fails if any of these differs from that file.
         const val MIN_BEATS_FOR_HRV = 30
-        private const val HRV_DEPTH = 256
-        private const val NN_STEP = 0.20
-        private const val NN_SEED = 5
-        // tp2 parameters (fiducial.py v2 validated these values)
-        private const val R_BEFORE_S = 0.100
-        private const val R_AFTER_S = 0.060
-        private const val POL_KEEP = 16
-        private const val POL_MIN = 8
-        private const val POL_RATIO = 1.5
-        private const val EDGE = 2
-        private const val HIST_S = 4.0
+        internal const val HRV_DEPTH = 256
+        internal const val NN_STEP = 0.20
+        internal const val NN_SEED = 5
+        internal const val R_BEFORE_S = 0.100
+        internal const val R_AFTER_S = 0.060
+        internal const val POL_KEEP = 16
+        internal const val POL_MIN = 8
+        internal const val POL_RATIO = 1.5
+        internal const val EDGE = 2
+        internal const val HIST_S = 4.0
+        internal const val CORR_MIN = 0.0
+        internal const val CORR_LAG = 10
 
         private fun parabolic(a: Double, b: Double, c: Double): Double {
             val den = a - 2.0 * b + c

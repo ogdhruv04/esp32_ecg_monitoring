@@ -1,0 +1,9 @@
+# ./make_parity_fixtures.py, detector config tp2.1 (31 Oct 2026). Fixture inputs are causally filtered from
+# dual03 WITHOUT the 10 s settling skip, so RMSSD here differs slightly from the agreement/fiducial files.
+chest           15360 samples    98 beats, 4 flagged (0 by the check); RMSSD 22.38 ms, coverage 92% (93 NN), 0 dropped
+finger          26880 samples   175 beats, 5 flagged (0 by the check); RMSSD 18.11 ms, coverage 94% (167 NN), 2 dropped
+artifact_gaps   15360 samples    97 beats, 7 flagged (0 by the check); RMSSD 19.94 ms, coverage 74% (74 NN), 2 dropped   beats after the artifact: 79 with stall decay, 0 without
+polarity_flip   15360 samples    98 beats, 16 flagged (9 by the check); RMSSD 22.02 ms, coverage 74% (75 NN), 5 dropped
+               check off: after the flip 52 beats, 2 flagged, MISTIMED 9; RMSSD 29.87 ms (coverage 81%) vs 22.56 ms unflipped (coverage 91%)
+               check on : after the flip 52 beats, 11 flagged, MISTIMED 0; RMSSD 22.02 ms (coverage 74%) vs 22.56 ms unflipped (coverage 91%)
+wrote android_app/app/src/test/resources/parity/

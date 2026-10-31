@@ -29,3 +29,6 @@ build_wtest/
 
 # Office lock files (left behind while a .docx/.pptx is open)
 ~$*
+
+# Kotlin 2.x compiler session data
+android_app/.kotlin/

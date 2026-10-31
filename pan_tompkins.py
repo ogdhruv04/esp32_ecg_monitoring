@@ -12,9 +12,14 @@ and an artifact guard, validated in fiducial.py v2. Results produced before
 that used tp1 (the sample of max |5-15 Hz bandpassed|); those files are kept
 and carry no tp label.
 """
-import numpy as np, math
+import json, math, os
+import numpy as np
 
-TIMING_POINT = "tp2"     # written into result files; see the module docstring
+# Every tp2 and HRV parameter is frozen in tp2_config.json (BeatDetector.kt
+# hard-codes the same values; BeatDetectorConfigTest checks they match).
+with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "tp2_config.json")) as _f:
+    CONFIG = json.load(_f)
+TIMING_POINT = CONFIG["version"]   # written into result files; see the module docstring
 
 class Biquad:
     def __init__(s, b0, b1, b2, a1, a2):
@@ -51,11 +56,19 @@ def _median(v):
     return s[m] if len(s) % 2 else (s[m-1] + s[m]) / 2.0
 
 class PanTompkins:
-    # tp2 parameters (fiducial.py v2 validated these values)
-    R_BEFORE_S, R_AFTER_S = 0.100, 0.060   # R search window around the 5-15 Hz peak
-    POL_KEEP, POL_MIN, POL_RATIO = 16, 8, 1.5
-    EDGE = 2                                # a maximum this close to the window edge is no peak
-    HIST_S = 4.0                            # history kept for refining (covers search-back)
+    # tp2 parameters, from tp2_config.json:
+    #   R_BEFORE_S, R_AFTER_S  R search window around the 5-15 Hz peak
+    #   POL_KEEP, POL_MIN, POL_RATIO  rolling median beat for polarity
+    #   EDGE      a maximum this close to the window edge is no peak
+    #   HIST_S    history kept for refining (covers search-back)
+    #   CORR_MIN  per-beat check: flag a beat whose best-aligned correlation with
+    #             the median beat is below this (set None on an instance for "off")
+    #   CORR_LAG  +-samples searched for that best alignment
+    _c = CONFIG["detector"]
+    R_BEFORE_S, R_AFTER_S = _c["R_BEFORE_S"], _c["R_AFTER_S"]
+    POL_KEEP, POL_MIN, POL_RATIO = _c["POL_KEEP"], _c["POL_MIN"], _c["POL_RATIO"]
+    EDGE, HIST_S = _c["EDGE"], _c["HIST_S"]
+    CORR_MIN, CORR_LAG = _c["CORR_MIN"], _c["CORR_LAG"]
 
     def __init__(self, fs):
         self.fs = fs
@@ -106,6 +119,7 @@ class PanTompkins:
         self.bp_peaks = []         # 5-15 Hz peak index (tp1), for fiducial.py
         self.beats = []            # dicts: pos, bp, kind, flagged, gap - for HRV
         self.clamped = 0           # beats located before their R window had arrived (should stay 0)
+        self.corr_flagged = 0      # beats flagged by the per-beat correlation check
         # A beat is located only once its whole R window has arrived: the
         # integrator often fires less than 60 ms after the 5-15 Hz peak (on
         # 30-70% of beats), and a truncated window shifts the detrend and
@@ -261,19 +275,53 @@ class PanTompkins:
         return best_i, best_v >= 0.0
 
     def _polarity(self):
-        """Sign of the median of the previous beats' windows: +1/-1 when one lobe
-        is at least POL_RATIO x the other, 0 (undecided) otherwise or with fewer
-        than POL_MIN beats. Never decided from the current beat alone."""
+        """(sign, median beat). Sign of the median of the previous beats'
+        windows: +1/-1 when one lobe is at least POL_RATIO x the other, 0
+        (undecided) otherwise or with fewer than POL_MIN beats. Never decided
+        from the current beat alone. The median beat is detrended, None when
+        there are too few beats."""
         if len(self.segs) < self.POL_MIN:
-            return 0
+            return 0, None
         L = len(self.segs[0])
         t = _detrend([_median([s[i] for s in self.segs]) for i in range(L)])
         pos = max(t); neg = -min(t)
         if pos >= self.POL_RATIO * neg:
-            return 1
+            return 1, t
         if neg >= self.POL_RATIO * pos:
-            return -1
-        return 0
+            return -1, t
+        return 0, t
+
+    def _corr_with(self, t, d):
+        """Correlation of this beat's window with the median beat t at the lag
+        (within +-CORR_LAG samples) where |r| is largest, both detrended and
+        mean-removed over their overlap. Taking the best alignment matters: the
+        window is anchored on the 5-15 Hz peak, which can sit +-39 ms off the R
+        peak, and an unaligned normal beat can correlate negatively with its own
+        median beat. An inverted beat still gives r near -1 at its best lag.
+        NaN when it cannot be computed."""
+        w = [self._x(i) for i in range(d - self.lo, d + self.hi + 1)]
+        if len(w) != len(t) or any(v != v for v in w):
+            return math.nan
+        w = _detrend(w)
+        best = math.nan
+        L = len(w)
+        for lag in range(-self.CORR_LAG, self.CORR_LAG + 1):
+            i0 = max(0, -lag); i1 = min(L, L - lag)     # t[i] against w[i + lag]
+            m = i1 - i0
+            if m < L // 2:
+                continue
+            mw = sum(w[i + lag] for i in range(i0, i1)) / m
+            mt = sum(t[i] for i in range(i0, i1)) / m
+            sab = saa = sbb = 0.0
+            for i in range(i0, i1):
+                a = w[i + lag] - mw; b = t[i] - mt
+                sab += a * b; saa += a * a; sbb += b * b
+            if saa <= 0.0 or sbb <= 0.0:
+                continue
+            r = sab / math.sqrt(saa * sbb)
+            if best != best or abs(r) > abs(best):
+                best = r
+        return best
 
     def _tp2(self, d, sign):
         """R peak + parabolic + guard around the 5-15 Hz peak d.
@@ -281,22 +329,22 @@ class PanTompkins:
         a, b, c = self._bp(d - 1), self._bp(d), self._bp(d + 1)
         fallback = d + (_parabolic(a, b, c) if a == a and b == b and c == c else 0.0)
         if sign == 0:
-            return fallback, True
+            return fallback, True, fallback
         start = d - self.lo
         end = d + self.hi
         if end > self.n - 1:
             end = self.n - 1; self.clamped += 1
         w = [sign * self._x(i) for i in range(start, end + 1)]
         if len(w) < 2*self.EDGE + 3 or any(v != v for v in w):
-            return fallback, True
+            return fallback, True, fallback
         wd = _detrend(w)
         k = 0
         for i in range(1, len(wd)):
             if wd[i] > wd[k]:
                 k = i
         if k < self.EDGE or k > len(wd) - 1 - self.EDGE:
-            return fallback, True
-        return start + k + _parabolic(wd[k-1], wd[k], wd[k+1]), False
+            return fallback, True, fallback
+        return start + k + _parabolic(wd[k-1], wd[k], wd[k+1]), False, fallback
 
     def _accept(self, mwi_idx, kind, gap):
         """A beat was detected. Locate it now if its R window has arrived (always
@@ -314,8 +362,17 @@ class PanTompkins:
     def _finish(self):
         u = self.unfinished; self.unfinished = None
         d, ok, mwi_idx, kind, gap = u["d"], u["ok"], u["mwi"], u["kind"], u["gap"]
-        sign = self._polarity()
-        pos, flagged = self._tp2(d, sign) if ok else (float(mwi_idx), True)
+        sign, tmpl = self._polarity()
+        pos, flagged, fallback = self._tp2(d, sign) if ok else (float(mwi_idx), True, float(mwi_idx))
+        # Per-beat CHECK against the median beat (not a per-beat decision): a beat
+        # whose window anti-correlates with it is inverted relative to the
+        # template - after a real polarity change, the template keeps the old
+        # sign for several beats and would time them on the wrong lobe.
+        if not flagged and self.CORR_MIN is not None:
+            r = self._corr_with(tmpl, d)
+            if not (r >= self.CORR_MIN):          # NaN fails too
+                pos, flagged = fallback, True
+                self.corr_flagged += 1
         # This beat's window joins the polarity template AFTER its own sign
         # was set, and only when the whole window has arrived.
         if ok and d + self.hi <= self.n - 1:
@@ -330,22 +387,24 @@ class PanTompkins:
         return None if u["warm"] else pos
 
 # ------------------------------------------------------------------ HRV reference
-NN_STEP, NN_SEED, HRV_DEPTH, MIN_BEATS_FOR_HRV = 0.20, 5, 256, 30
+_h = CONFIG["hrv"]
+NN_STEP, NN_SEED = _h["NN_STEP"], _h["NN_SEED"]
+HRV_DEPTH, MIN_BEATS_FOR_HRV = _h["HRV_DEPTH"], _h["MIN_BEATS_FOR_HRV"]
 
 def rr_history(beats, fs, depth=HRV_DEPTH):
-    """The phone's rrHist (BeatDetector.kt), in ms: intervals between consecutive
-    primary, unflagged beats; a flagged or searched-back beat, or a lost-data
-    gap, breaks the series (NaN). The newest `depth` entries are kept."""
-    hist, last = [], None
+    """The phone's rrHist (BeatDetector.kt), in ms: ONE entry per inter-beat
+    interval, so coverage (accepted / entries) means "share of beats whose
+    interval is used". An interval is NaN unless both its beats are primary
+    and unflagged and no samples were lost between them. The newest `depth`
+    entries are kept."""
+    hist, last, seen = [], None, False
     for b in beats:
-        if b["kind"] == "primary" and not b["flagged"]:
-            if last is not None:
-                hist.append(math.nan if b["gap"] else 1000.0 * (b["pos"] - last) / fs)
-            last = b["pos"]
-        else:
-            if last is not None:
-                hist.append(math.nan)
-            last = None
+        usable = b["kind"] == "primary" and not b["flagged"]
+        if seen:
+            hist.append(1000.0 * (b["pos"] - last) / fs
+                        if usable and last is not None and not b["gap"] else math.nan)
+        seen = True
+        last = b["pos"] if usable else None
     return hist[-depth:]
 
 def clean_nn(rr_ms):
@@ -373,17 +432,19 @@ def clean_nn(rr_ms):
 
 def rmssd_nn(rr_ms):
     """RMSSD (ms) on the cleaned NN series, differences only between two accepted
-    intervals that are adjacent. Returns (rmssd or None, n_accepted, n_dropped);
-    None with fewer than MIN_BEATS_FOR_HRV accepted intervals or 5 differences."""
+    intervals that are adjacent. Returns (rmssd or None, n_accepted, n_dropped,
+    coverage), coverage = accepted / all entries of rr_ms; rmssd is None with
+    fewer than MIN_BEATS_FOR_HRV accepted intervals or 5 differences."""
     acc, dropped = clean_nn(rr_ms)
     s, k = 0.0, 0
     for i in range(1, len(rr_ms)):
         if acc[i] and acc[i-1]:
             dd = rr_ms[i] - rr_ms[i-1]; s += dd*dd; k += 1
     n_acc = sum(acc)
+    cov = n_acc / len(rr_ms) if rr_ms else 0.0
     if n_acc < MIN_BEATS_FOR_HRV or k < 5:
-        return None, n_acc, dropped
-    return math.sqrt(s / k), n_acc, dropped
+        return None, n_acc, dropped, cov
+    return math.sqrt(s / k), n_acc, dropped, cov
 
 def detect(sig, fs, with_flags=False):
     """tp2 positions (fractional sample index) of every accepted beat, warm-up

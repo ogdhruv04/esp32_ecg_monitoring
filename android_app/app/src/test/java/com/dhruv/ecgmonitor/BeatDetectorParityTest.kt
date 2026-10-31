@@ -77,8 +77,9 @@ class BeatDetectorParityTest {
     /** A 40x artifact followed by lost packets: exercises stall decay and skip(). */
     @Test fun artifactAndGapsMatchPython() = assertParity("artifact_gaps")
 
-    /** Sign inverted at 30 s: the rolling polarity goes undecided (flagged
-     *  beats, fallback position) and settles on the other sign. */
+    /** Sign inverted at 30 s: the per-beat correlation check flags the beats the
+     *  old-sign median beat would time on the wrong lobe, the rolling polarity
+     *  goes undecided, then settles on the other sign. */
     @Test fun polarityFlipMatchesPython() = assertParity("polarity_flip")
 
     @Test fun detectorRecoversAfterArtifact() {
@@ -103,15 +104,17 @@ class BeatDetectorParityTest {
             d.process(f.values[i])
         }
         val e = resource("parity/${name}_rmssd.txt").trim().split(',')
-        val expected = e[0].toDouble(); val dropped = e[2].trim().toInt()
+        val expected = e[0].toDouble(); val dropped = e[2].trim().toInt(); val coverage = e[3].trim().toDouble()
         val got = d.rmssdMs
-        println("$name RMSSD phone $got ms, python $expected ms; dropped ${d.nnDropped} vs $dropped")
+        println("$name RMSSD phone $got ms, python $expected ms; dropped ${d.nnDropped} vs $dropped; " +
+                "coverage ${d.hrvCoverage} vs $coverage; check flagged ${d.corrFlagged}")
         if (expected.isNaN()) assertNull("$name: phone shows an RMSSD Python withholds", got)
         else {
             assertNotNull("$name: no RMSSD from ${d.beatCount} intervals", got)
             assertEquals("$name RMSSD", expected, got!!, 1e-9)
         }
         assertEquals("$name NN intervals dropped", dropped, d.nnDropped)
+        assertEquals("$name HRV coverage", coverage, d.hrvCoverage, 1e-12)
     }
 
     @Test fun chestRmssdMatchesPython() = assertRmssdParity("chest")

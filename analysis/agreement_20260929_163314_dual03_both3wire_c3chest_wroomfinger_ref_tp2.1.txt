@@ -1,0 +1,11 @@
+source: captures/20260929_163314_dual03_both3wire_c3chest_wroomfinger_ref.csv + captures/20260929_163314_dual03_both3wire_c3chest_wroomfinger_ring.csv
+timing point: tp2.1 (pan_tompkins.py)
+settings: fs=256 mains=50 window=10s tol=150ms skip=10s max_offset=5s
+integrity chest: 27046 samples, 0 missing, 0 gaps, 0 duplicate idx, 0 fast-mode; clean run 105.6 s
+integrity finger: 27046 samples, 0 missing, 0 gaps, 0 duplicate idx, 0 fast-mode; clean run 105.6 s
+shared span 104.8 s: chest 179 beats, finger 179 beats
+offset -17 ms, drift -16.7 +/- 7.3 ppm
+beats matched 178 missed 1 extra 1  Se 99.44%  P+ 99.44%
+HR bias +0.03 bpm  LoA -0.10..+0.15  ICC 0.9998  CCC 0.9997
+RR 169 intervals (8 flagged out)  bias +0.00 ms  LoA -1.57..+1.58
+RMSSD cleaned NN: chest 18.1 ms (coverage 94%)  finger 18.0 ms (coverage 94%)  (20% rule dropped chest 2, finger 2)

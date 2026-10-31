@@ -1,0 +1,11 @@
+source: captures/20260929_155511_dual02_rbias_c3chest_wroomfinger_ref.csv + captures/20260929_155511_dual02_rbias_c3chest_wroomfinger_ring.csv
+timing point: tp2.1 (pan_tompkins.py)
+settings: fs=256 mains=50 window=10s tol=150ms skip=10s max_offset=5s
+integrity chest: 27331 samples, 0 missing, 0 gaps, 0 duplicate idx, 0 fast-mode; clean run 106.8 s
+integrity finger: 27329 samples, 0 missing, 0 gaps, 0 duplicate idx, 0 fast-mode; clean run 106.8 s
+shared span 106.0 s: chest 240 beats, finger 185 beats
+offset -21 ms, drift -217.4 +/- 62.6 ppm
+beats matched 174 missed 66 extra 11  Se 72.50%  P+ 94.05%
+HR bias -29.10 bpm  LoA -97.60..+39.41  ICC 0.0954  CCC 0.0867
+RR 4 intervals (114 flagged out)  bias -11.77 ms  LoA -54.96..+31.41
+RMSSD cleaned NN: chest nan ms (coverage 1%)  finger nan ms (coverage 2%)  (20% rule dropped chest 1, finger 1)
