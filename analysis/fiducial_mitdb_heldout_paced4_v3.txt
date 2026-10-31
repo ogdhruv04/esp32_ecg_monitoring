@@ -1,0 +1,46 @@
+# ./fiducial.py mitdb --dir /home/dhruv/esp32_ecg_analysis/data/mitdb_heldout --records 102 104 107 217 --label heldout_paced4   (analysis v3)
+# detector config tp2.1 (tp2_config.json): {'R_BEFORE_S': 0.1, 'R_AFTER_S': 0.06, 'POL_KEEP': 16, 'POL_MIN': 8, 'POL_RATIO': 1.5, 'EDGE': 2, 'HIST_S': 4.0, 'CORR_MIN': 0.0, 'CORR_LAG': 10}
+# HRV: {'NN_STEP': 0.2, 'NN_SEED': 5, 'HRV_DEPTH': 256, 'MIN_BEATS_FOR_HRV': 30}
+
+MIT-BIH, 4 records from /home/dhruv/esp32_ecg_analysis/data/mitdb_heldout: 102 104 107 217
+Front end as benchmark_mitdb.py: resampled to 256 Hz, 0.5-40 Hz, single 60 Hz notch. Lead 0 is
+MLII where the record has it, else channel 0; lead 1 is the other channel. Annotation times are
+kept unrounded. Timing and RMSSD use AAMI class-N beats (N L R e j) whose neighbouring beats
+are also class N, matched to detections within 150 ms. Flagged beats are left out of timing
+statistics and break the RR series. RMSSD error = RMSSD(timing point) - RMSSD(annotations),
+both on runs of consecutive matched class-N beats, both cleaned by the detector's rules.
+COVERAGE = beats whose interval is used in that RMSSD / all annotated beats in the record.
+
+=== zero-phase filter: per record, sd(lead-0 timing - annotation) ms / RMSSD error ms / coverage % ===
+ rec  lead  beats ann RMSSD  cov |          bp           |        R+parab        |          tp2          |         tp2.1         | check flagged
+ 102    V5     90    27.4ms   4% |   1.87  -0.19    4%   |   1.05  +0.03    4%   |   1.05  -0.17    4%   |   0.92  -0.26    4%   | 422
+ 104    V5     54    30.3ms   2% |   1.99  +0.27    2%   |   1.16  -0.15    2%   |   1.42  -0.22    2%   |   1.26  -0.80    2%   | 86
+ 107 skipped: fewer than 30 matched class-N beats
+ 217  MLII     99    62.8ms   3% |   1.29  +0.18    3%   |   1.40  +2.28    3%   |   1.00  -0.37    3%   |   0.98  -0.37    3%   | 127
+
+=== causal filter: per record, sd(lead-0 timing - annotation) ms / RMSSD error ms / coverage % ===
+ rec  lead  beats ann RMSSD  cov |          bp           |        R+parab        |          tp2          |         tp2.1         | check flagged
+ 102    V5     90    27.4ms   4% |   1.87  -0.33    4%   |   2.24  +2.74    4%   |   1.43  +1.57    4%   |   1.45  +1.84    4%   | 364
+ 104    V5     54    30.3ms   2% |   2.19  +0.30    2%   |   3.79  -0.16    2%   |   1.11  -0.33    2%   |   1.14  -0.88    2%   | 443
+ 107 skipped: fewer than 30 matched class-N beats
+ 217  MLII     99    62.8ms   3% |   1.54  -0.08    3%   |   1.36  -0.15    3%   |   1.18  -0.40    3%   |   1.16  -0.40    3%   | 511
+
+=== zero-phase: summary over records (median [min, max]) ===
+timing point     sd vs annotation, ms             RMSSD error, ms             coverage % | three-cornered hat sd ms: annotation / lead 0 / lead 1
+bp                  1.87 [1.29, 1.99]        +0.18 [-0.19, +0.27]               3 [2, 4] | 1.93 / neg / 0.51
+bp+parab            1.31 [0.97, 1.45]        -0.24 [-0.48, +0.09]               3 [2, 4] | 1.42 / neg / 1.69
+R                   1.74 [1.48, 2.19]        +0.00 [-0.19, +1.31]               3 [2, 4] | 1.67 / 0.46 / 1.38
+R+parab             1.16 [1.05, 1.40]        +0.03 [-0.15, +2.28]               3 [2, 4] | 0.86 / 0.77 / 1.58
+tp2                 1.05 [1.00, 1.42]        -0.22 [-0.37, -0.17]               3 [2, 4] | 0.31 / 0.95 / 2.55
+tp2.1               0.98 [0.92, 1.26]        -0.37 [-0.80, -0.26]               3 [2, 4] | 0.85 / 0.74 / 1.76
+
+=== causal: summary over records (median [min, max]) ===
+timing point     sd vs annotation, ms             RMSSD error, ms             coverage % | three-cornered hat sd ms: annotation / lead 0 / lead 1
+bp                  1.87 [1.54, 2.19]        -0.08 [-0.33, +0.30]               3 [2, 4] | neg / 3.39 / 4.05
+bp+parab            1.18 [0.93, 1.31]        -0.24 [-0.46, -0.08]               3 [2, 4] | 0.91 / 0.18 / 1.42
+R                   3.28 [1.29, 3.54]        -0.11 [-0.50, +3.43]               3 [2, 4] | neg / 3.58 / 3.53
+R+parab             2.24 [1.36, 3.79]        -0.15 [-0.16, +2.74]               3 [2, 4] | 1.00 / 2.58 / 2.13
+tp2                 1.18 [1.11, 1.43]        -0.33 [-0.40, +1.57]               3 [2, 4] | neg / 1.25 / 2.45
+tp2.1               1.16 [1.14, 1.45]        -0.40 [-0.88, +1.84]               3 [2, 4] | 0.36 / 1.09 / 2.27
+
+RMSSD errors are NaN-skipped in the summary; a record whose RMSSD is withheld (fewer than 30 accepted intervals) shows nan in its row.

@@ -8,11 +8,11 @@ depends on. Register facts are from the MAX30003 datasheet, Rev 3, pp.35–36
 electrode touches skin). Both boards are powered from the laptop's USB, so they share a ground
 through it (CLAUDE.md, Rules).
 
-## Before the session: firmware prerequisite (not yet done)
+## Before the session: flash both boards
 
-The firmware cannot change the input multiplexer or the calibration source at run time; its
-only serial commands are `b` (body bias) and `r` (FIFO reset). Step 2 needs three more, added
-to `sketch.ino` and flashed to **both** boards (one sketch, never forked):
+The three commands step 2 needs are in `sketch.ino` (added 31 Oct 2026, on the `analysis`
+branch) and both targets are built, but **neither board is flashed yet**. Flash both from the
+`analysis` worktree (`build/` and `build_ref/` there), as in CLAUDE.md.
 
 | Command | `CNFG_EMUX` (0x14) | `CNFG_CAL` (0x12) | Meaning |
 |---|---|---|---|
@@ -20,8 +20,14 @@ to `sketch.ino` and flashed to **both** boards (one sketch, never forked):
 | `e` | `0x000000` | `0x000000` | Electrodes only: inputs connected, no calibration source, calibration disabled |
 | `c` | `0x390000` | `0x702800` | Scale test: electrodes disconnected (OPENP = OPENN = 1), ECGP ← VCALP, ECGN ← VMID; VCAL on, bipolar, VMAG 0.5 mV, FCAL ≈ 16 Hz, 50% duty |
 
-Each command should be followed by FIFO_RST and a `#` line echoing both registers read back,
-so every capture log records the configuration it was taken in.
+Each command enables the source before routing it (or unroutes before disabling), resets the
+FIFO, and echoes both registers **read back from the chip**:
+`# cfg emux:390000 cal:702800 mode:c (set)`. The same line, without `(set)`, is printed at boot
+(`mode:begin`) and every 5 s, so every capture log records the configuration it was taken in.
+`capture.py` writes `#` lines to its `.log`; `capture_dual.py` now writes a `.log` per board.
+Send a command with any serial terminal, e.g. `printf c > /dev/ttyACM0` for the ring; for the
+reference board the UART runs at 460800. **Check the log's `# cfg` line before trusting a
+capture's label**: the boards boot in `mode:begin` (= `d` values) after every reset.
 
 Bit fields used (pp.35–36): `CNFG_EMUX` D23 POL, D21 OPENP, D20 OPENN, D[19:18] CALP_SEL
 (01 VMID, 10 VCALP, 11 VCALN), D[17:16] CALN_SEL. `CNFG_CAL` D22 EN_VCAL, D21 VMODE
