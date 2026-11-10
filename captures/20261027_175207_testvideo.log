@@ -1,0 +1,65 @@
+,235521,920631645,-269,2,0
+,235521,920631645,-269,2,0
+0,924381670,-171,0,0
+# 5s: valid:1280 ovf:0 empty:0 other:0 rate:256.00 | life: valid:236797 ovf:0 logdrop:0 depth_max:5/32 isr:59190 sweep:1 pin:1 status:000200 isr_gap_us:15589-15662
+28709824,-367,0,0
+# 5s: valid:1280 ovf:0 empty:0 other:0 rate:256.00 | life: valid:238077 ovf:0 logdrop:0 depth_max:5/32 isr:59510 sweep:1 pin:1 status:000200 isr_gap_us:15621-15630
+# 5s: valid:1280 ovf:0 empty:0 other:0 rate:256.00 | life: valid:239357 ovf:0 logdrop:0 depth_max:5/32 isr:59830 sweep:1 pin:1 status:000200 isr_gap_us:15610-15636
+# 5s: valid:1280 ovf:0 empty:0 other:0 rate:256.00 | life: valid:240637 ovf:0 logdrop:0 depth_max:5/32 isr:60150 sweep:1 pin:1 status:000200 isr_gap_us:15622-15628
+0,0
+# 5s: valid:1280 ovf:0 empty:0 other:0 rate:256.00 | life: valid:241917 ovf:0 logdrop:0 depth_max:5/32 isr:60470 sweep:1 pin:1 status:000200 isr_gap_us:15617-15630
+# 5s: valid:1281 ovf:0 empty:0 other:0 rate:256.20 | life: valid:243198 ovf:0 logdrop:0 depth_max:5/32 isr:60790 sweep:1 pin:1 status:000200 isr_gap_us:15621-19529
+# 5s: valid:1280 ovf:0 empty:0 other:0 rate:256.00 | life: valid:244478 ovf:0 logdrop:0 depth_max:5/32 isr:61110 sweep:1 pin:1 status:000200 isr_gap_us:15588-15661
+# 5s: valid:1281 ovf:0 empty:0 other:0 rate:256.20 | life: valid:245759 ovf:0 logdrop:0 depth_max:5/32 isr:61430 sweep:1 pin:1 status:000200 isr_gap_us:15593-19533
+# 5s: valid:1280 ovf:0 empty:0 other:0 rate:256.00 | life: valid:247039 ovf:0 logdrop:0 depth_max:5/32 isr:61750 sweep:1 pin:1 status:000200 isr_gap_us:15605-15646
+05,967409287,-56,0,0
+# 5s: valid:1277 ovf:0 empty:1 other:0 rate:255.40 | life: valid:248316 ovf:0 logdrop:0 depth_max:5/32 isr:62070 sweep:1 pin:1 status:000200 isr_gap_us:3906-15653
+# 5s: valid:1281 ovf:0 empty:0 other:0 rate:256.20 | life: valid:249597 ovf:0 logdrop:0 depth_max:5/32 isr:62390 sweep:1 pin:1 status:000200 isr_gap_us:15581-19532
+# 5s: valid:1281 ovf:0 empty:0 other:0 rate:256.20 | life: valid:252158 ovf:0 logdrop:0 depth_max:5/32 isr:63030 sweep:1 pin:1 status:000200 isr_gap_us:15567-19532
+# 5s: valid:1281 ovf:0 empty:0 other:0 rate:256.20 | life: valid:253439 ovf:0 logdrop:0 depth_max:5/32 isr:63350 sweep:1 pin:1 status:000200 isr_gap_us:15581-19533
+# 5s: valid:1280 ovf:0 empty:0 other:0 rate:256.00 | life: valid:254719 ovf:0 logdrop:0 depth_max:5/32 isr:63670 sweep:1 pin:1 status:000200 isr_gap_us:15595-15653
+# 5s: valid:1277 ovf:0 empty:0 other:0 rate:255.40 | life: valid:255996 ovf:0 logdrop:0 depth_max:5/32 isr:63989 sweep:1 pin:1 status:000200 isr_gap_us:15609-19530
+# 5s: valid:1280 ovf:0 empty:0 other:0 rate:256.00 | life: valid:257276 ovf:0 logdrop:1 depth_max:5/32 isr:64309 sweep:1 pin:1 status:000200 isr_gap_us:15606-15648
+# 5s: valid:1281 ovf:0 empty:0 other:0 rate:256.20 | life: valid:258557 ovf:0 logdrop:2 depth_max:5/32 isr:64629 sweep:1 pin:1 status:000200 isr_gap_us:15608-19533
+# 5s: valid:1281 ovf:0 empty:0 other:0 rate:256.20 | life: valid:259838 ovf:0 logdrop:2 depth_max:5/32 isr:64949 sweep:1 pin:1 status:000200 isr_gap_us:15617-19532
+# 5s: valid:1280 ovf:0 empty:0 other:0 rate:256.00 | life: valid:261118 ovf:0 logdrop:2 depth_max:5/32 isr:65269 sweep:1 pin:1 status:000200 isr_gap_us:15621-15628
+# 5s: valid:1281 ovf:0 empty:0 other:0 rate:256.20 | life: valid:262399 ovf:0 logdrop:2 depth_max:5/32 isr:65589 sweep:1 pin:1 status:000200 isr_gap_us:15620-19533
+# 5s: valid:1277 ovf:0 empty:0 other:0 rate:255.40 | life: valid:263676 ovf:0 logdrop:2 depth_max:5/32 isr:65908 sweep:1 pin:1 status:000200 isr_gap_us:15620-19529
+# 5s: valid:1280 ovf:0 empty:0 other:0 rate:256.00 | life: valid:264956 ovf:0 logdrop:3 depth_max:5/32 isr:66228 sweep:1 pin:1 status:000200 isr_gap_us:15594-15654
+# 5s: valid:1281 ovf:0 empty:0 other:0 rate:256.20 | life: valid:266237 ovf:0 logdrop:4 depth_max:5/32 isr:66548 sweep:1 pin:1 status:000200 isr_gap_us:15584-19532
+# 5s: valid:1281 ovf:0 empty:0 other:0 rate:256.20 | life: valid:267518 ovf:0 logdrop:4 depth_max:5/32 isr:66868 sweep:1 pin:1 status:000200 isr_gap_us:15622-19534
+# 5s: valid:1280 ovf:0 empty:0 other:0 rate:256.00 | life: valid:268798 ovf:0 logdrop:4 depth_max:5/32 isr:67188 sweep:1 pin:1 status:000200 isr_gap_us:15586-15663
+# 5s: valid:1281 ovf:0 empty:0 other:0 rate:256.20 | life: valid:270079 ovf:0 logdrop:4 depth_max:5/32 isr:67508 sweep:1 pin:1 status:000200 isr_gap_us:15591-19533
+# 5s: valid:1277 ovf:0 empty:0 other:0 rate:255.40 | life: valid:271356 ovf:0 logdrop:4 depth_max:5/32 isr:67827 sweep:1 pin:1 status:000200 isr_gap_us:15575-19535
+# 5s: valid:1280 ovf:0 empty:0 other:0 rate:256.00 | life: valid:272636 ovf:0 logdrop:5 depth_max:5/32 isr:68147 sweep:1 pin:1 status:000200 isr_gap_us:15595-15654
+# 5s: valid:1280 ovf:0 empty:0 other:0 rate:256.00 | life: valid:273916 ovf:0 logdrop:6 depth_max:5/32 isr:68467 sweep:1 pin:1 status:000200 isr_gap_us:15588-15665
+# 5s: valid:1280 ovf:0 empty:0 other:0 rate:256.00 | life: valid:275196 ovf:0 logdrop:6 depth_max:5/32 isr:68787 sweep:1 pin:1 status:000200 isr_gap_us:15583-15666
+# 5s: valid:1280 ovf:0 empty:0 other:0 rate:256.00 | life: valid:276476 ovf:0 logdrop:7 depth_max:5/32 isr:69107 sweep:1 pin:1 status:000200 isr_gap_us:15588-15660
+# 5s: valid:1280 ovf:0 empty:0 other:0 rate:256.00 | life: valid:277756 ovf:0 logdrop:8 depth_max:5/32 isr:69427 sweep:1 pin:1 status:000200 isr_gap_us:15621-15628
+# 5s: valid:1280 ovf:0 empty:0 other:0 rate:256.00 | life: valid:279036 ovf:0 logdrop:8 depth_max:5/32 isr:69747 sweep:1 pin:1 status:000200 isr_gap_us:15580-15674
+323,-130,0,0
+-126,0,0
+-126,0,0
+-126,0,0
+-126,0,0
+-126,0,0
+-126,0,0
+-126,0,0
+-126,0,0
+-126,0,0
+-126,0,0
+-126,0,0
+-126,0,0
+-126,0,0
+-126,0,0
+-126,0,0
+-126,0,0
+-126,0,0
+-126,0,0
+-126,0,0
+-126,0,0
+# 5s: valid:1280 ovf:0 empty:0 other:0 rate:256.00 | life: valid:280316 ovf:0 logdrop:9 depth_max:5/32 isr:70067 sweep:1 pin:1 status:000200 isr_gap_us:15596-15653
+# 5s: valid:1280 ovf:0 empty:0 other:0 rate:256.00 | life: valid:281596 ovf:0 logdrop:10 depth_max:5/32 isr:70387 sweep:1 pin:1 status:000200 isr_gap_us:15618-15632
+# 5s: valid:1280 ovf:0 empty:0 other:0 rate:256.00 | life: valid:282876 ovf:0 logdrop:10 depth_max:5/32 isr:70707 sweep:1 pin:1 status:000200 isr_gap_us:15615-15633
+# 5s: valid:1280 ovf:0 empty:0 other:0 rate:256.00 | life: valid:284156 ovf:0 logdrop:11 depth_max:5/32 isr:71027 sweep:1 pin:1 status:000200 isr_gap_us:15612-15639
+# 5s: valid:1280 ovf:0 empty:0 other:0 rate:256.00 | life: valid:285436 ovf:0 logdrop:12 depth_max:5/32 isr:71347 sweep:1 pin:1 status:000200 isr_gap_us:15621-15628

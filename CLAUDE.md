@@ -70,6 +70,7 @@ A third board, the custom ESP32-C3 in `docs/ESP32C3_custom_schematic.pdf`: a bar
 - WiFi credentials go in `wireless_test/wifi_secrets.h`, which is gitignored; copy it from the `.example.h`.
 - `./wireless_test.py --minutes 60 --label soak`: UDP echo (5005) and TCP stream (5006), with the laptop connecting out to the board because of WSL2 NAT. It logs serial and prints PASS/FAIL against the proposed criteria at the top of the script.
 - For BLE, it advertises as `C3-WTEST` with the ECG service UUID, so the unmodified phone app connects and shows packet loss.
+- The same board with a MAX30003 attached runs `sketch.ino` built by `./build_test.sh` (`-DBOARD_TEST_C3`: CS 7, INTB **GPIO3** because GPIO10 isn't on its header, SYNC 10 unconnected, BLE on as `ESP32-ECG` like the ring, Serial on the FTDI at 460800). Flash it like the wireless test, from `build_test/`.
 - Every boot prints `# boot ... reason=... brownouts=N`. BROWNOUT resets under WiFi TX mean VIN is too low for the AMS1117.
 
 ## Firmware serial protocol

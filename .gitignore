@@ -30,3 +30,6 @@ build_wtest/
 
 # Office lock files (left behind while a .docx/.pptx is open)
 ~$*
+build_blink/
+build_test/
+src_build_test/

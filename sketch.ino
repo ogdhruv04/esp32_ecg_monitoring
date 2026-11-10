@@ -30,7 +30,18 @@
 // the timestamping must be byte-identical. Fork this file and they stop being
 // comparable.
 // ---------------------------------------------------------------------------
-#if CONFIG_IDF_TARGET_ESP32C3
+#if defined(BOARD_TEST_C3)
+  // TEST device - custom ESP32-C3 board (docs/ESP32C3_custom_schematic.pdf),
+  // FTDI on UART0, built by build_test.sh. Not part of the two-device study.
+  // GPIO10 is not on its header, so INTB is wired to GPIO3 and SYNC takes
+  // GPIO10 instead (unconnected; the pulldown keeps it quiet).
+  #define DEVICE_TAG          "TEST"
+  #define MAX30003_CS_PIN     7
+  #define MAX30003_INT1_PIN   3
+  #define SYNC_PIN            10
+  #define ENABLE_BLE          1     // advertises as ESP32-ECG, same as the ring:
+                                    // power only one of the two near the phone
+#elif CONFIG_IDF_TARGET_ESP32C3
   // RING device - ESP32-C3 SuperMini, native USB-CDC.
   // SPI uses the C3's FSPI defaults: SCK=4, MISO=5, MOSI=6.
   #define DEVICE_TAG          "RING"
