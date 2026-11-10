@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ECG acquisition for a finger-electrode ECG ring: ESP32 + MAX30003 firmware, an Android app that filters and detects beats live, and a Python toolchain for capture, analysis and validation. It is a research project. The deliverable is *validated* measurements, so evidence matters more than features. The current plan, with monthly milestones for Sep 2026 – Feb 2027, is `docs/ECG_Ring_SoC_Project_Plan.docx`.
 
+**Every session reads `docs/MIDTERM_PLAN.md` first** (the plan for 10 Nov – 7 Dec 2026), works on its own branch (`fw`, `algo` or `app`) in its own git worktree, and at the end ticks off only its own section of that plan.
+
 ## Two devices, one firmware
 
 `sketch.ino` builds for both boards. The board is selected at compile time by `CONFIG_IDF_TARGET_ESP32C3`:
@@ -65,7 +67,7 @@ cd android_app && ./gradlew assembleDebug          # install with ~/Android/Sdk/
 ./make_parity_fixtures.py && (cd android_app && ./gradlew testDebugUnitTest)   # BeatDetector.kt == pan_tompkins.py?
 ```
 
-`data/` is gitignored, so in a git worktree pass `--dir <main checkout>/data/mitdb` to the benchmark and `fiducial.py`. The benchmark has no single-record option; it always runs every record in `data/mitdb/`. Use `--method neurokit` or `--method pantompkins1985` for comparison detectors. MIT-BIH is US data, so its notch filter is fixed at 60 Hz, while our own recordings use 50 Hz.
+`data/` is gitignored, so in a git worktree pass `--dir <main checkout>/data/mitdb` to the benchmark and `fiducial.py`. The 36 held-out MIT-BIH records are in `<main checkout>/data/mitdb_heldout`. They were moved there from the removed analysis worktree on 10 Nov, so the saved held-out reports still name the old path. That set has been used once and is spent: never tune on it. The benchmark has no single-record option; it always runs every record in `data/mitdb/`. Use `--method neurokit` or `--method pantompkins1985` for comparison detectors. MIT-BIH is US data, so its notch filter is fixed at 60 Hz, while our own recordings use 50 Hz.
 
 ## Wireless test board (side task)
 
