@@ -1,0 +1,40 @@
+# ./fiducial.py dual captures/20260929_163314_dual03_both3wire_c3chest_wroomfinger_ring.csv captures/20260929_163314_dual03_both3wire_c3chest_wroomfinger_ref.csv --chest ring --zoom 35.5 39.5   (analysis v3)
+# detector config tp2.1 (tp2_config.json): {'R_BEFORE_S': 0.1, 'R_AFTER_S': 0.06, 'POL_KEEP': 16, 'POL_MIN': 8, 'POL_RATIO': 1.5, 'EDGE': 2, 'HIST_S': 4.0, 'CORR_MIN': 0.0, 'CORR_LAG': 10}
+# HRV: {'NN_STEP': 0.2, 'NN_SEED': 5, 'HRV_DEPTH': 256, 'MIN_BEATS_FOR_HRV': 30}
+
+chest  captures/20260929_163314_dual03_both3wire_c3chest_wroomfinger_ring.csv
+finger captures/20260929_163314_dual03_both3wire_c3chest_wroomfinger_ref.csv
+skip 10 s; chest 105.6 s, finger 105.6 s clean
+
+dt = finger - chest beat time on matched beats, median removed; 'jitter' excludes pairs
+off by >20 ms (counted under >20ms). Pairs with a flagged beat are left out of dt and RR
+and counted under 'flag'. RMSSD is on each channel's cleaned NN series over ALL its beats;
+'cov' = share of that channel's beats whose interval is used; 'like-for-like' uses only
+successive differences where both channels kept both intervals.
+
+=== zero-phase filter ===
+beats detected chest 180, finger 180; matched pairs 179; whole-recording polarity chest -1, finger -1; tp2.1 check flagged chest 0, finger 0
+timing point  dt sd jitter >20ms flag |        RR LoA | RMSSD chest  cov finger  cov | like-for-like ch / fing    n
+bp             2.97   2.03     1    0 |   -8.5.. +8.5 |      17.9ms  98%  18.6ms  98% |       17.9 /  18.6 ms  174
+             gross: +27 ms at 37.0 s
+bp+parab       2.47   0.82     1    0 |   -6.7.. +6.7 |      17.7ms  98%  18.4ms  98% |       17.7 /  18.4 ms  174
+             gross: +31 ms at 37.0 s
+R              6.85   1.70     1    0 |  -19.2..+19.2 |      17.8ms  98%  18.8ms  98% |       17.9 /  18.8 ms  172
+             gross: -90 ms at 37.5 s
+R+parab        6.58   0.68     1    0 |  -18.6..+18.6 |      17.6ms  98%  18.9ms  98% |       17.7 /  18.9 ms  172
+             gross: -88 ms at 37.5 s
+tp2            0.67   0.67     0    8 |   -1.6.. +1.6 |      18.0ms  94%  17.9ms  94% |       18.0 /  17.9 ms  166
+tp2.1          0.67   0.67     0    8 |   -1.6.. +1.6 |      18.0ms  94%  17.9ms  94% |       18.0 /  17.9 ms  166
+
+=== causal filter ===
+beats detected chest 180, finger 180; matched pairs 179; whole-recording polarity chest -1, finger -1; tp2.1 check flagged chest 0, finger 0
+timing point  dt sd jitter >20ms flag |        RR LoA | RMSSD chest  cov finger  cov | like-for-like ch / fing    n
+bp            14.20   1.98    48    0 |  -37.6..+37.5 |      24.5ms  99%  36.7ms  98% |       23.2 /  36.7 ms  174
+             gross: 48 pairs, dt -39..+35 ms
+bp+parab      14.43   1.30    48    0 |  -38.1..+38.1 |      23.1ms  98%  37.0ms  98% |       23.1 /  37.0 ms  174
+             gross: 48 pairs, dt -39..+36 ms
+R              2.07   2.07     0    0 |   -6.0.. +6.0 |      17.9ms  98%  17.6ms  98% |       17.9 /  17.6 ms  174
+R+parab        0.68   0.68     0    0 |   -1.6.. +1.6 |      17.6ms  98%  17.6ms  98% |       17.6 /  17.6 ms  174
+tp2            0.69   0.69     0    8 |   -1.7.. +1.7 |      18.0ms  94%  17.9ms  94% |       18.0 /  17.9 ms  166
+tp2.1          0.69   0.69     0    8 |   -1.7.. +1.7 |      18.0ms  94%  17.9ms  94% |       18.0 /  17.9 ms  166
+

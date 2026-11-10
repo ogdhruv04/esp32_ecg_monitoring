@@ -1,0 +1,18 @@
+# Held-out coverage diagnosis (diagnostic only; no parameter changed). Frozen tp2.1 detector.
+# Per beat: polarity sign from the rolling median beat (0 = undecided: lobes within 1.5x),
+# and the median beat's lobe ratio (larger/smaller) when 8+ beats are in.
+ rec     filter  beats  flagged undecided edge/gap  corr | lobe ratio median, share < 1.5
+ 111 zero-phase   2126      585       578        0     7 | 1.67, 27%
+ 111     causal   2126     2115      2115        0     0 | 1.15, 99%
+ 117 zero-phase   1537      769       769        0     0 | 1.50, 50%
+ 117     causal   1536     1536      1536        0     0 | 1.22, 100%
+ 215 zero-phase   3362      523       522        1     0 | 1.61, 15%
+ 215     causal   3362     3356      3356        0     0 | 1.19, 100%
+ 230 zero-phase   2257      696       696        0     0 | 1.66, 31%
+ 230     causal   2257     2253      2253        0     0 | 1.16, 100%
+ 112 zero-phase   2540        9         9        0     0 | 2.23, 0%
+ 112     causal   2540     1469      1469        0     0 | 1.45, 58%
+ 118 zero-phase   2280     2245      2245        0     0 | 1.22, 98%
+ 118     causal   2282     1430      1429        0     1 | 1.42, 62%
+ 122 zero-phase   2477        8         8        0     0 | 41.22, 0%
+ 122     causal   2477        9         9        0     0 | 8.01, 0%

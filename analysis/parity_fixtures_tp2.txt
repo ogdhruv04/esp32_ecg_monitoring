@@ -1,0 +1,7 @@
+# ./make_parity_fixtures.py, timing point tp2 (23 Oct 2026). Fixture inputs are causally filtered from
+# dual03 WITHOUT the 10 s settling skip, so RMSSD here differs slightly from the agreement/fiducial files.
+chest           15360 samples    98 beats, 4 flagged; RMSSD 22.38 ms on 93 NN, 0 dropped
+finger          26880 samples   175 beats, 5 flagged; RMSSD 18.11 ms on 167 NN, 2 dropped
+artifact_gaps   15360 samples    97 beats, 7 flagged; RMSSD 19.94 ms on 74 NN, 2 dropped   beats after the artifact: 79 with stall decay, 0 without
+polarity_flip   15360 samples    98 beats, 7 flagged; RMSSD 29.87 ms on 82 NN, 7 dropped
+wrote android_app/app/src/test/resources/parity/

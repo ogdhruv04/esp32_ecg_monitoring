@@ -33,3 +33,6 @@ build_wtest/
 build_blink/
 build_test/
 src_build_test/
+
+# Kotlin 2.x compiler session data
+android_app/.kotlin/

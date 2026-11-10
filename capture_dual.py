@@ -7,6 +7,11 @@ One thread per port so a stall on one link cannot delay the other. Each row
 carries the host clock time the line arrived, which is coarse (tens of ms,
 jittered by USB scheduling) but enough to establish which device started first.
 The fine alignment comes later from the beat trains themselves.
+
+Each board's '#' diagnostic lines go to a sidecar <stamp>_<label>_<board>.log
+with their host time. Among them is the firmware's "# cfg emux:.. cal:.. mode:.."
+line (every 5 s and on every change), so the log records the input
+configuration each CSV was captured in.
 """
 import argparse, datetime, pathlib, threading, time
 import serial
@@ -27,6 +32,7 @@ results = {}
 
 def worker(name, port, baud):
     path = outdir / f"{stamp}_{args.label}_{name}.csv"
+    logp = path.with_suffix(".log")
     n = bad = 0
     first_host = last_host = None
     try:
@@ -36,11 +42,14 @@ def worker(name, port, baud):
     except Exception as e:
         results[name] = f"ERROR opening {port}: {e}"
         return
-    with path.open("w") as f:
+    with path.open("w") as f, logp.open("w") as lf:
         f.write("host_time,index,isr_micros,value,etag,leadoff\n")
         while not stop.is_set():
             ln = s.readline().decode(errors="replace").strip()
             if not ln:
+                continue
+            if ln.startswith("#"):
+                lf.write(f"{time.time():.6f} {ln}\n")
                 continue
             if ln.startswith("S,"):
                 p = ln[2:].split(",")

@@ -20,7 +20,8 @@ shared clock, so the constant offset between them is estimated from the beat
 trains themselves. RR intervals are differences, so a constant offset cancels
 in sections 4 and 5 - it only matters for matching individual beats in 3.
 """
-import argparse, pathlib, sys
+import argparse, os, pathlib, sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))   # runs under python -I
 import numpy as np
 from scipy import signal as sps
 import pan_tompkins
@@ -132,14 +133,16 @@ for d, name in ((ref, "chest (reference)"), (ring, "finger (ring)")):
 beats = {}
 for key, d in (("ref", ref), ("ring", ring)):
     y = filter_chain(d["val"], FS, args.mains)
-    peaks = pan_tompkins.detect(y, FS)
+    # tp2 positions; `flags` marks beats tp2 could not locate (fallback to the
+    # 5-15 Hz peak, a different timing point) - kept out of RR and HRV below.
+    peaks, flags = pan_tompkins.detect(y, FS, with_flags=True)
     # Absolute time on that board's own clock: sample index / rate.
     # Each board's sample index starts at its own power-on, so index/FS gives
     # two clocks minutes apart. capture_dual.py stamps every sample with the
     # host time, which is coarse (tens of ms) but shares an origin - use it for
     # the offset, and let the beat trains refine from there.
     beats[key] = (d["host0"] if d["host0"] is not None else d["idx"][0] / FS) + peaks / FS
-    d["filt"], d["peaks"] = y, peaks
+    d["filt"], d["peaks"], d["flags"] = y, peaks, flags
 print(f"\n   beats detected: chest {len(beats['ref'])}, finger {len(beats['ring'])}")
 
 # ---- 2. alignment: the boards share no clock, so recover the offset from the
@@ -260,19 +263,35 @@ else:
 rr_saved = None
 print("\n5. RR intervals (matched beats only)")
 if len(pairs) > 3:
+    ring_al = align(offset, drift_ppm)
     ref_i = np.array([p[0] for p in pairs])
-    rr_ref = np.diff(ref_c[ref_i]) * 1000
-    rr_ring = np.diff(np.array([p[1] for p in pairs])) * 1000
-    # Only consecutive matches: a skipped beat would fake a huge interval.
+    rt = np.array([p[2] for p in pairs]); ft = np.array([p[1] for p in pairs])
+    fl = np.array([bool(ref["flags"][np.searchsorted(beats["ref"], a)]) or
+                   bool(ring["flags"][int(np.argmin(np.abs(ring_al - b)))]) for a, b in zip(rt, ft)])
+    rr_ref = np.diff(rt) * 1000; rr_ring = np.diff(ft) * 1000
+    # Only consecutive matches (a skipped beat would fake a huge interval), and
+    # no interval touching a flagged beat.
     consec = np.diff(ref_i) == 1
-    rr_ref, rr_ring = rr_ref[consec], rr_ring[consec]
-    if len(rr_ref) > 3:
-        bias, sd, lo, hi = bland_altman(rr_ring, rr_ref)
-        print(f"   {len(rr_ref)} intervals   bias {bias:+.2f} ms   limits {lo:+.2f} to {hi:+.2f} ms")
-        rm_ref = float(np.sqrt(np.mean(np.diff(rr_ref)**2)))
-        rm_ring = float(np.sqrt(np.mean(np.diff(rr_ring)**2)))
-        print(f"   RMSSD chest {rm_ref:.1f} ms   finger {rm_ring:.1f} ms")
-        rr_saved = (len(rr_ref), bias, lo, hi, rm_ref, rm_ring)
+    usable = consec & ~fl[:-1] & ~fl[1:]
+    n_flag = int(np.sum(consec & ~usable))
+    if usable.sum() > 3:
+        bias, sd, lo, hi = bland_altman(rr_ring[usable], rr_ref[usable])
+        print(f"   {int(usable.sum())} intervals ({n_flag} more touch a flagged beat and are left out)   "
+              f"bias {bias:+.2f} ms   limits {lo:+.2f} to {hi:+.2f} ms")
+        # HRV on each channel's cleaned NN series (pan_tompkins.rmssd_nn, the
+        # phone's rules): unusable intervals are breaks, a valid interval more
+        # than 20% from the previous accepted one is dropped.
+        rm_ref, acc_r, drop_r, _ = pan_tompkins.rmssd_nn(list(np.where(usable, rr_ref, np.nan)))
+        rm_ring, acc_f, drop_f, _ = pan_tompkins.rmssd_nn(list(np.where(usable, rr_ring, np.nan)))
+        # Coverage: share of each channel's beats (in the span both recordings
+        # share) whose interval survives into the NN series behind its RMSSD.
+        cov_r = acc_r / max(1, len(ref_c) - 1); cov_f = acc_f / max(1, len(ring_c) - 1)
+        rm_ref = float("nan") if rm_ref is None else rm_ref
+        rm_ring = float("nan") if rm_ring is None else rm_ring
+        print(f"   RMSSD (cleaned NN) chest {rm_ref:.1f} ms   finger {rm_ring:.1f} ms   "
+              f"dropped by the 20% rule: chest {drop_r}, finger {drop_f}   "
+              f"coverage chest {100*cov_r:.0f}%, finger {100*cov_f:.0f}%")
+        rr_saved = (int(usable.sum()), bias, lo, hi, rm_ref, rm_ring, n_flag, drop_r, drop_f, cov_r, cov_f)
     else:
         print("   too few consecutive matched pairs")
 else:
@@ -281,16 +300,22 @@ else:
 # ---- save
 outdir = pathlib.Path("analysis"); outdir.mkdir(exist_ok=True)
 stem = pathlib.Path(args.ring).stem.replace("_ring", "")
-rep = outdir / f"agreement_{stem}.txt"
+# Labelled with the timing point; results from tp1 keep their unlabelled names.
+rep = outdir / f"agreement_{stem}_{pan_tompkins.TIMING_POINT}.txt"
 import io, contextlib
 buf = io.StringIO()
 with contextlib.redirect_stdout(buf):
     print(f"source: {args.ring} + {args.ref}")
+    print(f"timing point: {pan_tompkins.TIMING_POINT} (pan_tompkins.py)")
     # Record the settings too. The offset depends on --skip-s (a report saved
     # without it once read +131 ms where the default gives -16 ms), so a report
     # that omits them cannot be reproduced from itself.
     print(f"settings: fs={args.fs:g} mains={args.mains:g} window={args.window:g}s "
           f"tol={args.tol_ms:g}ms skip={args.skip_s:g}s max_offset={args.max_offset:g}s")
+    for d, name in ((ref, "chest"), (ring, "finger")):
+        print(f"integrity {name}: {d['n']} samples, {d['missing']} missing, {d['gaps']} gaps, "
+              f"{d['dups']} duplicate idx, {d['bad_etag']} fast-mode; clean run {d['kept']/FS:.1f} s")
+    print(f"shared span {ref_c[-1]-ref_c[0]:.1f} s: chest {len(ref_c)} beats, finger {len(ring_c)} beats")
     print(f"offset {offset*1000:+.0f} ms, drift {drift_ppm:+.1f} +/- {drift_se_ppm:.1f} ppm")
     print(f"beats matched {tp} missed {fn} extra {fp}  Se {se:.2f}%  P+ {pp:.2f}%")
     if ok.sum() >= 3:
@@ -298,9 +323,11 @@ with contextlib.redirect_stdout(buf):
         print(f"HR bias {bias:+.2f} bpm  LoA {lo:+.2f}..{hi:+.2f}  ICC {icc21(hr_ring[ok], hr_ref[ok]):.4f}"
               f"  CCC {lins_ccc(hr_ring[ok], hr_ref[ok]):.4f}")
     if rr_saved is not None:
-        n_rr, rb, rlo, rhi, rm_ref, rm_ring = rr_saved
-        print(f"RR {n_rr} intervals  bias {rb:+.2f} ms  LoA {rlo:+.2f}..{rhi:+.2f}"
-              f"  RMSSD chest {rm_ref:.1f} ms  finger {rm_ring:.1f} ms")
+        n_rr, rb, rlo, rhi, rm_ref, rm_ring, n_flag, drop_r, drop_f, cov_r, cov_f = rr_saved
+        print(f"RR {n_rr} intervals ({n_flag} flagged out)  bias {rb:+.2f} ms  LoA {rlo:+.2f}..{rhi:+.2f}")
+        print(f"RMSSD cleaned NN: chest {rm_ref:.1f} ms (coverage {100*cov_r:.0f}%)  "
+              f"finger {rm_ring:.1f} ms (coverage {100*cov_f:.0f}%)  "
+              f"(20% rule dropped chest {drop_r}, finger {drop_f})")
 rep.write_text(buf.getvalue())
 print(f"\nsaved {rep}")
 

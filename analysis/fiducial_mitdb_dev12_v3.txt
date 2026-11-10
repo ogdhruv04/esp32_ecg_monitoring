@@ -1,0 +1,62 @@
+# ./fiducial.py mitdb --dir /home/dhruv/esp32_ecg_monitoring/data/mitdb --label dev12   (analysis v3)
+# detector config tp2.1 (tp2_config.json): {'R_BEFORE_S': 0.1, 'R_AFTER_S': 0.06, 'POL_KEEP': 16, 'POL_MIN': 8, 'POL_RATIO': 1.5, 'EDGE': 2, 'HIST_S': 4.0, 'CORR_MIN': 0.0, 'CORR_LAG': 10}
+# HRV: {'NN_STEP': 0.2, 'NN_SEED': 5, 'HRV_DEPTH': 256, 'MIN_BEATS_FOR_HRV': 30}
+
+MIT-BIH, 12 records from /home/dhruv/esp32_ecg_monitoring/data/mitdb: 100 101 103 105 106 108 109 119 203 208 222 228
+Front end as benchmark_mitdb.py: resampled to 256 Hz, 0.5-40 Hz, single 60 Hz notch. Lead 0 is
+MLII where the record has it, else channel 0; lead 1 is the other channel. Annotation times are
+kept unrounded. Timing and RMSSD use AAMI class-N beats (N L R e j) whose neighbouring beats
+are also class N, matched to detections within 150 ms. Flagged beats are left out of timing
+statistics and break the RR series. RMSSD error = RMSSD(timing point) - RMSSD(annotations),
+both on runs of consecutive matched class-N beats, both cleaned by the detector's rules.
+COVERAGE = beats whose interval is used in that RMSSD / all annotated beats in the record.
+
+=== zero-phase filter: per record, sd(lead-0 timing - annotation) ms / RMSSD error ms / coverage % ===
+ rec  lead  beats ann RMSSD  cov |          bp           |        R+parab        |          tp2          |         tp2.1         | check flagged
+ 100  MLII   2169    27.2ms  94% |   1.54  +1.72   94%   |   1.11  +0.08   94%   |   1.11  +0.10   94%   |   1.11  +0.10   94%   | 1
+ 101  MLII   1847    37.7ms  99% |   1.54  +0.10   99%   |   1.06  +0.00   99%   |   1.06  +0.02   98%   |   1.06  +0.02   98%   | 3
+ 103  MLII   2075    31.5ms  99% |   1.54  +3.48   99%   |   1.01  -0.02   99%   |   1.01  -0.03   99%   |   1.01  -0.03   99%   | 0
+ 105  MLII   2427    20.6ms  92% |   2.83  +6.88   91%   |   1.05  +0.28   91%   |   1.04  -0.15   91%   |   1.04  -0.47   90%   | 45
+ 106  MLII    987    54.6ms  46% |   4.89  +5.47   46%   |   1.04  -0.11   46%   |   1.04  -0.11   46%   |   1.04  -0.11   46%   | 39
+ 108  MLII   1688    61.0ms  90% |   5.28  +3.55   89%   |  13.58  +6.97   86%   |   2.86  -0.14   58%   |   2.50  -1.35   52%   | 256
+ 109  MLII   2410    24.6ms  94% |   2.06  +0.01   94%   |   1.21  -0.15   94%   |   1.17  -0.13   93%   |   1.17  -0.13   93%   | 0
+ 119  MLII    823    31.8ms  34% |   1.54  +1.93   34%   |   1.08  +0.01   34%   |   1.07  -0.01   33%   |   1.08  -0.05   33%   | 303
+ 203  MLII   1910    71.9ms  23% |   2.57  +1.17   24%   |   1.58  -1.19   24%   |   1.53  -0.86   23%   |   1.47  -0.19   22%   | 236
+ 208  MLII    242    25.2ms   5% |   2.19  +7.77    5%   |   1.14  -0.26    5%   |   1.15  -0.26    5%   |   1.15  -0.26    5%   | 183
+ 222  MLII   2015    70.8ms  52% |   2.19  +1.61   51%   |   1.24  +0.68   52%   |   1.23  +0.68   51%   |   1.23  +0.65   51%   | 7
+ 228  MLII   1170    62.9ms  48% |   2.32  +5.13   48%   |   1.16  +0.16   48%   |   1.15  +0.16   48%   |   1.14  -0.39   46%   | 104
+
+=== causal filter: per record, sd(lead-0 timing - annotation) ms / RMSSD error ms / coverage % ===
+ rec  lead  beats ann RMSSD  cov |          bp           |        R+parab        |          tp2          |         tp2.1         | check flagged
+ 100  MLII   2169    27.2ms  94% |   2.19 +14.42   94%   |   1.09  +0.06   94%   |   1.09  +0.08   94%   |   1.09  +0.08   94%   | 1
+ 101  MLII   1847    37.7ms  99% |  12.48 +16.14   99%   |   1.08  +0.02   99%   |   1.07  +0.04   98%   |   1.07  +0.02   97%   | 12
+ 103  MLII   2075    31.5ms  99% |   1.67  +0.51   99%   |   1.00  -0.02   99%   |   1.00  -0.04   99%   |   1.00  -0.04   99%   | 0
+ 105  MLII   2428    20.6ms  92% |   2.32  +2.85   91%   |   1.13  +0.33   91%   |   1.10  -0.34   91%   |   1.10  -0.68   90%   | 41
+ 106  MLII    987    54.6ms  46% |   1.80  +0.48   46%   |   1.05  -0.09   46%   |   1.03  -0.09   46%   |   1.03  -0.09   46%   | 26
+ 108  MLII   1690    60.9ms  91% |   4.63  +5.41   85%   |  13.09  +5.15   85%   |   5.19 +16.02   12%   |   2.73  -2.46    7%   | 226
+ 109  MLII   2410    24.6ms  94% |   1.93  -0.05   94%   |   1.39  -0.23   94%   |   1.07  -0.33   77%   |   1.07  -0.33   77%   | 0
+ 119  MLII    823    31.8ms  34% |   1.54  +0.32   34%   |   1.07  -0.01   34%   |   1.09  -0.03   33%   |   1.09  -0.03   33%   | 203
+ 203  MLII   1907    72.1ms  23% |   2.32  -0.46   24%   |   2.22  -0.61   24%   |   1.89  -1.01   23%   |   1.85  -0.81   22%   | 333
+ 208  MLII    242    25.2ms   5% |   2.12  +6.08    5%   |   1.15  -0.13    5%   |   1.14  -0.16    5%   |   1.14  -0.16    5%   | 271
+ 222  MLII   2012    70.9ms  51% |   3.60  +1.94   51%   |   1.27  +0.53   51%   |   1.27  +0.56   51%   |   1.27  +0.57   51%   | 7
+ 228  MLII   1170    62.9ms  48% |   2.70  +4.73   48%   |   1.24  +0.17   48%   |   1.24  +0.17   48%   |   1.24  -0.19   48%   | 52
+
+=== zero-phase: summary over records (median [min, max]) ===
+timing point     sd vs annotation, ms             RMSSD error, ms             coverage % | three-cornered hat sd ms: annotation / lead 0 / lead 1
+bp                  2.19 [1.54, 5.28]        +2.71 [+0.01, +7.77]             70 [5, 99] | neg / 3.35 / 8.12
+bp+parab            1.58 [1.04, 4.62]        +2.48 [-0.45, +7.43]             70 [5, 99] | neg / 2.90 / 7.57
+R                  1.67 [1.54, 14.03]        +0.14 [-0.66, +7.00]             69 [5, 99] | 1.64 / neg / 3.47
+R+parab            1.12 [1.01, 13.58]        +0.01 [-1.19, +6.97]             69 [5, 99] | 1.08 / 0.36 / 2.86
+tp2                 1.13 [1.01, 2.86]        -0.07 [-0.86, +0.68]             55 [5, 99] | 1.13 / 0.26 / 2.88
+tp2.1               1.13 [1.01, 2.50]        -0.12 [-1.35, +0.65]             52 [5, 99] | 1.05 / 0.37 / 2.75
+
+=== causal: summary over records (median [min, max]) ===
+timing point     sd vs annotation, ms             RMSSD error, ms             coverage % | three-cornered hat sd ms: annotation / lead 0 / lead 1
+bp                 2.25 [1.54, 12.48]       +2.39 [-0.46, +16.14]             68 [5, 99] | 1.85 / neg / 6.23
+bp+parab            1.74 [1.01, 9.66]       +2.35 [-1.04, +16.30]             68 [5, 99] | 1.20 / neg / 5.45
+R                  1.67 [1.42, 15.70]        +0.20 [-0.12, +5.84]             68 [5, 99] | 1.58 / neg / 4.48
+R+parab            1.14 [1.00, 13.09]        +0.01 [-0.61, +5.15]             68 [5, 99] | 1.19 / 0.29 / 2.27
+tp2                 1.10 [1.00, 5.19]       -0.03 [-1.01, +16.02]             49 [5, 99] | 1.11 / 0.09 / 2.84
+tp2.1               1.09 [1.00, 2.73]        -0.13 [-2.46, +0.57]             49 [5, 99] | 1.11 / neg / 2.77
+
+RMSSD errors are NaN-skipped in the summary; a record whose RMSSD is withheld (fewer than 30 accepted intervals) shows nan in its row.

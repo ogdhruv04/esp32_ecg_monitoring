@@ -457,6 +457,7 @@ void setup()
     Serial.printf("# device: %s  cs=%d int1=%d sync=%d ble=%d sps=%d\n",
                   DEVICE_TAG, MAX30003_CS_PIN, MAX30003_INT1_PIN,
                   SYNC_PIN, ENABLE_BLE, ECG_SPS);
+    logInputConfig("");
 }
 
 // Runtime toggle for the body-bias generator, so we can A/B it without
@@ -481,13 +482,57 @@ void setRbias(bool on)
                   on ? "ON" : "OFF", b[0], b[1], b[2]);
 }
 
+// Input multiplexer / calibration-source configurations for the bench test in
+// docs/bench_session_plan.md (datasheet check #21 and #23). Register fields
+// (Rev 3 pp.35-36): CNFG_EMUX D23 POL, D21 OPENP, D20 OPENN, D[19:18] CALP_SEL,
+// D[17:16] CALN_SEL; CNFG_CAL D22 EN_VCAL, D21 VMODE, D20 VMAG, D[14:12] FCAL,
+// D11 FIFTY.
+//   'd'  0x0B0000 / 0x720000  what the library's begin() leaves: electrodes
+//        connected AND VCALP/VCALN switched onto both inputs (the open issue)
+//   'e'  0x000000 / 0x000000  electrodes only, calibration disabled
+//   'c'  0x390000 / 0x702800  scale test: electrodes disconnected inside the
+//        chip, ECGP <- VCALP, ECGN <- VMID; bipolar 0.5 mV, ~16 Hz, 50% duty
+// The active values are read back from the chip and logged on every change and
+// every 5 s ("# cfg ..."), so every capture log records what it was taken in.
+static const char *inputMode = "begin";
+
+void logInputConfig(const char *why)
+{
+    uint8_t e[3] = {0}, c[3] = {0};
+    max30003.readRegister(REG_CNFG_EMUX, e, 3);
+    max30003.readRegister(REG_CNFG_CAL, c, 3);
+    Serial.printf("# cfg emux:%02X%02X%02X cal:%02X%02X%02X mode:%s%s\n",
+                  e[0], e[1], e[2], c[0], c[1], c[2], inputMode, why);
+}
+
+void setInputConfig(const char *mode, uint32_t emux, uint32_t cal)
+{
+    // CALP_SEL/CALN_SEL select VCALP/VCALN "only if CAL_EN_VCAL = 1" (p.36), so
+    // enable the source before routing it, and unroute it before disabling it.
+    bool routesCal = (emux & 0x0F0000UL) != 0;
+    if (routesCal) {
+        max30003.writeRegister(REG_CNFG_CAL, cal);
+        max30003.writeRegister(REG_CNFG_EMUX, emux);
+    } else {
+        max30003.writeRegister(REG_CNFG_EMUX, emux);
+        max30003.writeRegister(REG_CNFG_CAL, cal);
+    }
+    max30003.writeRegister(REG_FIFO_RST, 0x000000);
+    inputMode = mode;
+    logInputConfig(" (set)");
+}
+
 void loop()
 {
-    // 'b' toggles body bias, 'r' resets the FIFO.
+    // 'b' toggles body bias, 'r' resets the FIFO; 'd' / 'e' / 'c' set the input
+    // configuration (see setInputConfig).
     if (Serial.available()) {
         int c = Serial.read();
         if (c == 'b') { static bool rb = false; rb = !rb; setRbias(rb); }
         else if (c == 'r') { max30003.writeRegister(REG_FIFO_RST, 0x000000); }
+        else if (c == 'd') { setInputConfig("d", 0x0B0000UL, 0x720000UL); }
+        else if (c == 'e') { setInputConfig("e", 0x000000UL, 0x000000UL); }
+        else if (c == 'c') { setInputConfig("c", 0x390000UL, 0x702800UL); }
     }
 
     if (ecgIntFlag) {
@@ -572,5 +617,6 @@ void loop()
                       isrGapMin == 0xFFFFFFFF ? 0 : isrGapMin, isrGapMax);
         statValid = statOverflow = statEmpty = statOther = 0;
         isrGapMin = 0xFFFFFFFF; isrGapMax = 0;
+        logInputConfig("");
     }
 }

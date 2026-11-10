@@ -13,13 +13,23 @@ different bodies with different noise; it cannot tell us whether our ring
 captures real cardiac activity. Only a simultaneous reference recording does
 that. Two different questions, two different ground truths.
 """
-import argparse, sys
+import argparse, os, sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))   # runs under python -I
 import numpy as np
 import wfdb
 from scipy import signal as sps
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--dir", default="data/mitdb")
+ap.add_argument("--records", nargs="*", help="records to use (default: every .hea in --dir)")
+ap.add_argument("--lead", choices=["0", "mlii"], default="0",
+                help="channel 0 (default, as the dev results), or MLII where the record has it "
+                     "(the held-out protocol in tp2_config.json)")
+ap.add_argument("--check", choices=["on", "off"], default="on",
+                help="method ours: the per-beat correlation check (tp2.1) on, or off (tp2)")
+ap.add_argument("--positions", choices=["tp2", "bp"], default="tp2",
+                help="method ours: score tp2 positions (default) or the 5-15 Hz peak "
+                     "(tp1 location, with the 23 Oct search-back fix) - for attribution")
 ap.add_argument("--fs-target", type=float, default=None,
                 help="resample to this rate first (e.g. 256 to match our device)")
 ap.add_argument("--method", default="neurokit")
@@ -64,13 +74,20 @@ def evaluate(ref, test, tol):
     return tp, fp, fn
 
 import pathlib
-recs = sorted(p.stem for p in pathlib.Path(args.dir).glob("*.hea"))
+recs = args.records or sorted(p.stem for p in pathlib.Path(args.dir).glob("*.hea"))
 if not recs:
     sys.exit(f"no records in {args.dir}")
 
 label = f"{args.fs_target:g} Hz (resampled)" if args.fs_target else "native 360 Hz"
 print(f"\nANSI/AAMI EC57 QRS detection - {len(recs)} records, {label}, "
-      f"method={args.method}, tolerance={args.tolerance_ms:g} ms\n")
+      f"method={args.method}, tolerance={args.tolerance_ms:g} ms")
+if args.method == "ours":
+    import pan_tompkins
+    tp = (f"{pan_tompkins.TIMING_POINT}" if args.check == "on" else "tp2 (correlation check off)") \
+        if args.positions == "tp2" else "bp (5-15 Hz peak, search-back fixed)"
+    print(f"timing point: {tp} (pan_tompkins.py, tp2_config.json); lead: "
+          f"{'MLII where present, else channel 0' if args.lead == 'mlii' else 'channel 0'}")
+print()
 print(f"{'rec':>5} {'beats':>7} {'TP':>7} {'FP':>6} {'FN':>6} {'Se%':>7} {'P+%':>7}")
 print("-" * 50)
 
@@ -81,7 +98,8 @@ for rec in recs:
     r = wfdb.rdrecord(f"{args.dir}/{rec}")
     ann = wfdb.rdann(f"{args.dir}/{rec}", "atr")
     fs = float(r.fs)
-    x = r.p_signal[:, 0].astype(float)
+    ch = list(r.sig_name).index("MLII") if args.lead == "mlii" and "MLII" in r.sig_name else 0
+    x = r.p_signal[:, ch].astype(float)
 
     ref = np.array([s for s, sym in zip(ann.sample, ann.symbol) if sym in BEAT_SYMS])
 
@@ -94,7 +112,16 @@ for rec in recs:
     y = filter_chain(x, fs)
     if args.method == "ours":
         import pan_tompkins
-        test = pan_tompkins.detect(y, fs)
+        if args.positions == "bp":
+            pt = pan_tompkins.PanTompkins(fs)
+            for v in y: pt.process(v)
+            test = np.array(pt.bp_peaks, dtype=int)
+        else:
+            pt = pan_tompkins.PanTompkins(fs)
+            if args.check == "off":
+                pt.CORR_MIN = None
+            for v in y: pt.process(v)
+            test = np.array(pt.peaks, dtype=float)
     else:
         _, info = nk.ecg_peaks(y, sampling_rate=fs, method=args.method)
         test = np.asarray(info["ECG_R_Peaks"], dtype=int)
@@ -125,7 +152,8 @@ for rec in recs:
                 keep[start:end] = True
         rejected_frac = 1.0 - keep.mean()
         ref = ref[keep[np.clip(ref, 0, len(y) - 1)]]
-        test = test[keep[np.clip(test, 0, len(y) - 1)]]
+        # Our positions are fractional (tp2); round only to look up the window.
+        test = test[keep[np.clip(np.round(test).astype(int), 0, len(y) - 1)]]
         REJ.append(rejected_frac)
 
     tp, fp, fn = evaluate(ref, test, tol)
