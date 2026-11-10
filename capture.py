@@ -8,11 +8,17 @@ Writes captures/<timestamp>_<label>.csv with one row per sample, plus a
 sidecar .log holding the firmware's '#' diagnostic lines. The CSV is the
 research artifact; the log is the evidence that the CSV can be trusted.
 
+On a board with the extra sensors (the reference board) the PPG, IMU,
+temperature and GSR lines are saved as well, one CSV per stream next to the ECG
+file: <timestamp>_<label>_ppg.csv, _imu.csv, _temp.csv, _gsr.csv (formats in
+sensor_streams.py). Check all of them afterwards with ./integrity.py <ecg csv>.
+
 --live also opens a scrolling plot while recording. It is display only: the
 CSV is written exactly as without it, and closing the window ends the capture.
 """
 import argparse, datetime, pathlib, queue, threading, time
 import serial
+from sensor_streams import LineReader, SensorWriter
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--port", default="/dev/ttyACM0")
@@ -34,11 +40,13 @@ ser = serial.Serial(args.port, args.baud, timeout=1)
 ser.dtr = True
 ser.rts = False
 ser.reset_input_buffer()
+port = LineReader(ser)
 
 n_samples = n_bad = 0
 first_idx = last_idx = None
 first_us = last_us = None
 seen = set()
+sens = SensorWriter(out)
 stop = threading.Event()
 live_q = queue.Queue() if args.live else None
 t0 = time.time()
@@ -51,7 +59,7 @@ def record():
     with out.open("w") as f, logp.open("w") as lf:
         f.write("index,isr_micros,value,etag,leadoff\n")
         while time.time() - t0 < args.seconds and not stop.is_set():
-            raw = ser.readline().decode(errors="replace").replace("\x00", "").strip()
+            raw = port.readline().decode(errors="replace").replace("\x00", "").strip()
             if not raw:
                 continue
             if raw.startswith("S,"):
@@ -75,6 +83,8 @@ def record():
                 seen.add(idx)
                 if live_q is not None:
                     live_q.put((idx, val))
+            elif sens.handle(raw):
+                pass                            # a sensor line, saved to its own CSV
             else:
                 lf.write(raw + "\n")
                 lf.flush()
@@ -194,6 +204,7 @@ except KeyboardInterrupt:
     reader.join(2)
 finally:
     ser.close()
+    sens.close()
 
 elapsed = time.time() - t0
 print(f"\n--- {out} ---")
@@ -219,3 +230,5 @@ if first_idx is not None:
         dev_span_s = (last_us - first_us) / 1e6
         print(f"  device rate    : {(span - 1)/dev_span_s:.2f} SPS (expected {args.sps})")
     print(f"  wall-clock rate: {n_samples/elapsed:.2f} SPS (includes port-open latency)")
+for ln in sens.summary():
+    print(f"  {ln}")

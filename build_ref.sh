@@ -4,8 +4,9 @@
 # ring build, which is the entire point of the comparison.
 set -euo pipefail
 cd "$(dirname "$0")"
+. ./arduino_cli.sh
 mkdir -p src_build_ref build_ref
 cp sketch.ino src_build_ref/src_build_ref.ino
-./bin/arduino-cli compile \
+"$CLI" compile \
   --fqbn esp32:esp32:esp32:FlashSize=8M,PartitionScheme=default_8MB \
   --build-path build_ref src_build_ref/src_build_ref.ino

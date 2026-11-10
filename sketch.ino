@@ -18,6 +18,7 @@
  */
 
 #include <SPI.h>
+#include <Wire.h>
 #include "protocentral_max30003.h"
 #include <NimBLEDevice.h>
 
@@ -41,6 +42,9 @@
   #define SYNC_PIN            10
   #define ENABLE_BLE          1     // advertises as ESP32-ECG, same as the ring:
                                     // power only one of the two near the phone
+  #define SENS_SDA_PIN        -1    // no extra sensors on this board
+  #define SENS_SCL_PIN        -1
+  #define GSR_ADC_PIN         -1
 #elif CONFIG_IDF_TARGET_ESP32C3
   // RING device - ESP32-C3 SuperMini, native USB-CDC.
   // SPI uses the C3's FSPI defaults: SCK=4, MISO=5, MOSI=6.
@@ -49,6 +53,9 @@
   #define MAX30003_INT1_PIN   10
   #define SYNC_PIN            3
   #define ENABLE_BLE          1
+  #define SENS_SDA_PIN        -1    // no extra sensors on this board
+  #define SENS_SCL_PIN        -1
+  #define GSR_ADC_PIN         -1
 #else
   // REFERENCE device - ESP32-WROOM-32, USB-UART bridge.
   // SPI uses the classic ESP32's VSPI defaults, which the schematic matches
@@ -63,6 +70,13 @@
   #define SYNC_PIN            25    // free on the schematic; IO27 is GSRSENSE, IO12 is a
                                     // strapping pin, so 25 is the safe spare
   #define ENABLE_BLE          0     // a transmitter next to the AFE is noise we don't need
+  // Extra sensors, from docs/ESP32_health_schematic.pdf (docs/sensor_inventory.md).
+  // Read by module pin number, not by where the net label sits: SDA is on
+  // module pin 33 = IO21, SCL on pin 36 = IO22, GSRSENSE on pin 12 = IO27.
+  // NOT YET CONFIRMED ON THE BOARD - the boot probe line is the confirmation.
+  #define SENS_SDA_PIN        21    // MAX30102 + MAX30205 + MPU6050 share this bus
+  #define SENS_SCL_PIN        22
+  #define GSR_ADC_PIN         27    // ADC2_CH7; usable because WiFi is never started
 #endif
 
 // Serial rate. On the C3 this is ignored - native USB-CDC runs at USB speed
@@ -102,6 +116,16 @@ struct EcgWord {
     int32_t sample;
     uint8_t etag;
     uint8_t ptag;
+};
+
+// One I2C sensor's bookkeeping (see "Extra sensors" below). Declared up here,
+// ahead of the first function, so arduino-cli's generated prototypes see it.
+struct SensorStat {
+    bool     present;   // answered the boot probe and has not been disabled since
+    uint8_t  addr;      // 7-bit I2C address in use
+    uint8_t  errRun;    // consecutive failed transactions
+    uint32_t errs;      // lifetime failed transactions
+    uint32_t n;         // samples acquired = the sequence number of the last line
 };
 
 static bool readEcgWord(EcgWord& w)
@@ -352,6 +376,385 @@ static inline void logSample(uint32_t idx, uint32_t us, int32_t value, uint8_t e
     else                                 lifeDropped++;
 }
 
+// ---------------------------------------------------------------------------
+// Extra sensors: MAX30102 (PPG), MPU6050 (IMU) and MAX30205 (temperature) on
+// one I2C bus, and the GSR front end on an ADC pin. Board, pins and the open
+// questions are in docs/sensor_inventory.md; every register value below is
+// checked against the datasheets in docs/sensor_datasheet_check.md.
+//
+// This code is compiled for every board and is switched by the pin block at
+// the top (-1 = not wired), never by a per-board fork. It runs strictly AFTER
+// the ECG FIFO has been drained, never instead of it, and it may not block:
+// a sensor that stops answering is dropped after SENS_ERR_LIMIT failures.
+//
+// Timestamps. Every sensor line carries two clocks:
+//   ecg_index  the index of the newest ECG sample drained when the reading
+//              was taken. This is the timestamp on the ECG clock, but it only
+//              advances in steps of one FIFO drain (4 samples, 15.6 ms).
+//   micros     the ESP32's micros() at the reading. The S lines carry the same
+//              clock (isr_micros), so the host can place a reading between two
+//              ECG samples by fitting micros against index over the capture.
+// IMU, GSR and temperature are sampled ON the ECG clock: one reading every
+// IMU_EVERY / GSR_EVERY / TEMP_EVERY ECG samples, right after the drain that
+// crossed the boundary. The MAX30102 cannot be: it free-runs on its own
+// oscillator at PPG_SPS and queues samples in its own FIFO. So P lines carry
+// ppg_index, the MAX30102's own sample count (its clock, as the ECG index is
+// the MAX30003's), and the ecg_index/micros of the poll that fetched them.
+// A sample was taken at or before that poll, never after, so the earliest
+// polls trace the true ppg_index -> ECG time line.
+//
+// Line formats (all integers):
+//   P,ppg_index,ecg_index,micros,red,ir          18-bit counts, MAX30102 clock
+//   M,seq,ecg_index,micros,ax,ay,az,gx,gy,gz     int16; 16384 LSB/g, 131 LSB/(deg/s)
+//   T,seq,ecg_index,micros,raw                   int16; 0.00390625 degC per LSB
+//   G,seq,ecg_index,micros,adc_sum,mv_sum        sums of GSR_OVERSAMPLE reads
+// seq counts readings TAKEN, so a hole in seq on the host is a line lost on
+// the way (or dropped here: see sensLogDropped), while a jump in ecg_index at
+// an unbroken seq is a reading that was taken late.
+// ---------------------------------------------------------------------------
+#define MAX30102_ADDR     0x57    // fixed (write 0xAE / read 0xAF)
+#define MAX30205_ADDR     0x48    // A2 = A1 = A0 = GND on the schematic -> 0x90 >> 1
+#define MPU6050_ADDR_LO   0x68    // AD0 low
+#define MPU6050_ADDR_HI   0x69    // AD0 high; AD0 only reaches a header on this board
+
+#define PPG_SPS           100     // MAX30102 SPO2_SR = 001
+#define IMU_EVERY         4       // ECG samples per IMU reading   -> 64 Hz
+#define GSR_EVERY         16      //                               -> 16 Hz
+#define TEMP_EVERY        256     //                               ->  1 Hz
+#define GSR_OVERSAMPLE    8
+#define PPG_MAX_PER_READ  8       // 48 bytes; the Wire buffer holds 128
+#define SENS_ERR_LIMIT    8
+#define SENS_I2C_TIMEOUT_MS 10    // a hung bus must not outlast the ECG FIFO
+
+// Sensor lines never take the last SENS_TX_RESERVE bytes of the transmit
+// buffer: that room is kept for the ECG batch that follows. An S line is lost
+// only when the buffer is completely full; a sensor line gives way first.
+#define SERIAL_TX_BUFFER  4096
+#define SENS_TX_RESERVE   256
+
+static SensorStat ppg  = {false, MAX30102_ADDR,   0, 0, 0};
+static SensorStat imu  = {false, MPU6050_ADDR_LO, 0, 0, 0};
+static SensorStat temp = {false, MAX30205_ADDR,   0, 0, 0};
+static bool     gsrOn = false;
+static uint32_t gsrN = 0;
+static bool     sensBusUp = false;
+static uint32_t sensI2cHz = 400000;       // 'f' toggles 400 k / 100 k
+static uint8_t  ppgLedPa = 0x1F;          // 'p' steps it; 0x1F = 6.2 mA typical (p.20)
+static uint8_t  ppgPartId = 0, imuWhoAmI = 0;
+static uint32_t ppgFifoLost = 0;          // samples the MAX30102 FIFO overflowed
+static uint32_t sensLogDropped = 0;       // sensor lines dropped on a full TX buffer
+
+static bool i2cReadReg(uint8_t addr, uint8_t reg, uint8_t *buf, size_t n)
+{
+    Wire.beginTransmission(addr);
+    Wire.write(reg);
+    if (Wire.endTransmission(false) != 0) return false;
+    if (Wire.requestFrom(addr, n, true) != n) return false;
+    for (size_t i = 0; i < n; i++) buf[i] = (uint8_t)Wire.read();
+    return true;
+}
+
+static bool i2cWriteReg(uint8_t addr, uint8_t reg, uint8_t val)
+{
+    Wire.beginTransmission(addr);
+    Wire.write(reg);
+    Wire.write(val);
+    return Wire.endTransmission(true) == 0;
+}
+
+static void sensFail(SensorStat& s, const char *name)
+{
+    s.errs++;
+    if (++s.errRun >= SENS_ERR_LIMIT) {
+        s.present = false;
+        Serial.printf("# sens %s: DISABLED after %d consecutive I2C errors at ecg_index %lu "
+                      "(send 'i' to probe again)\n",
+                      name, SENS_ERR_LIMIT, (unsigned long)sampleIndex);
+    }
+}
+
+static inline void logSensorLine(const char *line, int n)
+{
+    if (Serial.availableForWrite() >= n + SENS_TX_RESERVE) Serial.write((const uint8_t*)line, n);
+    else                                                   sensLogDropped++;
+}
+
+// MAX30102, datasheet 19-7740 Rev 1. SpO2 mode = red + IR (p.18), 100 samples/s
+// (p.19), 411 us pulses = 18-bit (p.19; allowed together, p.23 Table 11), ADC
+// full scale 4096 nA (p.18), no on-chip averaging and FIFO_ROLLOVER_EN = 0
+// (p.17) so a full FIFO loses the NEWEST samples and OVF_COUNTER counts them
+// (p.13) - the loss is then visible as a jump in ppg_index instead of silent.
+// Its INT pin is not routed to the ESP32, so the FIFO is polled.
+static bool initPpg()
+{
+    uint8_t id = 0, rev = 0, rb[6] = {0};
+    ppg.present = false;
+    if (!i2cReadReg(MAX30102_ADDR, 0xFF, &id, 1)) {
+        Serial.println("# sens ppg: no answer at 0x57 (MAX30102 absent, or HR1 jumper open)");
+        return false;
+    }
+    ppgPartId = id;
+    i2cReadReg(MAX30102_ADDR, 0xFE, &rev, 1);
+    i2cWriteReg(MAX30102_ADDR, 0x09, 0x40);                 // RESET; self-clearing (p.18)
+    for (int i = 0; i < 20; i++) {
+        uint8_t m = 0x40;
+        delay(1);
+        if (i2cReadReg(MAX30102_ADDR, 0x09, &m, 1) && !(m & 0x40)) break;
+    }
+    bool ok = true;
+    ok &= i2cWriteReg(MAX30102_ADDR, 0x08, 0x00);           // FIFO: SMP_AVE 1, no rollover
+    ok &= i2cWriteReg(MAX30102_ADDR, 0x0A, 0x27);           // 4096 nA, 100 sps, 411 us
+    ok &= i2cWriteReg(MAX30102_ADDR, 0x0C, ppgLedPa);       // LED1 = red (p.21)
+    ok &= i2cWriteReg(MAX30102_ADDR, 0x0D, ppgLedPa);       // LED2 = IR
+    ok &= i2cWriteReg(MAX30102_ADDR, 0x04, 0x00);           // FIFO_WR_PTR  } cleared before
+    ok &= i2cWriteReg(MAX30102_ADDR, 0x05, 0x00);           // OVF_COUNTER  } starting, as
+    ok &= i2cWriteReg(MAX30102_ADDR, 0x06, 0x00);           // FIFO_RD_PTR  } p.14 recommends
+    ok &= i2cWriteReg(MAX30102_ADDR, 0x09, 0x03);           // MODE = SpO2
+    ok &= i2cReadReg(MAX30102_ADDR, 0x08, rb, 6);           // 0x08..0x0D read back
+    ppg.errRun = 0;
+    ppg.present = ok && id == 0x15;                         // PART_ID (p.11)
+    Serial.printf("# sens ppg: addr:57 part:%02X rev:%02X fifo:%02X mode:%02X spo2:%02X "
+                  "pa:%02X/%02X sps:%d %s\n",
+                  id, rev, rb[0], rb[1], rb[2], rb[4], rb[5], PPG_SPS,
+                  ppg.present ? "ok" : (id != 0x15 ? "NOT USED: part id is not 15"
+                                                   : "NOT USED: a write failed"));
+    return ppg.present;
+}
+
+static void servicePpg()
+{
+    if (!ppg.present) return;
+    uint8_t p[3];
+    if (!i2cReadReg(MAX30102_ADDR, 0x04, p, 3)) { sensFail(ppg, "ppg"); return; }
+    uint32_t us = micros();
+    uint32_t idx = sampleIndex;
+    uint8_t wr = p[0] & 0x1F, ovf = p[1] & 0x1F, rd = p[2] & 0x1F;
+    uint8_t avail = (wr - rd) & 0x1F;                       // p.16
+    // Full and empty both read wr == rd; a non-zero overflow count tells them
+    // apart. The datasheet does not say what the pointers read when full, so
+    // this is our reading of a 32-deep FIFO with 5-bit pointers.
+    if (avail == 0 && ovf > 0) avail = 32;
+    // Normally 1-2 samples wait here. After an overflow, empty the FIFO in one
+    // go so the lost samples can be accounted at one known place in the stream.
+    if (!ovf && avail > PPG_MAX_PER_READ) avail = PPG_MAX_PER_READ;
+
+    while (avail) {
+        uint8_t take = avail > PPG_MAX_PER_READ ? PPG_MAX_PER_READ : avail;
+        uint8_t b[PPG_MAX_PER_READ * 6];
+        // Reading FIFO_DATA does not advance the register address (p.14): one
+        // burst returns consecutive samples, red then IR, 3 bytes each (p.15).
+        if (!i2cReadReg(MAX30102_ADDR, 0x07, b, (size_t)take * 6)) { sensFail(ppg, "ppg"); return; }
+        for (uint8_t i = 0; i < take; i++) {
+            const uint8_t *q = &b[i * 6];
+            uint32_t red = (((uint32_t)q[0] << 16) | ((uint32_t)q[1] << 8) | q[2]) & 0x3FFFF;
+            uint32_t ir  = (((uint32_t)q[3] << 16) | ((uint32_t)q[4] << 8) | q[5]) & 0x3FFFF;
+            ppg.n++;
+            char line[64];
+            int n = snprintf(line, sizeof(line), "P,%lu,%lu,%lu,%lu,%lu\n",
+                             (unsigned long)ppg.n, (unsigned long)idx, (unsigned long)us,
+                             (unsigned long)red, (unsigned long)ir);
+            logSensorLine(line, n);
+        }
+        avail -= take;
+    }
+    if (ovf) {
+        // The samples lost are the ones that arrived after the FIFO filled, so
+        // they belong after everything just read. 0x1F is a saturated count.
+        ppgFifoLost += ovf;
+        ppg.n += ovf;
+        Serial.printf("# sens ppg: FIFO overflow, %u%s samples lost before ppg_index %lu\n",
+                      ovf, ovf == 0x1F ? " or more" : "", (unsigned long)(ppg.n + 1));
+    }
+    ppg.errRun = 0;
+}
+
+// MPU6050, register map RM-MPU-6000A-00 Rev 4.0. It powers up asleep
+// (PWR_MGMT_1 = 0x40, p.8). +-2 g and +-250 deg/s as in the bring-up sketch
+// (MAX30102_MPU6050_MAX30205.ino); DLPF 3 = 44 Hz accel / 42 Hz gyro (p.13);
+// the output registers refresh at 1 kHz / (1 + 4) = 200 Hz (p.12) and we read
+// the newest value on the ECG clock, so a reading is at most 5 ms old plus the
+// filter's 4.9 ms delay. A 14-byte burst is one sampling instant (p.30). Its
+// INT pin is not routed to the ESP32.
+static bool initImu()
+{
+    static const uint8_t cand[2] = {MPU6050_ADDR_LO, MPU6050_ADDR_HI};
+    uint8_t who = 0, rb[4] = {0}, pwr = 0;
+    bool found = false;
+    imu.present = false;
+    for (uint8_t i = 0; i < 2 && !found; i++) {
+        if (i2cReadReg(cand[i], 0x75, &who, 1)) { imu.addr = cand[i]; found = true; }
+    }
+    if (!found) {
+        Serial.println("# sens imu: no answer at 0x68 or 0x69 (MPU6050 absent, or GYRO1 jumper open)");
+        return false;
+    }
+    imuWhoAmI = who;
+    bool ok = true;
+    ok &= i2cWriteReg(imu.addr, 0x6B, 0x01);                // wake; clock = PLL, X gyro (p.41)
+    ok &= i2cWriteReg(imu.addr, 0x19, 0x04);                // SMPLRT_DIV
+    ok &= i2cWriteReg(imu.addr, 0x1A, 0x03);                // CONFIG: DLPF_CFG 3
+    ok &= i2cWriteReg(imu.addr, 0x1B, 0x00);                // GYRO_CONFIG: +-250 deg/s
+    ok &= i2cWriteReg(imu.addr, 0x1C, 0x00);                // ACCEL_CONFIG: +-2 g
+    // On this board AD0 is not tied to a rail: it reaches only the AD1 header,
+    // whose other pin is INT. With that jumper fitted the address follows the
+    // INT pin, so INT must sit still: push-pull, active high, and no interrupt
+    // enabled (pp.27-28) keeps it low and the address at 0x68.
+    ok &= i2cWriteReg(imu.addr, 0x37, 0x00);                // INT_PIN_CFG
+    ok &= i2cWriteReg(imu.addr, 0x38, 0x00);                // INT_ENABLE
+    ok &= i2cReadReg(imu.addr, 0x19, rb, 4);
+    ok &= i2cReadReg(imu.addr, 0x6B, &pwr, 1);
+    imu.errRun = 0;
+    imu.present = ok;
+    // WHO_AM_I is 0x68 on a real MPU-6050 whatever AD0 is (p.46). Compatible
+    // parts answer differently; we keep reading them but the log says so.
+    Serial.printf("# sens imu: addr:%02X whoami:%02X smplrt:%02X cfg:%02X gyro:%02X accel:%02X "
+                  "pwr:%02X every:%d %s%s\n",
+                  imu.addr, who, rb[0], rb[1], rb[2], rb[3], pwr, IMU_EVERY,
+                  ok ? "ok" : "NOT USED: a write failed",
+                  who != 0x68 ? " (whoami is not 68: not an MPU-6050, scale unverified)" : "");
+    return imu.present;
+}
+
+static void readImu()
+{
+    if (!imu.present) return;
+    uint8_t b[14];
+    uint32_t us = micros();
+    uint32_t idx = sampleIndex;
+    if (!i2cReadReg(imu.addr, 0x3B, b, 14)) { sensFail(imu, "imu"); return; }
+    imu.errRun = 0;
+    imu.n++;
+    int16_t ax = (int16_t)((b[0]  << 8) | b[1]),  ay = (int16_t)((b[2]  << 8) | b[3]);
+    int16_t az = (int16_t)((b[4]  << 8) | b[5]);            // b[6..7] is the die temperature
+    int16_t gx = (int16_t)((b[8]  << 8) | b[9]),  gy = (int16_t)((b[10] << 8) | b[11]);
+    int16_t gz = (int16_t)((b[12] << 8) | b[13]);
+    char line[96];
+    int n = snprintf(line, sizeof(line), "M,%lu,%lu,%lu,%d,%d,%d,%d,%d,%d\n",
+                     (unsigned long)imu.n, (unsigned long)idx, (unsigned long)us,
+                     ax, ay, az, gx, gy, gz);
+    logSensorLine(line, n);
+}
+
+// MAX30205, datasheet 19-8505 Rev 0. Continuous conversion (configuration
+// 0x00, the power-on state, p.10), one conversion per 44-50 ms (p.2); we read
+// the latest once a second. 16-bit two's complement, MSB first, 0.00390625
+// degC per LSB (p.11). The accuracy figures assume a sample period above 10 s
+// to avoid self-heating (p.4 note 5), which continuous conversion does not
+// meet: treat the absolute value as uncalibrated and use the trend.
+static bool initTemp()
+{
+    uint8_t cfg = 0xFF, t[2] = {0};
+    temp.present = false;
+    if (!i2cWriteReg(MAX30205_ADDR, 0x01, 0x00) || !i2cReadReg(MAX30205_ADDR, 0x01, &cfg, 1)) {
+        Serial.println("# sens temp: no answer at 0x48 (MAX30205 absent, or TEMP1 jumper open)");
+        return false;
+    }
+    bool ok = i2cReadReg(MAX30205_ADDR, 0x00, t, 2);
+    temp.errRun = 0;
+    temp.present = ok;
+    Serial.printf("# sens temp: addr:48 cfg:%02X raw:%d every:%d %s\n",
+                  cfg, (int16_t)((t[0] << 8) | t[1]), TEMP_EVERY, ok ? "ok" : "NOT USED: read failed");
+    return temp.present;
+}
+
+static void readTemp()
+{
+    if (!temp.present) return;
+    uint8_t t[2];
+    uint32_t us = micros();
+    uint32_t idx = sampleIndex;
+    if (!i2cReadReg(MAX30205_ADDR, 0x00, t, 2)) { sensFail(temp, "temp"); return; }
+    temp.errRun = 0;
+    temp.n++;
+    char line[56];
+    int n = snprintf(line, sizeof(line), "T,%lu,%lu,%lu,%d\n",
+                     (unsigned long)temp.n, (unsigned long)idx, (unsigned long)us,
+                     (int16_t)((t[0] << 8) | t[1]));
+    logSensorLine(line, n);
+}
+
+// GSR: the op-amp output GSRSENSE behind 1 MOhm + 100 nF (a 1.6 Hz low-pass),
+// read on the ESP32's own ADC at 11 dB. adc_sum is GSR_OVERSAMPLE raw 12-bit
+// reads added up; mv_sum is the same number of reads through the core's
+// calibration (analogReadMilliVolts), also added up. Neither is a conductance:
+// the transfer function is in docs/sensor_inventory.md and is not yet measured.
+static void readGsr()
+{
+    if (!gsrOn) return;
+    uint32_t us = micros();
+    uint32_t idx = sampleIndex;
+    uint32_t raw = 0, mv = 0;
+    for (int i = 0; i < GSR_OVERSAMPLE; i++) {
+        raw += analogRead((uint8_t)GSR_ADC_PIN);
+        mv  += analogReadMilliVolts((uint8_t)GSR_ADC_PIN);
+    }
+    gsrN++;
+    char line[64];
+    int n = snprintf(line, sizeof(line), "G,%lu,%lu,%lu,%lu,%lu\n",
+                     (unsigned long)gsrN, (unsigned long)idx, (unsigned long)us,
+                     (unsigned long)raw, (unsigned long)mv);
+    logSensorLine(line, n);
+}
+
+// Probe and configure everything that is wired. Safe to call again while
+// running ('i'): it takes about 25 ms, well inside the ECG FIFO's 125 ms.
+// Sequence numbers are not restarted, so a capture stays monotonic across it.
+void initSensors(const char *why)
+{
+    if (SENS_SDA_PIN < 0 && GSR_ADC_PIN < 0) {
+        Serial.println("# sens: none wired on this board");
+        return;
+    }
+    Serial.printf("# sens: probing%s, i2c sda=%d scl=%d %lu Hz, gsr adc pin=%d\n",
+                  why, SENS_SDA_PIN, SENS_SCL_PIN, (unsigned long)sensI2cHz, GSR_ADC_PIN);
+    if (SENS_SDA_PIN >= 0) {
+        if (!sensBusUp) {
+            Wire.begin(SENS_SDA_PIN, SENS_SCL_PIN, sensI2cHz);
+            Wire.setTimeOut(SENS_I2C_TIMEOUT_MS);
+            sensBusUp = true;
+        }
+        initImu();
+        initPpg();
+        initTemp();
+    }
+    if (GSR_ADC_PIN >= 0) {
+        analogSetPinAttenuation((uint8_t)GSR_ADC_PIN, ADC_11db);
+        gsrOn = true;
+        Serial.printf("# sens gsr: adc pin:%d atten:11dB sum_of:%d every:%d ok\n",
+                      GSR_ADC_PIN, GSR_OVERSAMPLE, GSR_EVERY);
+    }
+}
+
+// Called on every pass of loop(), but does nothing until the ECG drain has
+// produced new samples - so sensor work always follows ECG work and happens
+// once per drain. The IMU goes first: its reading is the one tied most
+// closely to the ECG sample it is stamped with.
+void serviceSensors()
+{
+    static uint32_t lastIdx = 0, imuSlot = 0, gsrSlot = 0, tempSlot = 0;
+    if (sampleIndex == lastIdx) return;
+    lastIdx = sampleIndex;
+    uint32_t s;
+    if ((s = sampleIndex / IMU_EVERY)  != imuSlot)  { imuSlot = s;  readImu(); }
+    servicePpg();
+    if ((s = sampleIndex / GSR_EVERY)  != gsrSlot)  { gsrSlot = s;  readGsr(); }
+    if ((s = sampleIndex / TEMP_EVERY) != tempSlot) { tempSlot = s; readTemp(); }
+}
+
+void logSensorStats()
+{
+    if (SENS_SDA_PIN < 0 && GSR_ADC_PIN < 0) return;
+    Serial.printf("# sens: i2c:%luk ppg:%d n:%lu fifo_lost:%lu err:%lu pa:%02X part:%02X "
+                  "| imu:%d@%02X n:%lu err:%lu whoami:%02X | temp:%d n:%lu err:%lu "
+                  "| gsr:%d n:%lu | logdrop:%lu\n",
+                  (unsigned long)(sensI2cHz / 1000),
+                  ppg.present, (unsigned long)ppg.n, (unsigned long)ppgFifoLost,
+                  (unsigned long)ppg.errs, ppgLedPa, ppgPartId,
+                  imu.present, imu.addr, (unsigned long)imu.n, (unsigned long)imu.errs, imuWhoAmI,
+                  temp.present, (unsigned long)temp.n, (unsigned long)temp.errs,
+                  gsrOn, (unsigned long)gsrN, (unsigned long)sensLogDropped);
+}
+
 // Drain the FIFO until it reports empty or hands us the end-of-file marker.
 // Draining fully is what actually prevents the overflow: it decouples our
 // service rate from the sensor's sample rate.
@@ -414,6 +817,11 @@ done:
 
 void setup()
 {
+    // A transmit buffer larger than the default (the UART's 128-byte hardware
+    // FIFO on the reference board, 256 bytes on the C3's USB-CDC). The sensor
+    // lines make the output bursty, and logSample() drops a line rather than
+    // wait, so the buffer has to absorb a burst. Must be set before begin().
+    Serial.setTxBufferSize(SERIAL_TX_BUFFER);
     Serial.begin(SERIAL_BAUD);
 
     setupBle();
@@ -449,11 +857,20 @@ void setup()
     else                                  Serial.println("# WARNING: setSamplingRate failed");
     delay(50);
 
+    // Before the ECG interrupt is armed, so the probe's delays cost no samples.
+    initSensors("");
+
     setupEcgInterrupt();
     max30003.writeRegister(REG_FIFO_RST, 0x000000);  // start from a clean FIFO
     lastStatsMs = millis();
     Serial.println("# fmt: S,index,isr_micros,value,etag,leadoff");
     Serial.println("# fmt: K,sync_count,sync_micros,sample_index");
+    if (SENS_SDA_PIN >= 0 || GSR_ADC_PIN >= 0) {
+        Serial.println("# fmt: P,ppg_index,ecg_index,micros,red,ir");
+        Serial.println("# fmt: M,seq,ecg_index,micros,ax,ay,az,gx,gy,gz");
+        Serial.println("# fmt: T,seq,ecg_index,micros,raw");
+        Serial.println("# fmt: G,seq,ecg_index,micros,adc_sum,mv_sum");
+    }
     Serial.printf("# device: %s  cs=%d int1=%d sync=%d ble=%d sps=%d\n",
                   DEVICE_TAG, MAX30003_CS_PIN, MAX30003_INT1_PIN,
                   SYNC_PIN, ENABLE_BLE, ECG_SPS);
@@ -525,7 +942,8 @@ void setInputConfig(const char *mode, uint32_t emux, uint32_t cal)
 void loop()
 {
     // 'b' toggles body bias, 'r' resets the FIFO; 'd' / 'e' / 'c' set the input
-    // configuration (see setInputConfig).
+    // configuration (see setInputConfig). Extra sensors: 'i' probes them again,
+    // 'p' steps the PPG LED current, 'f' switches the I2C clock.
     if (Serial.available()) {
         int c = Serial.read();
         if (c == 'b') { static bool rb = false; rb = !rb; setRbias(rb); }
@@ -533,6 +951,26 @@ void loop()
         else if (c == 'd') { setInputConfig("d", 0x0B0000UL, 0x720000UL); }
         else if (c == 'e') { setInputConfig("e", 0x000000UL, 0x000000UL); }
         else if (c == 'c') { setInputConfig("c", 0x390000UL, 0x702800UL); }
+        else if (c == 'i') { initSensors(" again ('i')"); }
+        else if (c == 'p' && SENS_SDA_PIN >= 0) {
+            // 2.0 / 6.2 / 12.6 / 25.4 mA typical (MAX30102 p.20: 0.2 mA per step).
+            // Too little light is a flat trace; too much pins red/ir at 262143.
+            static const uint8_t steps[] = {0x0A, 0x1F, 0x3F, 0x7F};
+            static uint8_t at = 1;
+            at = (at + 1) % sizeof(steps);
+            ppgLedPa = steps[at];
+            uint8_t rb[2] = {0};
+            i2cWriteReg(MAX30102_ADDR, 0x0C, ppgLedPa);
+            i2cWriteReg(MAX30102_ADDR, 0x0D, ppgLedPa);
+            i2cReadReg(MAX30102_ADDR, 0x0C, rb, 2);
+            Serial.printf("# sens ppg: pa:%02X/%02X (set) at ecg_index %lu\n",
+                          rb[0], rb[1], (unsigned long)sampleIndex);
+        }
+        else if (c == 'f' && SENS_SDA_PIN >= 0) {
+            sensI2cHz = (sensI2cHz == 400000) ? 100000 : 400000;
+            Wire.setClock(sensI2cHz);
+            Serial.printf("# sens: i2c clock %lu Hz (set)\n", (unsigned long)sensI2cHz);
+        }
     }
 
     if (ecgIntFlag) {
@@ -563,6 +1001,9 @@ void loop()
         statSweeps++;
         serviceEcgFifo();
     }
+
+    // Extra sensors, only ever after the ECG FIFO has been seen to.
+    serviceSensors();
 
     // Emit sync markers as their own line type so the parser can pick them out
     // without disturbing the sample stream.
@@ -618,5 +1059,6 @@ void loop()
         statValid = statOverflow = statEmpty = statOther = 0;
         isrGapMin = 0xFFFFFFFF; isrGapMax = 0;
         logInputConfig("");
+        logSensorStats();
     }
 }

@@ -7,6 +7,7 @@ cd "$(dirname "$0")"
 PORT=${1:-/dev/ttyUSB0}
 ./build_ref.sh
 [ -w "$PORT" ] || sudo chmod 666 "$PORT"
-./bin/arduino-cli upload -p "$PORT" \
+. ./arduino_cli.sh
+"$CLI" upload -p "$PORT" \
   --fqbn esp32:esp32:esp32:FlashSize=8M,PartitionScheme=default_8MB \
   --build-path build_ref src_build_ref/src_build_ref.ino

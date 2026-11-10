@@ -29,10 +29,10 @@ against the wearer's own baseline. Each one is validated, and each one is shown 
 - [x] This file committed; CLAUDE.md says every session reads it
 
 ### Firmware (`fw` branch)
-- [ ] Sensor inventory: board, bus and pins for MAX30102 (PPG), MAX30205 (temperature), MPU6050 (IMU) and GSR (IO27); list the unknowns
-- [ ] Sensors in the firmware stream, timestamped against the ECG sample index
-- [ ] `capture.py` / `capture_dual.py` save the new streams; integrity check covers them
-- [ ] `docs/bench_session_1.md` written; both images built, not flashed
+- [x] Sensor inventory: board, bus and pins for MAX30102 (PPG), MAX30205 (temperature), MPU6050 (IMU) and GSR (IO27); list the unknowns
+- [x] Sensors in the firmware stream, timestamped against the ECG sample index
+- [x] `capture.py` / `capture_dual.py` save the new streams; integrity check covers them
+- [x] `docs/bench_session_1.md` written; both images built, not flashed
 
 ### Algorithms (`algo` branch)
 - [ ] `algorithms/` package: HRV time-domain, Lomb–Scargle LF/HF, Poincaré SD1/SD2, DFA α1, sample entropy, each with an enforced minimum window

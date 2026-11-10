@@ -17,7 +17,10 @@ ECG acquisition for a finger-electrode ECG ring: ESP32 + MAX30003 firmware, an A
 | USB | native USB-CDC → `/dev/ttyACM*` | USB-UART bridge → `/dev/ttyUSB*` |
 | CS / INTB / SYNC | GPIO7 / GPIO10 / GPIO3 | IO5 / IO15 / IO25 |
 | BLE | on | off |
+| Extra sensors | none (pins set to -1) | I2C on IO21 (SDA) / IO22 (SCL): MAX30102, MAX30205, MPU6050; GSR on IO27 (ADC) |
 | Build dir | `build/` | `build_ref/` |
+
+The reference board's schematic is `docs/ESP32_health_schematic.pdf`; read pins from it by module pin number, not by where a net label sits. The extra sensors are inventoried in `docs/sensor_inventory.md` (what is known, what is not) and their register values are checked in `docs/sensor_datasheet_check.md`. The sensor code is compiled into every board's image and switched off by the pin block, not by a fork.
 
 Never fork `sketch.ino` per board. The two-device study only means something because decoding, register config, sample rate and timestamping are byte-identical on both, so the only difference is electrode site. After editing the sketch, **reflash both boards**. To spot a stale device, compare the `.bin` timestamps in `build/` and `build_ref/` against `sketch.ino`.
 
@@ -25,7 +28,7 @@ The reference board's CS is IO5 because an SPI scan read the INFO register as `0
 
 ## Commands
 
-The build scripts copy `sketch.ino` into `src_build*/` before compiling, so edit `sketch.ino` only.
+The build scripts copy `sketch.ino` into `src_build*/` before compiling, so edit `sketch.ino` only. `bin/arduino-cli` is gitignored, so in a git worktree the build and flash scripts use the main checkout's copy (`arduino_cli.sh`); the images still land in that worktree's own `build*/`.
 
 ```bash
 ./build.sh                 # ring (FQBN esp32:esp32:esp32c3:CDCOnBoot=cdc)
@@ -63,6 +66,11 @@ In WSL, USB devices must first be attached from Windows with `usbipd attach --ws
 ./fiducial.py dual <ring.csv> <ref.csv> --chest ring [--zoom T0 T1]   # timing-point comparison, finger vs chest
 ./fiducial.py mitdb --dir D --label dev12          # the same against MIT-BIH annotations, with coverage
 ./integrity.py captures/<..>_ring.csv captures/<..>_ref.csv          # index continuity on the host -> analysis/
+                                                   # also checks the sensor CSVs it finds beside each ECG CSV
+./sensor_check.py captures/<..>_ref.csv [--checks imu,temp,ppg,gsr] [--taps N] [--breath T]   # bench liveness checks,
+                                                   # provisional pass marks, NOT validation -> analysis/sensor_check_*
+./test_capture_sensors.py                          # capture.py / capture_dual.py / integrity.py / sensor_check.py against
+                                                   # a simulated stream (sim_stream.py: synthetic, never a result)
 cd android_app && ./gradlew assembleDebug          # install with ~/Android/Sdk/platform-tools/adb (wireless debugging)
 ./make_parity_fixtures.py && (cd android_app && ./gradlew testDebugUnitTest)   # BeatDetector.kt == pan_tompkins.py?
 ```
@@ -86,6 +94,16 @@ A third board, the custom ESP32-C3 in `docs/ESP32C3_custom_schematic.pdf`: a bar
 - `# ...`: diagnostics. Every 5 s there is a counter line: `valid ovf empty other rate | life: ... logdrop depth_max isr sweep pin status isr_gap_us`.
 - Input: `b` toggles the body-bias drive (RBIAS), `r` resets the FIFO. `d` / `e` / `c` set the input multiplexer and calibration source for the #21/#23 bench test (`d` = what `begin()` leaves, `e` = electrodes only, `c` = internal 1 mV calibration step with the electrodes disconnected; values in `setInputConfig()` and `docs/bench_session_plan.md`).
 - `# cfg emux:XXXXXX cal:XXXXXX mode:X`: `CNFG_EMUX` / `CNFG_CAL` **read back from the chip**, at boot (`mode:begin`), on every `d`/`e`/`c` (with `(set)`) and every 5 s, so every capture log records its input configuration. A board resets to `begin` (the `d` values) on every reboot.
+- **Extra sensors (reference board only; not over BLE).** One line per reading, all integers:
+  - `P,ppg_index,ecg_index,micros,red,ir`: MAX30102, 18-bit counts, 100 samples/s on **its own oscillator**. `ppg_index` is its sample count (its clock, as the ECG index is the MAX30003's) and includes samples its FIFO lost.
+  - `M,seq,ecg_index,micros,ax,ay,az,gx,gy,gz`: MPU6050 raw int16 (16384 LSB/g, 131 LSB per deg/s), one reading per 4 ECG samples (64 Hz).
+  - `T,seq,ecg_index,micros,raw`: MAX30205 raw int16 (0.00390625 degC per LSB), one per 256 ECG samples. Continuous conversion, so the absolute value is uncalibrated.
+  - `G,seq,ecg_index,micros,adc_sum,mv_sum`: GSR front-end output on the ESP32 ADC, sums of 8 reads, one per 16 ECG samples. Volts at the pin, not conductance; on this circuit as drawn, higher conductance gives a **lower** voltage.
+  - `ecg_index` is the newest ECG sample drained when the reading was taken, so it moves in steps of one FIFO drain (4 samples). `micros` is the ESP32 clock that `isr_micros` on the S lines also uses; the two together place a reading between ECG samples. PPG samples are stamped with the poll that fetched them, which is at or after the moment they were taken: recover their timing from `ppg_index` and the earliest polls, as `sensor_check.py` does.
+  - `seq` / `ppg_index` count readings taken, so a hole on the host is a lost line. Sensor lines give way to ECG lines when the transmit buffer is short (`logdrop` in the `# sens:` line).
+  - `# sens ...`: the boot probe (addresses, IDs and config registers read back), a counter line every 5 s, and events (overflow, a sensor disabled after 8 I2C errors).
+  - Input: `i` probes the sensors again, `p` steps the PPG LED current (`1F → 3F → 7F → 0A`), `f` switches the I2C clock between 400 and 100 kHz.
+  - `capture.py` / `capture_dual.py` write each stream to its own CSV beside the ECG file (`<ecg stem>_ppg.csv`, `_imu.csv`, `_temp.csv`, `_gsr.csv`; `sensor_streams.py`). The ECG CSV is unchanged.
 - BLE notify (ring only): `[seq][count=6][6 x 3-byte little-endian samples]`, 20 bytes (`sendEcgSampleOverBle`). `seq` is an **8-bit counter only**, restarted at 0 on every subscribe; the packet does not carry the sample index. So the phone infers lost packets from seq gaps (ambiguous past 255 in a row), and an outage across a reconnection only by its own wall clock, not on the board's clock. Adding the sample index to the packet is a firmware follow-up.
 
 **The sample index is the clock.** Sample N was taken at N/256 s, timed by the MAX30003's own 32.768 kHz oscillator. Do timing work on the index, not on host time. Across two devices the oscillators drift by up to ±20 ppm; this figure is from memory and has not been checked against a datasheet. RR intervals are unaffected by a constant offset between devices, but matching individual beats needs the SYNC edges.
@@ -147,4 +165,5 @@ These are checked against the datasheet (`docs/MAX30003 - ... .pdf`, Rev 3). The
 - **Open, found on held-out: tp2 HRV coverage collapses on biphasic QRS under causal filtering.** 111, 117, 215 and 230 get 0% coverage (RMSSD withheld) on the phone's filter, 112 41%, 118 30%; zero-phase loses less except 118 (1%). Cause (`analysis/heldout_coverage_diagnosis.txt`): entirely the polarity rule - the rolling median beat's lobe ratio is 1.15-1.22 under causal filtering, below POL_RATIO 1.5, so every beat stays undecided and flagged. Accuracy where HRV is reported is good; availability is not. Not retuned: the held-out set is now spent, so any fix needs new held-out data (another database or our own recordings), and dev showed it only on 108.
 - **Firmware, 31 Oct:** `d` / `e` / `c` input-configuration commands and the `# cfg` read-back line added to `sketch.ino`. Merged on `main` on 10 Nov with the `BOARD_TEST_C3` target (pin block only), and all three targets compile. **Not flashed.** The 31 Oct ring and reference images went with the analysis worktree, so rebuild them from `main` before flashing.
 - **Open issue: the signal is tiny in millivolts.** Under the nominal MAX30003 scale (datasheet check #23: 1 mV = 2621.44 codes at gain 20; the formula is from the MAX30001 datasheet, not ours), dual03's raw span is 0.136 mV chest / 0.153 mV finger (`analysis/nominal_mv_scale_dual03.txt`), far below a typical R wave. Either the scale is wrong or the signal path attenuates; the calibration sources left routed onto the inputs (#21) are one suspect. Not investigated yet. No amplitude claim until the VCAL test in #23 settles it.
+- **Firmware, 10 Nov: extra sensors in the stream, NOT FLASHED, never run on hardware.** `sketch.ino` on the `fw` branch reads the MAX30102, MPU6050, MAX30205 and the GSR ADC on the reference board and stamps every reading with the ECG index; all three targets compile. It also enlarges the serial transmit buffer on every board, which touches the ECG's path to the host, so the 29 Sep clean-link result has to be repeated before it is relied on. The host tools are tested only against a simulated stream. `docs/bench_session_1.md` is the first hardware run, and `docs/sensor_inventory.md` lists what is still unknown (MPU6050 address pin, mixed 1.8 V / 3.3 V I2C pull-ups, the GSR trimmer, whether GSR electrodes disturb the ECG).
 - Explainer artifact: https://claude.ai/artifact/8jDzKhFDJhRjZyEzRZhu7S

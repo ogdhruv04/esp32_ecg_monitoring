@@ -11,7 +11,8 @@ if [ ! -w "$PORT" ]; then
 fi
 
 echo "Flashing to $PORT..."
-./bin/arduino-cli upload -p $PORT --fqbn esp32:esp32:esp32c3:CDCOnBoot=cdc --build-path build src_build/src_build.ino
+. ./arduino_cli.sh
+"$CLI" upload -p $PORT --fqbn esp32:esp32:esp32c3:CDCOnBoot=cdc --build-path build src_build/src_build.ino
 
 echo "Flash complete!"
 python3 ./serial_monitor.py $PORT $BAUD
