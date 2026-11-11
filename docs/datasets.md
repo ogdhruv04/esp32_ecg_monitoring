@@ -11,7 +11,7 @@ Confirm the others the same way before using them, and record the date here.
 | PhysioNet/CinC Challenge 2017 (AF classification, single lead) | ODC-By 1.0 | ✅ 23 Oct 2026, PhysioNet | 8,528 training recordings at 300 Hz | Rhythm / AF detection (item 3) |
 | BUT QDB (Brno University of Technology ECG Quality Database) | CC BY 4.0 | ✅ 23 Oct 2026, PhysioNet | 18 recordings from 15 subjects at 1000 Hz | Learned signal-quality model (item 2) |
 | MIT-BIH Noise Stress Test Database (NSTDB) | ODC-By 1.0 | ✅ 23 Oct 2026, PhysioNet | | Real electrode-motion / muscle / baseline noise for quality and robustness tests (item 2) |
-| BIDMC PPG and Respiration Dataset | ODC-By 1.0 | ✅ 23 Oct 2026, PhysioNet | 53 recordings of 8 min at 125 Hz | Respiration rate from ECG (item 4) |
+| BIDMC PPG and Respiration Dataset | ODC-By 1.0 | ✅ 23 Oct 2026 and again 11 Nov 2026, PhysioNet | 53 recordings of 8 min at 125 Hz, lead II ECG in every one, breaths marked by two annotators. **46 subjects, not 53** (see notes) | Respiration rate from ECG: `validate_breathing_bidmc.py`, split by subject in `algorithms/config.json` |
 | MIT-BIH Arrhythmia Database | ODC-By 1.0 | ✅ 23 Oct 2026, PhysioNet | 48 records from 47 subjects at 360 Hz | Detector benchmark and timing-point check: 12 records are the development subset, the other 36 the held-out test (`tp2_config.json`) |
 | WESAD | **to be checked** | not yet (not hosted on PhysioNet) | | Stress from HRV (item 5); do not use until the licence is known |
 
@@ -26,3 +26,10 @@ Confirm the others the same way before using them, and record the date here.
   228 are the **development** subset: every detector and tp2 parameter was tuned on them. The other
   36 are the **held-out** test, evaluated once with the parameters frozen in `tp2_config.json`.
   Every MIT-BIH figure must say which set it comes from.
+- **BIDMC has repeated subjects.** The paper describes 53 patients, but the `MIMIC II matched wdb ID`
+  in `bidmc_csv/bidmc_NN_Fix.txt` shows 46: s03386 has recordings 06–09, s11342 has 20–23 and
+  s25323 has 38–39. The development / held-out split in `algorithms/config.json` is by subject
+  (23 and 23, 26 and 27 recordings), fixed on 11 Nov 2026 from that metadata before any signal
+  was read. Downloaded on 11 Nov 2026 to `<main checkout>/data/bidmc` (WFDB records, `.breath`
+  annotations and the `Fix.txt` files, 34 MB, SHA-256 checked against the dataset's `SHA256SUMS.txt`).
+  Cite Pimentel et al., *IEEE Trans Biomed Eng* 2017;64(8):1914–1923, and PhysioNet.
