@@ -35,9 +35,10 @@ against the wearer's own baseline. Each one is validated, and each one is shown 
 - [ ] `docs/bench_session_1.md` written; both images built, not flashed
 
 ### Algorithms (`algo` branch)
-- [ ] `algorithms/` package: HRV time-domain, Lomb–Scargle LF/HF, Poincaré SD1/SD2, DFA α1, sample entropy, each with an enforced minimum window
-- [ ] HRV functions checked against neurokit2 on MIT-BIH (saved result)
-- [ ] ECG-derived breathing rate (RSA and R-amplitude) validated on BIDMC against annotated breaths (saved result, coverage reported)
+- [x] `algorithms/` package: HRV time-domain, Lomb–Scargle LF/HF, Poincaré SD1/SD2, DFA α1, sample entropy, each with an enforced minimum window (`docs/hrv_minimum_windows.md`; 50 unit tests in `tests/`)
+- [x] HRV functions checked against neurokit2 on MIT-BIH (`analysis/hrv_vs_neurokit_mitdb_dev.txt`, `..._heldout.txt`)
+- [x] ECG-derived breathing rate (RSA and R-amplitude) validated on BIDMC against annotated breaths (`analysis/breathing_bidmc_dev.txt`, `..._heldout.txt`; split by subject, parameters frozen in commit `467881d` before the held-out run)
+- Found on the way, for the app plan: a 2-minute session cannot hold the 120 s of valid NN time that SDNN, SD2, LF/HF and DFA α1 need (`docs/hrv_minimum_windows.md`, last section). Session length is a decision for week 3.
 
 ### You
 - [ ] Answer: sensor wiring, midterm date, whether Phase 2 (SoC) is assessed, ethics status

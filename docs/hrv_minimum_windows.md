@@ -43,16 +43,19 @@ window of similar length. The pre-set rule was not met and was not changed.
 **Missing beats and Lomb–Scargle.** Lomb–Scargle needs no interpolation, but holes are not free:
 each missing interval spreads part of the series' variance across all frequencies, and the smaller
 band is lifted most. With 2.5% of beats flagged at random (coverage 95%) HF read 7–14% high and
-LF/HF 5–8% low; with 5% flagged (coverage 90%) HF read 16–30% high. LF and HF are therefore
+LF/HF 4–8% low; with 5% flagged (coverage 90%) HF read 16–30% high. LF and HF are therefore
 withheld below 95% coverage. neurokit2's Lomb–Scargle has the same floor, so agreement with it does
 not show the floor is absent.
 
 ## Choices that are ours, not the literature's
 
-- **DFA box sizes 4–16 beats.** neurokit2's default is 4–11. On the MIT-BIH development records the
-  two definitions differ by 0.13–0.18 at the median (`analysis/hrv_vs_neurokit_mitdb_dev.txt`).
-  Before comparing α1 with a published threshold, check which range that publication used. The
-  range in the original paper (Peng et al. 1995) was not checked for this document.
+- **DFA box sizes 4–16 beats.** neurokit2's default is 4–11 with half-overlapping boxes. The two
+  definitions give different numbers on the same series: on 5-minute windows without holes the
+  difference (ours − neurokit2's default) was up to 0.20 on the MIT-BIH development records
+  (median −0.13) and up to 0.24 on the held-out ones (median +0.09)
+  (`analysis/hrv_vs_neurokit_mitdb_dev.txt`, `..._heldout.txt`). Before comparing α1 with a
+  published threshold, check which range that publication used. The range in the original paper
+  (Peng et al. 1995) was not checked for this document.
 - **pNN50 divides by the number of successive differences.** neurokit2 divides by the number of
   intervals (differences + 1). With holes only the number of differences is well defined.
 - **HF needs mean NN ≤ 1250 ms** (48 beats/min or faster). One sample per beat cannot represent
