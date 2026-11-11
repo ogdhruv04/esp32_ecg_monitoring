@@ -7,7 +7,7 @@ Give it the ECG CSV; it loads the sensor files beside it (sensor_streams.py).
 Run ./integrity.py on the same capture first: these checks assume the rows
 are all there. Saves analysis/sensor_check_<stem>.txt and .png.
 
-One check per sensor (docs/bench_session_1.md, part B):
+One check per sensor (docs/bench_session_1.md, steps 1d, 2, 4 and 5):
   IMU          taps on the board show as spikes in |accel|; --taps N says how
                many were made, and the count has to match
   temperature  stable while nothing changes: spread and drift over the capture

@@ -131,7 +131,7 @@ These lines settle open questions 1 and 2 of `docs/sensor_inventory.md`. What a 
 - [ ] SDA or SCL, idle: the arithmetic says about 2.8 V.
 - [ ] Both readings into the notes file. They are the first measurements of this.
 
-**1c. Link test with the sensors streaming.** The firmware now sends about twice as much data
+**1c. Link test with the sensors streaming.** The firmware now sends roughly twice as much data
 from the reference board and uses a larger transmit buffer on both, so the 29 Sep result (both
 links clean) has to be earned again. Nothing touching either board:
 

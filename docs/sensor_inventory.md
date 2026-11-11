@@ -9,7 +9,7 @@ What else is on the boards besides the MAX30003, where, and how sure we are. Wri
 - The note in `sketch.ino` that IO27 is `GSRSENSE`.
 
 **Nothing here has been confirmed on hardware.** The firmware probes every part at boot and
-prints what it found (`# sens ...` lines); that print is the confirmation, and step A of
+prints what it found (`# sens ...` lines); that print is the confirmation, and step 1a of
 `docs/bench_session_1.md` is where it gets read.
 
 ## Where each sensor is
@@ -99,7 +99,7 @@ Answered by you on 10 Nov 2026, kept here for the record:
 Still open. None of these blocks the firmware (it probes rather than assumes), but each
 changes what the bench session should expect:
 
-1. **Is the board built as the schematic says?** The chip-select line was debated once already.
+1. **Is the board built as the schematic says?** This schematic was misread once already, for chip-select.
    Settled by the boot lines `# sens ppg: ... part:15 ... ok`, `# sens imu: addr:68 whoami:68 ... ok`
    and `# sens temp: addr:48 cfg:00 ... ok`.
 2. **MPU6050 address: 0x68 or 0x69?** AD0 is not tied to a supply rail. It runs to pin 1 of
@@ -115,14 +115,14 @@ changes what the bench session should expect:
    MAX30102's own pins tolerate it (datasheet check #15). **Unknown: whether 2.8 V is a solid
    high for the ESP32, and whether the 1.8 V rail stays at 1.8 V.** The MAX30003 and MAX30102
    are both on that rail and the MAX30102's absolute maximum is 2.2 V. Measure the rail with a
-   multimeter in step A.
+   multimeter in step 1b of the bench session.
 4. **What is connected to GSR1?** You were not sure. The check needs two skin electrodes there.
 5. **R6's value and setting**, and the LM324's highest output on a 3.3 V supply. Together they
    decide whether the GSR output sits in range or pinned at a limit with electrodes on.
 6. **Can GSR electrodes be worn together with the ECG electrodes of the same board?** GSR1
    pin 2 ties the skin to board ground through the electrode, while the MAX30003 holds the body
    at its own bias through the third ECG electrode. Two different DC levels on one body could
-   disturb the ECG. Unknown; step B4 of the bench plan compares the ECG with the GSR electrodes
+   disturb the ECG. Unknown; step 5c of the bench session compares the ECG with the GSR electrodes
    off and on before the long capture depends on it.
 7. **Which finger goes where.** The MAX30102, the ECG finger electrodes, the GSR electrodes and
    the MAX30205 are all meant for fingers of what may be the same hand. Where each sits on the
