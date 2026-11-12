@@ -58,7 +58,7 @@ class EcgPipeline(private val onBeat: ((Long) -> Unit)? = null) {
     }
 
     /** Start recording a session of [durationS] from the next sample. */
-    fun startSession(durationS: Double = SessionConfig.DURATION_S): SessionRecorder {
+    fun startSession(durationS: Double = SessionKind.STANDARD.durationS): SessionRecorder {
         val s0 = detector.sampleCount
         return SessionRecorder(s0, s0 + (durationS * EcgFilter.ECG_SAMPLE_RATE).toLong()).also { session = it }
     }

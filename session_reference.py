@@ -26,11 +26,26 @@ with open(os.path.join(_ROOT, "session_config.json")) as _f:
     SESSION = json.load(_f)
 VERSION = SESSION["version"]
 
-# The measures on the report, in order. LFnu and sample entropy are left out:
-# LFnu was not asked for, and SampEn needs 180 s of valid NN time, which a
-# 180 s session can never hold.
-HRV_KEYS = ["rmssd", "sdnn", "pnn50", "sd1", "sd2", "lf", "hf", "lf_hf", "dfa_alpha1"]
+# Session-level rules. They belong in algorithms/config.json ("session"),
+# which the algorithms workstream has not written yet; until it does, these
+# PROVISIONAL values apply and every reason they produce says so. They were
+# set by hand, not tuned: 30 intervals is MIN_BEATS_FOR_HRV (tp2_config.json),
+# 5 windows and a 4 breaths/min spread were chosen in review on 12 Nov 2026.
+PROVISIONAL = {"hr_min_intervals": 30, "breathing_min_windows": 5, "breathing_max_range_bpm": 4.0}
+RULES = A.CONFIG.get("session", PROVISIONAL)
+RULES_PROVISIONAL = "session" not in A.CONFIG
+TAG = " (provisional rule)" if RULES_PROVISIONAL else ""
+BR_STEP_S = A.CONFIG["bidmc"]["step_s"]         # windows as in the BIDMC validation
+
+# The measures on the report, in order. The standard (3-minute) report leaves
+# out DFA alpha1 and sample entropy, which need more data than it can hold;
+# the extended (5-minute) one adds them. LFnu was not asked for.
+HRV_KEYS = ["rmssd", "sdnn", "pnn50", "sd1", "sd2", "lf", "hf", "lf_hf"]
 KEYS = ["hr", "br"] + HRV_KEYS
+
+
+def keys(kind):
+    return KEYS + SESSION["kinds"][kind]["extra_keys"]
 
 
 def run_detector(values, skips, end):
@@ -57,16 +72,16 @@ def heart_rate(beats, fs):
     n_all = max(len(beats) - 1, 0)
     cov = len(rr) / n_all if n_all else 0.0
     span = (pos[-1] - pos[0]) / fs if len(pos) > 1 else 0.0
-    need = SESSION["hr_min_intervals"]
+    need = RULES["hr_min_intervals"]
     if len(rr) < need:
-        return Result("HR", None, "bpm", f"{len(rr)} beat-to-beat intervals, needs {need}",
+        return Result("HR", None, "bpm", f"{len(rr)} beat-to-beat intervals, needs {need}{TAG}",
                       len(rr), span, span, cov)
     return Result("HR", 60000.0 / float(np.median(rr)), "bpm", None, len(rr), span, span, cov)
 
 
 def breathing_windows(mods, t0, t1):
     """Fused breathing rate of every 32 s window starting every step s in [t0, t1)."""
-    W, step = A.CONFIG["breathing"]["window_s"], SESSION["breathing_step_s"]
+    W, step = A.CONFIG["breathing"]["window_s"], BR_STEP_S
     out, k = [], 0
     while k * step <= (t1 - t0) - W + 1e-9:
         w0 = t0 + k * step
@@ -77,18 +92,23 @@ def breathing_windows(mods, t0, t1):
 
 def breathing(windows, span_s):
     rates = [r.value for _, r in windows if r.ok]
-    need = SESSION["breathing_min_windows"]
+    need, spread = RULES["breathing_min_windows"], RULES["breathing_max_range_bpm"]
     m = len(windows)
     cov = len(rates) / m if m else 0.0
+    extra = {"min": float(min(rates)), "max": float(max(rates)), "windows": m} if rates else {"windows": m}
     if len(rates) < need:
-        why = (f"{len(rates)} of {m} breathing windows gave a rate, needs {need}" if m
+        why = (f"{len(rates)} of {m} breathing windows gave a rate, needs {need}{TAG}" if m
                else "session shorter than one breathing window")
-        return Result("Breathing rate", None, "breaths/min", why, len(rates), span_s, span_s, cov)
-    return Result("Breathing rate", float(np.median(rates)), "breaths/min", None, len(rates), span_s, span_s, cov,
-                  {"min": float(min(rates)), "max": float(max(rates)), "windows": m})
+        return Result("Breathing rate", None, "breaths/min", why, len(rates), span_s, span_s, cov, extra)
+    # Windows that disagree by more than `spread` are not one breathing rate.
+    if max(rates) - min(rates) > spread:
+        why = (f"window rates span {min(rates):.1f}\u2013{max(rates):.1f} breaths/min, "
+               f"more than {spread:g}{TAG}")
+        return Result("Breathing rate", None, "breaths/min", why, len(rates), span_s, span_s, cov, extra)
+    return Result("Breathing rate", float(np.median(rates)), "breaths/min", None, len(rates), span_s, span_s, cov, extra)
 
 
-def session_report(pt, y, s0, s1, fs=256.0):
+def session_report(pt, y, s0, s1, fs=256.0, kind="standard"):
     """{key: Result} for the session [s0, s1), plus the per-window breathing
     results under '_windows' and the session's beats under '_beats'."""
     beats = [b for b in pt.beats if s0 <= b["pos"] < s1]
@@ -99,7 +119,7 @@ def session_report(pt, y, s0, s1, fs=256.0):
     mods = A.modulations(ys, beats, fs)
     wins = breathing_windows(mods, s0 / fs, s1 / fs)
     rep = {"hr": heart_rate(beats, fs), "br": breathing(wins, (s1 - s0) / fs)}
-    rep.update({k: h[k] for k in HRV_KEYS})
+    rep.update({k: h[k] for k in keys(kind)[2:]})
     rep["_windows"] = wins
     rep["_beats"] = beats
     rep["_nn"] = nn

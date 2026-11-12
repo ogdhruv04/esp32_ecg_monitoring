@@ -14,7 +14,7 @@ object SessionReplay {
      *  first packet at or after [startS]. Returns the pipeline and the
      *  finished recorder (null if it had not finished by [untilS]). */
     fun run(
-        packets: List<CaptureReplay.Packet>, startS: Double, durationS: Double = SessionConfig.DURATION_S,
+        packets: List<CaptureReplay.Packet>, startS: Double, durationS: Double = SessionKind.STANDARD.durationS,
         untilS: Double = Double.MAX_VALUE,
     ): Pair<EcgPipeline, SessionRecorder?> {
         val p = EcgPipeline()
@@ -30,6 +30,6 @@ object SessionReplay {
         return p to done
     }
 
-    fun report(rec: SessionRecorder, startedAtMs: Long, replay: String?) =
-        SessionReport.from(rec, rec.report(), startedAtMs, replay, endedEarly = false)
+    fun report(rec: SessionRecorder, startedAtMs: Long, replay: String?, kind: SessionKind = SessionKind.STANDARD) =
+        SessionReport.from(rec, rec.report(kind), kind, startedAtMs, replay, endedEarly = false)
 }

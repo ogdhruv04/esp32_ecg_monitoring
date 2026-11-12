@@ -10,9 +10,9 @@ import kotlin.math.sin
 import kotlin.math.sqrt
 
 /*
- * Ports of algorithms/hrv_time.py, hrv_freq.py and hrv_nonlinear.py (Poincare
- * and DFA alpha1; sample entropy is not ported, because it needs 180 s of
- * valid NN time and a 180 s session can never hold that). The definitions,
+ * Ports of algorithms/hrv_time.py, hrv_freq.py and hrv_nonlinear.py (Poincare,
+ * DFA alpha1 and sample entropy; the last two are on the extended session's
+ * report only, since a 3-minute session cannot hold their minimum). The definitions,
  * and why each minimum window is what it is, are in those files and in
  * docs/hrv_minimum_windows.md. Nothing crosses a hole in the NN series.
  *
@@ -190,11 +190,51 @@ object Hrv {
         return result(nn, "DFA alpha1", "", alpha, nUsed = nUsed)
     }
 
+    // ------------------------------------------------------- sample entropy
+
+    /** hrv_nonlinear._matches: pairs (i < j) of rows within Chebyshev distance r,
+     *  over the first [width] columns. */
+    private fun matches(t: List<DoubleArray>, width: Int, r: Double): Int {
+        var count = 0
+        for (i in 0 until t.size - 1) for (j in i + 1 until t.size) {
+            var d = 0.0
+            for (k in 0 until width) d = maxOf(d, abs(t[j][k] - t[i][k]))
+            if (d <= r) count++
+        }
+        return count
+    }
+
+    /** hrv_nonlinear.sample_entropy_raw: SampEn of runs (each at least m + 1
+     *  long) with r = r_sd * sd; NaN when no template pair matches. */
+    fun sampleEntropyRaw(runs: List<DoubleArray>, sd: Double): Double {
+        val m = AlgConfig.SAMPEN_M
+        val t = runs.flatMap { r -> (0..r.size - (m + 1)).map { r.copyOfRange(it, it + m + 1) } }
+        val r = AlgConfig.SAMPEN_R_SD * sd
+        val b = matches(t, m, r)
+        val a = matches(t, m + 1, r)
+        return if (a > 0 && b > 0) -ln(a.toDouble() / b) else Double.NaN
+    }
+
+    fun sampleEntropy(nn: NnSeries): Result {
+        val m = AlgConfig.SAMPEN_M
+        val runs = nn.runs(minLen = m + 1)
+        val nT = runs.sumOf { it.size - m }
+        var why = gate(nn, "sampen")
+        val need = AlgConfig.MIN_WINDOW.getValue("sampen").templates!!
+        if (why == null && nT < need) why = "$nT templates of ${m + 1} consecutive NN intervals, needs $need"
+        if (why != null) return result(nn, "SampEn", "", withheld = why, nUsed = nT)
+        val sd = stdDdof1(nn.values)
+        val v = sampleEntropyRaw(runs, sd)
+        if (v.isNaN()) return result(nn, "SampEn", "", withheld = "no template matches within r", nUsed = nT)
+        return result(nn, "SampEn", "", v, nUsed = nT, extra = mapOf("r_ms" to AlgConfig.SAMPEN_R_SD * sd))
+    }
+
     /** Every ported HRV measure of one NN series, keyed as in algorithms.hrv(). */
     fun all(nn: NnSeries): Map<String, Result> = LinkedHashMap<String, Result>().apply {
         put("rmssd", rmssd(nn)); put("sdnn", sdnn(nn)); put("pnn50", pnn50(nn))
         putAll(poincare(nn))
         putAll(frequencyDomain(nn))
         put("dfa_alpha1", dfaAlpha1(nn))
+        put("sampen", sampleEntropy(nn))
     }
 }

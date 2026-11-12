@@ -1,12 +1,17 @@
 {
-  "version": "ses1",
-  "description": "The app's Session mode: how long it records and the two rules that are the app's own rather than the algorithms package's. Read by session_reference.py; SessionConfigTest fails if Session.kt differs. Every HRV and breathing rule (minimum windows, coverage, peak share) comes from algorithms/config.json, not from here.",
-  "duration_s": 180.0,
+  "version": "ses2",
+  "description": "The app's Session mode: the session kinds and how long they record. Read by session_reference.py; AlgorithmsConfigTest fails if Session.kt differs. Every rule about what a session may report comes from algorithms/config.json: the HRV and breathing rules from its hrv and breathing blocks, the breathing window step from bidmc.step_s, and the session-level rules (minimum intervals for heart rate, minimum breathing windows and their allowed spread) from a 'session' block that the algorithms workstream has not written yet. Until it does, session_reference.PROVISIONAL applies and the app labels those rules provisional.",
+  "kinds": {
+    "standard": {
+      "duration_s": 180.0,
+      "extra_keys": []
+    },
+    "extended": {
+      "duration_s": 300.0,
+      "extra_keys": ["dfa_alpha1", "sampen"],
+      "note": "DFA alpha1 needs 200 NN intervals in unbroken runs and sample entropy 180 s of valid NN time (algorithms/config.json); a 3-minute session can hold neither, so they are reported only here."
+    }
+  },
   "tail_s": 4.0,
-  "tail_note": "After the last recorded sample the detector runs on for tail_s so that beats inside the session but located late are kept: a search-back beat can be located up to 1.66 RR after it, and HIST_S (4 s) is the furthest the detector looks back. Only beats whose position lies inside the session are used, and only samples inside it.",
-  "hr_min_intervals": 30,
-  "hr_note": "Session heart rate = 60 / median of the intervals between consecutive detected beats with no lost samples between them (flagged and searched-back beats included: their timing is good enough for a median). Withheld below hr_min_intervals intervals, the same count as MIN_BEATS_FOR_HRV in tp2_config.json. Not validated as a session measure.",
-  "breathing_step_s": 3.0,
-  "breathing_min_windows": 5,
-  "breathing_note": "Breathing rate = median of the fused rates of the 32 s windows (algorithms/config.json breathing.window_s) starting every breathing_step_s in the session, as in the BIDMC validation. Withheld when fewer than breathing_min_windows windows give a rate. That count is the app's choice and was not tuned or validated: the per-window rules are the validated part."
+  "tail_note": "After the last recorded sample the detector runs on for tail_s so that beats inside the session but located late are kept: a search-back beat can be located up to 1.66 RR after it, and HIST_S (4 s) is the furthest the detector looks back. Only beats whose position lies inside the session are used, and only samples inside it."
 }

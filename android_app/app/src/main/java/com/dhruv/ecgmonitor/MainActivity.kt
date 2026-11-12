@@ -108,7 +108,7 @@ private fun MonitorApp(vm: EcgViewModel) {
 
     val rec = vm.pipeline.session
     val phase = vm.sessionPhase
-    val secondsLeft = rec?.let { kotlin.math.ceil((1 - it.progress) * SessionConfig.DURATION_S).toInt() } ?: 0
+    val secondsLeft = rec?.let { kotlin.math.ceil((1 - it.progress) * (it.s1 - it.s0) / EcgFilter.ECG_SAMPLE_RATE).toInt() } ?: 0
     val state = MonitorUiState(
         link = vm.link, linkFix = vm.linkFix, dropped = vm.dropped, status = vm.status, replayFile = vm.replayFile,
         pipeline = vm.pipeline, tick = vm.packetTick, gainMmPerMv = vm.gainMmPerMv,
@@ -134,6 +134,7 @@ private fun MonitorApp(vm: EcgViewModel) {
         onHistory = { if (vm.sessionPhase is SessionPhase.Done) vm.closeReport(); screen = "history" },
         onBack = { screen = "main" },
         onCycleGain = vm::cycleGain,
+        onKind = { vm.sessionKind = it },
     )
     val needsHistory = screen == "session" || screen == "history" || screen.startsWith("past:")
     val history by (if (needsHistory) vm.history else kotlinx.coroutines.flow.flowOf(emptyList()))
@@ -146,6 +147,7 @@ private fun MonitorApp(vm: EcgViewModel) {
                     SessionUiState(
                         phase, state, rec?.progress ?: 0.0, secondsLeft,
                         finishing = rec != null && rec.index >= rec.s1, historyCount = history.size,
+                        kind = vm.sessionKind, history = history,
                     ),
                     sessionActions, geometry,
                 )
@@ -155,7 +157,7 @@ private fun MonitorApp(vm: EcgViewModel) {
                 screen.startsWith("past:") -> {
                     val r = history.firstOrNull { it.id == screen.removePrefix("past:").toLongOrNull() }
                     if (r != null) ReportScreen(
-                        r, geometry.insets, onDone = { screen = "history" }, title = "Past session", doneLabel = "Back",
+                        r, baselineFor(r, history), geometry.insets, onDone = { screen = "history" }, title = "Past session", doneLabel = "Back",
                         onDelete = { vm.deleteSession(r.id); screen = "history" },
                     )
                 }

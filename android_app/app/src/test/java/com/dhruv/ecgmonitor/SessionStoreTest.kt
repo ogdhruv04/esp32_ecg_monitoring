@@ -27,6 +27,7 @@ class SessionStoreTest {
         val back = store.all.first().single()
         assertEquals(report.copy(id = id), back)
         assertEquals(SessionMeasures.KEYS, back.measures.keys.toList())
+        assertEquals(SessionKind.STANDARD, back.kind)
 
         store.delete(id)
         assertEquals(0, store.all.first().size)

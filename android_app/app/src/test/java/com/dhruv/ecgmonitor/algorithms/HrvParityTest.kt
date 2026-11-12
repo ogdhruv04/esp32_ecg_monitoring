@@ -45,6 +45,9 @@ class HrvParityTest {
             "lf" to if (v.size > 2) Hrv.bandPower(t, v, AlgConfig.LF_BAND) else Double.NaN,
             "hf" to if (v.size > 2) Hrv.bandPower(t, v, AlgConfig.HF_BAND) else Double.NaN,
             "dfa_alpha1" to if (runs.isNotEmpty()) Hrv.dfaAlpha1Raw(runs) else Double.NaN,
+            "sampen" to nn.runs(AlgConfig.SAMPEN_M + 1).let { r ->
+                if (r.isNotEmpty() && v.size > 1) Hrv.sampleEntropyRaw(r, stdDdof1(v)) else Double.NaN
+            },
         )
         assertEquals("$name: raw measures", raw.keys, kotlin.keys)
         for ((k, x) in raw) close("$name raw $k", x, kotlin.getValue(k))
@@ -60,6 +63,6 @@ class HrvParityTest {
     /** Every gate passes here, so every gated value path runs. */
     @Test fun stitched() {
         check("stitched")
-        assertEquals("every measure shown", 9, Hrv.all(series("stitched")).values.count { it.ok })
+        assertEquals("every measure shown", 10, Hrv.all(series("stitched")).values.count { it.ok })
     }
 }

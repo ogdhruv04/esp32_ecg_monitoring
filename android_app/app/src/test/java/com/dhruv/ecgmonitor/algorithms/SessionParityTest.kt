@@ -1,6 +1,7 @@
 package com.dhruv.ecgmonitor.algorithms
 
 import com.dhruv.ecgmonitor.BeatDetector
+import com.dhruv.ecgmonitor.SessionKind
 import com.dhruv.ecgmonitor.SessionMeasures
 import com.dhruv.ecgmonitor.SessionRecorder
 import com.dhruv.ecgmonitor.algorithms.Fixtures.assertSame
@@ -20,10 +21,10 @@ import org.junit.Test
  */
 class SessionParityTest {
 
-    private class Case(val input: String, val s0: Long, val s1: Long)
+    private class Case(val input: String, val s0: Long, val s1: Long, val kind: SessionKind)
 
     private val cases: Map<String, Case> = Fixtures.resource("session/session_cases.tsv").lines().drop(1)
-        .filter { it.isNotBlank() }.associate { it.split('\t').let { c -> c[0] to Case(c[1], c[2].toLong(), c[3].toLong()) } }
+        .filter { it.isNotBlank() }.associate { it.split('\t').let { c -> c[0] to Case(c[1], c[2].toLong(), c[3].toLong(), SessionKind.valueOf(c[4].uppercase())) } }
 
     private fun record(case: Case): SessionRecorder {
         val rows = Fixtures.resource(case.input).lines().drop(1).filter { it.isNotBlank() }.map { it.split(',') }
@@ -54,9 +55,10 @@ class SessionParityTest {
     }
 
     private fun check(name: String) {
-        val m = record(cases.getValue(name)).report()
+        val case = cases.getValue(name)
+        val m = record(case).report(case.kind)
         val expected = Fixtures.results("session/session_${name}_expected.tsv")
-        assertEquals("$name: report keys", expected.map { it.key }, SessionMeasures.KEYS)
+        assertEquals("$name: report keys", expected.map { it.key }, SessionMeasures.keys(case.kind))
         for (e in expected) assertSame("$name ${e.key}", e, m.results.getValue(e.key))
 
         val windows = Fixtures.resource("session/session_${name}_windows.tsv").lines().drop(1).filter { it.isNotBlank() }
@@ -83,4 +85,6 @@ class SessionParityTest {
     /** Full 3-minute sessions on the test board, with real lost samples. */
     @Test fun testBoard01() = check("tb01")
     @Test fun testBoard02() = check("tb02")
+    /** The extended report: DFA alpha1 and sample entropy as well. */
+    @Test fun testBoard02Extended() = check("tb02_ext")
 }

@@ -42,6 +42,11 @@ android {
         compose = true
     }
 
+    // The exported Room schemas, for MigrationTestHelper (SessionMigrationTest).
+    // Robolectric reads assets from the variant, not the test source set, so
+    // they go into debug builds; a few KB, and release builds carry none.
+    sourceSets["debug"].assets.srcDir("$projectDir/schemas")
+
     testOptions {
         // Robolectric needs merged resources and assets (replay captures).
         unitTests.isIncludeAndroidResources = true
@@ -134,6 +139,8 @@ dependencies {
     // Real org.json for plain JVM tests (android.jar's copy is a stub there):
     // AlgorithmsConfigTest reads algorithms/config.json with it.
     testImplementation("org.json:json:20240303")
+    // SessionMigrationTest: builds old schemas from app/schemas.
+    testImplementation("androidx.room:room-testing:2.6.1")
     testImplementation("org.robolectric:robolectric:4.13")
     testImplementation("io.github.takahirom.roborazzi:roborazzi:1.26.0")
     testImplementation("io.github.takahirom.roborazzi:roborazzi-compose:1.26.0")

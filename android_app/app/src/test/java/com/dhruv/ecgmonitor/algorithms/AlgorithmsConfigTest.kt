@@ -1,8 +1,13 @@
 package com.dhruv.ecgmonitor.algorithms
 
 import com.dhruv.ecgmonitor.SessionConfig
+import com.dhruv.ecgmonitor.SessionKind
+import com.dhruv.ecgmonitor.SessionMeasures
+import com.dhruv.ecgmonitor.SessionRules
+import org.junit.Assert.assertFalse
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -26,6 +31,9 @@ class AlgorithmsConfigTest {
         assertEquals(h.getInt("lomb_oversample"), AlgConfig.LOMB_OVERSAMPLE)
         assertEquals(h.getJSONObject("dfa").getInt("scale_min"), AlgConfig.DFA_SCALE_MIN)
         assertEquals(h.getJSONObject("dfa").getInt("scale_max"), AlgConfig.DFA_SCALE_MAX)
+        assertEquals(h.getJSONObject("sampen").getInt("m"), AlgConfig.SAMPEN_M)
+        assertEquals(h.getJSONObject("sampen").getDouble("r_sd"), AlgConfig.SAMPEN_R_SD, 0.0)
+        assertEquals(alg.getJSONObject("bidmc").getDouble("step_s"), AlgConfig.BR_STEP_S, 0.0)
     }
 
     @Test fun minimumWindows() {
@@ -37,8 +45,9 @@ class AlgorithmsConfigTest {
             assertEquals("$name pairs", p.optInt("pairs", -1), k.pairs ?: -1)
             assertEquals("$name coverage", p.optDouble("coverage", -1.0), k.coverage ?: -1.0, 0.0)
             assertEquals("$name nn_in_runs", p.optInt("nn_in_runs", -1), k.nnInRuns ?: -1)
+            assertEquals("$name templates", p.optInt("templates", -1), k.templates ?: -1)
             // A key the port doesn't know would be a rule the phone ignores.
-            val known = setOf("valid_s", "nn", "pairs", "coverage", "nn_in_runs")
+            val known = setOf("valid_s", "nn", "pairs", "coverage", "nn_in_runs", "templates")
             assertEquals("$name has keys the port ignores", emptySet<String>(), p.keySet() - known)
         }
     }
@@ -63,10 +72,27 @@ class AlgorithmsConfigTest {
 
     @Test fun sessionSettings() {
         assertEquals(ses.getString("version"), SessionConfig.VERSION)
-        assertEquals(ses.getDouble("duration_s"), SessionConfig.DURATION_S, 0.0)
         assertEquals(ses.getDouble("tail_s"), SessionConfig.TAIL_S, 0.0)
-        assertEquals(ses.getInt("hr_min_intervals"), SessionConfig.HR_MIN_INTERVALS)
-        assertEquals(ses.getDouble("breathing_step_s"), SessionConfig.BR_STEP_S, 0.0)
-        assertEquals(ses.getInt("breathing_min_windows"), SessionConfig.BR_MIN_WINDOWS)
+        val kinds = ses.getJSONObject("kinds")
+        assertEquals(SessionKind.entries.map { it.name.lowercase() }.toSet(), kinds.keySet())
+        for (k in SessionKind.entries) {
+            val j = kinds.getJSONObject(k.name.lowercase())
+            assertEquals("$k duration", j.getDouble("duration_s"), k.durationS, 0.0)
+            val extra = j.getJSONArray("extra_keys").let { a -> List(a.length()) { a.getString(it) } }
+            assertEquals("$k extra keys", extra, k.extraKeys)
+        }
+        assertEquals("every report key is a measure the app can show",
+            SessionMeasures.ALL_KEYS.toSet(), com.dhruv.ecgmonitor.EXPLANATIONS.keys)
+    }
+
+    /** The session-level rules must come from algorithms/config.json. Until the
+     *  algorithms workstream adds a "session" block they are provisional; the
+     *  moment it does, this fails until the constants are taken from it. */
+    @Test fun sessionRulesAreProvisionalUntilConfigHasThem() {
+        assertTrue("SessionRules must say it is provisional", SessionRules.PROVISIONAL)
+        assertFalse(
+            "algorithms/config.json now has a \"session\" block: take SessionRules from it and set PROVISIONAL = false",
+            alg.has("session"),
+        )
     }
 }

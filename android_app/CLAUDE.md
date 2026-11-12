@@ -36,12 +36,15 @@ UI work never changes the logic in `EcgFilter.kt`, `BeatDetector.kt`, `SignalQua
 
 `docs/explained/app.md` explains the measurement side; these are the rules.
 
-- A session records `SessionConfig.DURATION_S` (180 s, `session_config.json`). Start waits until the main screen would show a heart rate (GOOD), so a session never opens on a signal the app would not trust. Back leaves the screen and recording continues; Cancel stops it.
+- Two kinds (`SessionKind`, `session_config.json`): standard 3 min, extended 5 min. Only the extended report has DFA α1 and sample entropy; a 3-minute session cannot meet their minimums. Start waits until the main screen would show a heart rate (GOOD). Back leaves the screen and recording continues; Cancel stops it.
 - Every measure is a port of `algorithms/` (`app/src/main/java/.../algorithms/`), never reimplemented from the UI. If the Python changes: `./make_session_fixtures.py`, then `HrvParityTest`, `SessionParityTest` and `AlgorithmsConfigTest` must pass.
-- A withheld measure shows "—" and the algorithm's reason verbatim. Every shown HRV value carries its count and coverage. No measure is ever estimated from less than its minimum window.
-- LF/HF always carries the caveat that it is a band ratio, not a measure of sympathetic–vagal balance.
+- Session-level rules (HR intervals, breathing windows and their spread) come from `algorithms/config.json`. It has no `session` block yet, so `SessionRules` holds provisional values and every reason they produce says "(provisional rule)". `AlgorithmsConfigTest` fails when the block appears; take the values from it then.
+- The report has two layers: a summary of HR, RMSSD and breathing rate, each with "Usual" (median and range) once there are `BASELINE_MIN_SESSIONS` (3) earlier live sessions, or "Building your baseline: N of 3" before that; and "All measures", collapsed. Replays never count towards the baseline (`Baseline.kt`, `BaselineTest`).
+- Tapping a measure shows one line from `EXPLANATIONS`. That wording is reviewed in `docs/explained/app.md`; `ExplanationsTest` requires the two to match, so change both together.
+- A withheld measure shows "—" and the algorithm's reason verbatim. Every shown HRV value carries its count and coverage. LF/HF always carries the band-ratio caveat.
 - Rhythm check, ectopic count, motion and arousal are stored slots (`PendingSlots`) and are not drawn (`PENDING_SLOTS_VISIBLE`) until a validated algorithm fills them.
-- Reports are saved to Room (`SessionStore.kt`; schema in `app/schemas/`). History draws one unjoined point per session: dots for live, squares for replays, a tick under the axis for withheld, a dashed median line.
+- Reports are saved to Room (`SessionStore.kt`, schema 2; schemas in `app/schemas/`, also served to debug assets for `SessionMigrationTest`). A schema change needs a migration and a migration test.
+- History plots one unjoined point per session at its date: dots live, squares replay, a tick under the axis for withheld, a dashed median; first and last dates always labelled.
 - `EcgPipeline` feeds the recorder in a fixed order (sample, then detector, then end check; skips with the detector). `SessionParityTest` and `SessionPipelineTest` pin that order. Don't reorder it.
 
 ## BLE link

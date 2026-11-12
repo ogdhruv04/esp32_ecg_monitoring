@@ -5,16 +5,38 @@ import com.dhruv.ecgmonitor.algorithms.Breathing
 import com.dhruv.ecgmonitor.algorithms.Hrv
 import com.dhruv.ecgmonitor.algorithms.NnSeries
 import com.dhruv.ecgmonitor.algorithms.Result
+import com.dhruv.ecgmonitor.algorithms.f1
+import com.dhruv.ecgmonitor.algorithms.g
 import com.dhruv.ecgmonitor.algorithms.median
 
-/** session_config.json (version ses1). SessionConfigTest fails on any difference. */
+/** session_config.json (version ses2). AlgorithmsConfigTest fails on any difference. */
 object SessionConfig {
-    const val VERSION = "ses1"
-    const val DURATION_S = 180.0
+    const val VERSION = "ses2"
     const val TAIL_S = 4.0
+}
+
+/** The two session lengths. The extended one adds the measures a 3-minute
+ *  session can never hold enough data for. */
+enum class SessionKind(val durationS: Double, val extraKeys: List<String>, val label: String) {
+    STANDARD(180.0, emptyList(), "Standard"),
+    EXTENDED(300.0, listOf("dfa_alpha1", "sampen"), "Extended"),
+}
+
+/**
+ * Session-level rules: how many intervals a heart rate needs, how many
+ * breathing windows a breathing rate needs and how far apart their rates may
+ * be. They belong in algorithms/config.json ("session"), which the algorithms
+ * workstream has not written yet; until then these are session_reference.PROVISIONAL,
+ * set by hand, and every reason they produce says "(provisional rule)".
+ * AlgorithmsConfigTest fails as soon as config.json gains a "session" block,
+ * so they cannot silently diverge from it.
+ */
+object SessionRules {
+    const val PROVISIONAL = true
     const val HR_MIN_INTERVALS = 30
-    const val BR_STEP_S = 3.0
     const val BR_MIN_WINDOWS = 5
+    const val BR_MAX_RANGE_BPM = 4.0
+    internal const val TAG = " (provisional rule)"
 }
 
 /**
@@ -79,7 +101,7 @@ class SessionRecorder(val s0: Long, val s1: Long, private val fs: Double = EcgFi
         finished = true
     }
 
-    fun report(): SessionMeasures = SessionMeasures.compute(beats.toList(), y, s0, s1, fs)
+    fun report(kind: SessionKind): SessionMeasures = SessionMeasures.compute(beats.toList(), y, s0, s1, fs, kind)
 
     fun qualityShare(level: SignalQuality.Level): Double {
         val total = qualityCounts.sum()
@@ -95,10 +117,18 @@ class SessionMeasures(
     val nn: NnSeries,
 ) {
     companion object {
-        /** The measures on the report, in order (session_reference.KEYS). */
-        val KEYS = listOf("hr", "br", "rmssd", "sdnn", "pnn50", "sd1", "sd2", "lf", "hf", "lf_hf", "dfa_alpha1")
+        /** The measures on the standard report, in order (session_reference.KEYS). */
+        val KEYS = listOf("hr", "br", "rmssd", "sdnn", "pnn50", "sd1", "sd2", "lf", "hf", "lf_hf")
 
-        fun compute(beats: List<LocatedBeat>, y: FloatArray, s0: Long, s1: Long, fs: Double): SessionMeasures {
+        /** session_reference.keys(kind) */
+        fun keys(kind: SessionKind) = KEYS + kind.extraKeys
+
+        /** Every key any report can hold, in report order. */
+        val ALL_KEYS = keys(SessionKind.EXTENDED)
+
+        fun compute(
+            beats: List<LocatedBeat>, y: FloatArray, s0: Long, s1: Long, fs: Double, kind: SessionKind,
+        ): SessionMeasures {
             val nn = NnSeries.fromBeats(beats, fs)
             val hrv = Hrv.all(nn)
             val mods = Breathing.modulations(y, s0, beats, fs)
@@ -106,7 +136,7 @@ class SessionMeasures(
             val results = LinkedHashMap<String, Result>()
             results["hr"] = heartRate(beats, fs)
             results["br"] = breathing(windows, (s1 - s0) / fs)
-            for (k in KEYS.drop(2)) results[k] = hrv.getValue(k)
+            for (k in keys(kind).drop(2)) results[k] = hrv.getValue(k)
             return SessionMeasures(results, windows, beats.size, nn)
         }
 
@@ -117,9 +147,9 @@ class SessionMeasures(
             val nAll = maxOf(beats.size - 1, 0)
             val cov = if (nAll > 0) rr.size.toDouble() / nAll else 0.0
             val span = if (beats.size > 1) (beats.last().pos - beats.first().pos) / fs else 0.0
-            val need = SessionConfig.HR_MIN_INTERVALS
+            val need = SessionRules.HR_MIN_INTERVALS
             if (rr.size < need)
-                return Result("HR", null, "bpm", "${rr.size} beat-to-beat intervals, needs $need", rr.size, span, span, cov)
+                return Result("HR", null, "bpm", "${rr.size} beat-to-beat intervals, needs $need${SessionRules.TAG}", rr.size, span, span, cov)
             return Result("HR", 60000.0 / median(rr), "bpm", null, rr.size, span, span, cov)
         }
 
@@ -128,8 +158,8 @@ class SessionMeasures(
             val w = AlgConfig.BR_WINDOW_S
             val out = ArrayList<Pair<Double, Result>>()
             var k = 0
-            while (k * SessionConfig.BR_STEP_S <= (t1 - t0) - w + 1e-9) {
-                val w0 = t0 + k * SessionConfig.BR_STEP_S
+            while (k * AlgConfig.BR_STEP_S <= (t1 - t0) - w + 1e-9) {
+                val w0 = t0 + k * AlgConfig.BR_STEP_S
                 out += w0 to Breathing.rate(mods, w0, w0 + w).getValue("fused")
                 k++
             }
@@ -140,16 +170,23 @@ class SessionMeasures(
             val rates = windows.mapNotNull { it.second.value }.toDoubleArray()
             val m = windows.size
             val cov = if (m > 0) rates.size.toDouble() / m else 0.0
-            val need = SessionConfig.BR_MIN_WINDOWS
+            val need = SessionRules.BR_MIN_WINDOWS
+            val spread = SessionRules.BR_MAX_RANGE_BPM
+            val extra = if (rates.isNotEmpty()) mapOf("min" to rates.min(), "max" to rates.max(), "windows" to m.toDouble())
+                        else mapOf("windows" to m.toDouble())
             if (rates.size < need) {
-                val why = if (m > 0) "${rates.size} of $m breathing windows gave a rate, needs $need"
+                val why = if (m > 0) "${rates.size} of $m breathing windows gave a rate, needs $need${SessionRules.TAG}"
                           else "session shorter than one breathing window"
-                return Result("Breathing rate", null, "breaths/min", why, rates.size, spanS, spanS, cov)
+                return Result("Breathing rate", null, "breaths/min", why, rates.size, spanS, spanS, cov, extra)
             }
-            return Result(
-                "Breathing rate", median(rates), "breaths/min", null, rates.size, spanS, spanS, cov,
-                mapOf("min" to rates.min(), "max" to rates.max(), "windows" to m.toDouble()),
-            )
+            // Windows that disagree by more than `spread` are not one breathing rate.
+            if (rates.max() - rates.min() > spread)
+                return Result(
+                    "Breathing rate", null, "breaths/min",
+                    "window rates span ${f1(rates.min())}\u2013${f1(rates.max())} breaths/min, more than ${g(spread)}${SessionRules.TAG}",
+                    rates.size, spanS, spanS, cov, extra,
+                )
+            return Result("Breathing rate", median(rates), "breaths/min", null, rates.size, spanS, spanS, cov, extra)
         }
     }
 }

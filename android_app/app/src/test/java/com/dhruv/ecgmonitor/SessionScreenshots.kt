@@ -91,10 +91,13 @@ abstract class SessionScreenshots {
     }
 
     @Composable
-    private fun session(phase: SessionPhase, p: EcgPipeline, replay: String?, historyCount: Int = 0, link: Link = Link.RECEIVING) {
+    private fun session(
+        phase: SessionPhase, p: EcgPipeline, replay: String?, historyCount: Int = 0, link: Link = Link.RECEIVING,
+        kind: SessionKind = SessionKind.STANDARD,
+    ) {
         val rec = p.session
-        val left = rec?.let { kotlin.math.ceil((1 - it.progress) * SessionConfig.DURATION_S).toInt() } ?: 0
-        val s = SessionUiState(phase, monitor(p, replay, link), rec?.progress ?: 0.0, left, rec != null && rec.index >= rec.s1, historyCount)
+        val left = rec?.let { kotlin.math.ceil((1 - it.progress) * (it.s1 - it.s0) / 256.0).toInt() } ?: 0
+        val s = SessionUiState(phase, monitor(p, replay, link), rec?.progress ?: 0.0, left, rec != null && rec.index >= rec.s1, historyCount, kind)
         SessionScreen(s, SessionActions(), geometry())
     }
 
@@ -107,17 +110,28 @@ abstract class SessionScreenshots {
     // Fixed dates a day apart, from 3 Nov 2026 09:00 UTC.
     private fun day(i: Int) = 1_793_696_400_000L + i * 86_400_000L
 
-    private fun reportOf(asset: String, startS: Double, dayIndex: Int): SessionReport {
-        val (_, rec) = SessionReplay.run(packets(asset), startS)
+    private fun reportOf(asset: String, startS: Double, dayIndex: Int, kind: SessionKind = SessionKind.STANDARD): SessionReport {
+        val (_, rec) = SessionReplay.run(packets(asset), startS, kind.durationS)
         assertNotNull("$asset from $startS s: session did not finish", rec)
-        return SessionReplay.report(rec!!, day(dayIndex), "$asset.csv")
+        return SessionReplay.report(rec!!, day(dayIndex), "$asset.csv", kind)
     }
+
+    private val noBaseline = Baseline(0, emptyMap())
+
+    @Composable
+    private fun report(r: SessionReport, b: Baseline = noBaseline, expanded: Boolean = false, explained: Set<String> = emptySet()) =
+        ReportScreen(r, b, geometry().insets, onDone = {}, onHistory = {}, initiallyExpanded = expanded, initiallyExplained = explained)
 
     // ------------------------------------------------------------- states
 
     @Test fun idle() {
         val p = replayedTo("dual03_ring", 20.0)
         capture("idle") { session(SessionPhase.Idle, p, "dual03_ring", historyCount = 4) }
+    }
+
+    @Test fun idleExtended() {
+        val p = replayedTo("dual03_ring", 20.0)
+        capture("idle_extended") { session(SessionPhase.Idle, p, "dual03_ring", historyCount = 4, kind = SessionKind.EXTENDED) }
     }
 
     @Test fun idleNotConnected() =
@@ -135,19 +149,47 @@ abstract class SessionScreenshots {
         val (p, done) = SessionReplay.run(packets("tb02"), 20.0, untilS = 110.0)
         assertEquals(null, done)
         assertTrue(p.session!!.progress in 0.45..0.55)
-        capture("recording") { session(SessionPhase.Recording(day(0), 0), p, "tb02") }
+        capture("recording") { session(SessionPhase.Recording(SessionKind.STANDARD, day(0), 0), p, "tb02") }
     }
 
+    // The summary layer, details collapsed: what a report opens on.
     @Test fun reportTestBoard() {
         val r = reportOf("tb02", 20.0, 0)
         assertTrue("tb02 must withhold some measures", r.measures.values.any { it.value == null })
-        capture("report_tb02", scrollToEnd = REPORT_END) { ReportScreen(r, geometry().insets, onDone = {}, onHistory = {}) }
+        capture("report_tb02") { report(r) }
+    }
+
+    // Details open, two measures tapped: their one-line explanations.
+    @Test fun reportTestBoardDetails() {
+        val r = reportOf("tb02", 20.0, 0)
+        capture("report_tb02_details", scrollToEnd = REPORT_END) { report(r, expanded = true, explained = setOf("rmssd", "lf_hf")) }
     }
 
     @Test fun reportPublic() {
         assumeTrue("make_public_replay.py has not been run", assetPackets("mitdb103") != null)
         val r = reportOf("mitdb103", 20.0, 0)
-        capture("report_mitdb103", scrollToEnd = REPORT_END) { ReportScreen(r, geometry().insets, onDone = {}, onHistory = {}) }
+        capture("report_mitdb103", scrollToEnd = REPORT_END) { report(r, expanded = true) }
+    }
+
+    // The extended report on public data: DFA alpha1 and sample entropy shown.
+    @Test fun reportPublicExtended() {
+        assumeTrue("make_public_replay.py has not been run", assetPackets("mitdb103") != null)
+        val r = reportOf("mitdb103", 20.0, 0, SessionKind.EXTENDED)
+        assertTrue("extended report shows DFA alpha1", r.measures["dfa_alpha1"]?.value != null)
+        assertTrue("extended report shows sample entropy", r.measures["sampen"]?.value != null)
+        capture("report_mitdb103_extended", scrollToEnd = REPORT_END) { report(r, expanded = true, explained = setOf("sampen")) }
+    }
+
+    // "Compared with your usual". Only to render this state: the baseline is
+    // built from other replayed sessions of the same record. On the phone a
+    // replay never counts towards the baseline (BaselineTest).
+    @Test fun reportWithBaseline() {
+        assumeTrue("make_public_replay.py has not been run", assetPackets("mitdb103") != null)
+        val earlier = listOf(10.0, 60.0, 110.0, 160.0).mapIndexed { i, t -> reportOf("mitdb103", t, i).copy(replayFile = null) }
+        val r = reportOf("mitdb103", 20.0, 5)
+        val b = baselineFor(r, earlier)
+        assertTrue(b.ready)
+        capture("report_mitdb103_baseline") { report(r, b) }
     }
 
     @Test fun reportFont130() = reportAtScale(1.3f)
@@ -156,7 +198,7 @@ abstract class SessionScreenshots {
     private fun reportAtScale(scale: Float) {
         RuntimeEnvironment.setFontScale(scale)
         val r = reportOf("tb02", 20.0, 0)
-        capture("report_tb02_font${(scale * 100).toInt()}") { ReportScreen(r, geometry().insets, onDone = {}, onHistory = {}) }
+        capture("report_tb02_font${(scale * 100).toInt()}") { report(r, explained = setOf("hr")) }
     }
 
     // Real sessions from every long replay, a day apart.
@@ -165,7 +207,8 @@ abstract class SessionScreenshots {
             reportOf("tb01", 20.0, 0), reportOf("tb02", 20.0, 1), reportOf("tb02", 100.0, 2),
         )
         if (assetPackets("mitdb103") != null) {
-            list += reportOf("mitdb103", 10.0, 3); list += reportOf("mitdb103", 170.0, 4)
+            list += reportOf("mitdb103", 10.0, 3); list += reportOf("mitdb103", 170.0, 6)
+            list += reportOf("mitdb103", 30.0, 9, SessionKind.EXTENDED)
         }
         return list.sortedByDescending { it.startedAtMs }
     }
@@ -178,6 +221,11 @@ abstract class SessionScreenshots {
     @Test fun historyHeartRate() {
         val h = history()
         capture("history_hr") { HistoryScreen(h, "hr", {}, {}, {}, geometry().insets) }
+    }
+
+    @Test fun historyDfa() {
+        val h = history()
+        capture("history_dfa") { HistoryScreen(h, "dfa_alpha1", {}, {}, {}, geometry().insets) }
     }
 
     @Test fun historyEmpty() = capture("history_empty") { HistoryScreen(emptyList(), "rmssd", {}, {}, {}, geometry().insets) }

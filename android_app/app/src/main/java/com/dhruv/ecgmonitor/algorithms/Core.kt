@@ -23,10 +23,12 @@ object AlgConfig {
     const val LOMB_OVERSAMPLE = 8
     const val DFA_SCALE_MIN = 4
     const val DFA_SCALE_MAX = 16
+    const val SAMPEN_M = 2
+    const val SAMPEN_R_SD = 0.2
 
     class MinWindow(
         val validS: Double, val nn: Int? = null, val pairs: Int? = null,
-        val coverage: Double? = null, val nnInRuns: Int? = null,
+        val coverage: Double? = null, val nnInRuns: Int? = null, val templates: Int? = null,
     )
 
     val MIN_WINDOW: Map<String, MinWindow> = mapOf(
@@ -38,6 +40,7 @@ object AlgConfig {
         "sd1" to MinWindow(60.0, nn = 30, pairs = 5),
         "sd2" to MinWindow(120.0, nn = 30, pairs = 30),
         "dfa_alpha1" to MinWindow(120.0, nnInRuns = 200),
+        "sampen" to MinWindow(180.0, templates = 200),
     )
 
     // Breathing (config.json "breathing"). Only the frozen choices are ported:
@@ -55,6 +58,9 @@ object AlgConfig {
     const val BR_FUSION = "agree_or_ramp"
     const val BR_AGREE_BPM = 3.0
     const val BR_RAMP_ALONE_SHARE = 0.4
+
+    /** Breathing windows start this far apart, as in the BIDMC validation (config.json bidmc.step_s). */
+    const val BR_STEP_S = 3.0
 }
 
 /** algorithms.core.Result. [value] null = withheld, and [withheld] says why. */
@@ -188,10 +194,10 @@ internal fun result(
 internal fun f0(x: Double): String = BigDecimal(x).setScale(0, RoundingMode.HALF_EVEN).toPlainString()
 
 /** f"{x:.1f}" */
-internal fun f1(x: Double): String = BigDecimal(x).setScale(1, RoundingMode.HALF_EVEN).toPlainString()
+fun f1(x: Double): String = BigDecimal(x).setScale(1, RoundingMode.HALF_EVEN).toPlainString()
 
 /** f"{x:g}" for the plain constants used here (60.0 -> "60", 0.4 -> "0.4"). */
-internal fun g(x: Double): String =
+fun g(x: Double): String =
     if (x == Math.rint(x) && kotlin.math.abs(x) < 1e6) x.toLong().toString()
     else BigDecimal(x.toString()).stripTrailingZeros().toPlainString()
 

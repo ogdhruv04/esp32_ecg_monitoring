@@ -1,4 +1,4 @@
-# ./make_session_fixtures.py (commit c212b1b); session ses1, algorithms alg1 (frozen 2026-11-11), detector tp2.1
+# ./make_session_fixtures.py (commit a645ec7); session ses2, algorithms alg1 (frozen 2026-11-11), detector tp2.1
 # causal filter (the phone's), detector run sample by sample; session = beats located by s1 + tail whose position lies in [s0, s1)
 
 == NN series of each whole input: every HRV measure, gated ==
@@ -12,6 +12,7 @@ chest          102 beats, 93/101 accepted (coverage 92.1%), 55.0 s valid
     HF: withheld (55 s of valid NN intervals, needs 60 s) [55 s valid, coverage 92%]
     LF/HF: withheld (55 s of valid NN intervals, needs 120 s) [55 s valid, coverage 92%]
     DFA alpha1: withheld (55 s of valid NN intervals, needs 120 s) [55 s valid, coverage 92%]
+    SampEn: withheld (55 s of valid NN intervals, needs 180 s) [55 s valid, coverage 92%]
 finger         179 beats, 167/178 accepted (coverage 93.8%), 98.5 s valid
     RMSSD: 18.11 ms [98 s valid, coverage 94%]
     SDNN: withheld (98 s of valid NN intervals, needs 120 s) [98 s valid, coverage 94%]
@@ -22,6 +23,7 @@ finger         179 beats, 167/178 accepted (coverage 93.8%), 98.5 s valid
     HF: withheld (coverage 94%, needs 95%) [98 s valid, coverage 94%]
     LF/HF: withheld (98 s of valid NN intervals, needs 120 s) [98 s valid, coverage 94%]
     DFA alpha1: withheld (98 s of valid NN intervals, needs 120 s) [98 s valid, coverage 94%]
+    SampEn: withheld (98 s of valid NN intervals, needs 180 s) [98 s valid, coverage 94%]
 artifact_gaps  101 beats, 74/100 accepted (coverage 74.0%), 43.5 s valid
     RMSSD: withheld (43 s of valid NN intervals, needs 60 s) [43 s valid, coverage 74%]
     SDNN: withheld (43 s of valid NN intervals, needs 120 s) [43 s valid, coverage 74%]
@@ -32,6 +34,7 @@ artifact_gaps  101 beats, 74/100 accepted (coverage 74.0%), 43.5 s valid
     HF: withheld (43 s of valid NN intervals, needs 60 s) [43 s valid, coverage 74%]
     LF/HF: withheld (43 s of valid NN intervals, needs 120 s) [43 s valid, coverage 74%]
     DFA alpha1: withheld (43 s of valid NN intervals, needs 120 s) [43 s valid, coverage 74%]
+    SampEn: withheld (43 s of valid NN intervals, needs 180 s) [43 s valid, coverage 74%]
 polarity_flip  102 beats, 75/101 accepted (coverage 74.3%), 44.3 s valid
     RMSSD: withheld (44 s of valid NN intervals, needs 60 s) [44 s valid, coverage 74%]
     SDNN: withheld (44 s of valid NN intervals, needs 120 s) [44 s valid, coverage 74%]
@@ -42,39 +45,44 @@ polarity_flip  102 beats, 75/101 accepted (coverage 74.3%), 44.3 s valid
     HF: withheld (44 s of valid NN intervals, needs 60 s) [44 s valid, coverage 74%]
     LF/HF: withheld (44 s of valid NN intervals, needs 120 s) [44 s valid, coverage 74%]
     DFA alpha1: withheld (44 s of valid NN intervals, needs 120 s) [44 s valid, coverage 74%]
-tb01           327 beats, 205/326 accepted (coverage 62.9%), 125.6 s valid
-    RMSSD: 17.4 ms [126 s valid, coverage 63%]
-    SDNN: 36.75 ms [126 s valid, coverage 63%]
-    pNN50: 1.093 % [126 s valid, coverage 63%]
-    SD1: 12.31 ms [126 s valid, coverage 63%]
-    SD2: 49.22 ms [126 s valid, coverage 63%]
-    LF: withheld (coverage 63%, needs 95%) [126 s valid, coverage 63%]
-    HF: withheld (coverage 63%, needs 95%) [126 s valid, coverage 63%]
-    LF/HF: withheld (coverage 63%, needs 95%) [126 s valid, coverage 63%]
-    DFA alpha1: withheld (108 NN intervals in runs of 16 or more, needs 200) [126 s valid, coverage 63%]
-tb02           243 beats, 142/242 accepted (coverage 58.7%), 109.4 s valid
-    RMSSD: 35.65 ms [109 s valid, coverage 59%]
-    SDNN: withheld (109 s of valid NN intervals, needs 120 s) [109 s valid, coverage 59%]
-    pNN50: 15.62 % [109 s valid, coverage 59%]
-    SD1: 25.3 ms [109 s valid, coverage 59%]
-    SD2: withheld (109 s of valid NN intervals, needs 120 s) [109 s valid, coverage 59%]
-    LF: withheld (109 s of valid NN intervals, needs 120 s) [109 s valid, coverage 59%]
-    HF: withheld (coverage 59%, needs 95%) [109 s valid, coverage 59%]
-    LF/HF: withheld (109 s of valid NN intervals, needs 120 s) [109 s valid, coverage 59%]
-    DFA alpha1: withheld (109 s of valid NN intervals, needs 120 s) [109 s valid, coverage 59%]
-stitched       accepted intervals of finger + tb01 + tb02 joined: 514 intervals, 333.5 s
-    RMSSD: 26.78 ms [334 s valid, coverage 100%]
-    SDNN: 89.39 ms [334 s valid, coverage 100%]
-    pNN50: 6.628 % [334 s valid, coverage 100%]
-    SD1: 18.95 ms [334 s valid, coverage 100%]
-    SD2: 124.9 ms [334 s valid, coverage 100%]
-    LF: 1204 ms^2 [334 s valid, coverage 100%]
-    HF: 254.8 ms^2 [334 s valid, coverage 100%]
-    LF/HF: 4.724 [334 s valid, coverage 100%]
-    DFA alpha1: 1.477 [334 s valid, coverage 100%]
+    SampEn: withheld (44 s of valid NN intervals, needs 180 s) [44 s valid, coverage 74%]
+tb01           365 beats, 240/364 accepted (coverage 65.9%), 147.3 s valid
+    RMSSD: 17.81 ms [147 s valid, coverage 66%]
+    SDNN: 37.37 ms [147 s valid, coverage 66%]
+    pNN50: 0.9259 % [147 s valid, coverage 66%]
+    SD1: 12.58 ms [147 s valid, coverage 66%]
+    SD2: 50.46 ms [147 s valid, coverage 66%]
+    LF: withheld (coverage 66%, needs 95%) [147 s valid, coverage 66%]
+    HF: withheld (coverage 66%, needs 95%) [147 s valid, coverage 66%]
+    LF/HF: withheld (coverage 66%, needs 95%) [147 s valid, coverage 66%]
+    DFA alpha1: withheld (129 NN intervals in runs of 16 or more, needs 200) [147 s valid, coverage 66%]
+    SampEn: withheld (147 s of valid NN intervals, needs 180 s) [147 s valid, coverage 66%]
+tb02           368 beats, 228/367 accepted (coverage 62.1%), 175.3 s valid
+    RMSSD: 34.91 ms [175 s valid, coverage 62%]
+    SDNN: 56.49 ms [175 s valid, coverage 62%]
+    pNN50: 14.01 % [175 s valid, coverage 62%]
+    SD1: 24.74 ms [175 s valid, coverage 62%]
+    SD2: 77.84 ms [175 s valid, coverage 62%]
+    LF: withheld (coverage 62%, needs 95%) [175 s valid, coverage 62%]
+    HF: withheld (coverage 62%, needs 95%) [175 s valid, coverage 62%]
+    LF/HF: withheld (coverage 62%, needs 95%) [175 s valid, coverage 62%]
+    DFA alpha1: withheld (100 NN intervals in runs of 16 or more, needs 200) [175 s valid, coverage 62%]
+    SampEn: withheld (175 s of valid NN intervals, needs 180 s) [175 s valid, coverage 62%]
+stitched       accepted intervals of finger + tb01 + tb02 joined: 635 intervals, 421.1 s
+    RMSSD: 27.34 ms [421 s valid, coverage 100%]
+    SDNN: 92.24 ms [421 s valid, coverage 100%]
+    pNN50: 6.94 % [421 s valid, coverage 100%]
+    SD1: 19.35 ms [421 s valid, coverage 100%]
+    SD2: 129 ms [421 s valid, coverage 100%]
+    LF: 1158 ms^2 [421 s valid, coverage 100%]
+    HF: 278.5 ms^2 [421 s valid, coverage 100%]
+    LF/HF: 4.157 [421 s valid, coverage 100%]
+    DFA alpha1: 1.344 [421 s valid, coverage 100%]
+    SampEn: 0.5501 [421 s valid, coverage 100%]
+# session-level rules: {'hr_min_intervals': 30, 'breathing_min_windows': 5, 'breathing_max_range_bpm': 4.0} (PROVISIONAL, not yet in algorithms/config.json); breathing window step 3 s (algorithms/config.json bidmc.step_s)
 
 == Session reports (session_reference.py) ==
-finger         session 10-100 s (90 s): 153 beats, 0 samples lost, NN coverage 98.7%, 88.4 s valid; breathing windows with a rate 9/20
+finger         standard session 10-100 s (90 s): 153 beats, 0 samples lost, NN coverage 98.7%, 88.4 s valid; breathing windows with a rate 9/20
     HR: 103.1 bpm [89 s valid, coverage 100%]
     Breathing rate: 5.563 breaths/min [90 s valid, coverage 45%]
     RMSSD: 18.89 ms [88 s valid, coverage 99%]
@@ -85,10 +93,9 @@ finger         session 10-100 s (90 s): 153 beats, 0 samples lost, NN coverage 9
     LF: withheld (88 s of valid NN intervals, needs 120 s) [88 s valid, coverage 99%]
     HF: 113.3 ms^2 [88 s valid, coverage 99%]
     LF/HF: withheld (88 s of valid NN intervals, needs 120 s) [88 s valid, coverage 99%]
-    DFA alpha1: withheld (88 s of valid NN intervals, needs 120 s) [88 s valid, coverage 99%]
-chest          session 5-55 s (50 s): 85 beats, 0 samples lost, NN coverage 100.0%, 49.8 s valid; breathing windows with a rate 0/7
+chest          standard session 5-55 s (50 s): 85 beats, 0 samples lost, NN coverage 100.0%, 49.8 s valid; breathing windows with a rate 0/7
     HR: 103.4 bpm [50 s valid, coverage 100%]
-    Breathing rate: withheld (0 of 7 breathing windows gave a rate, needs 5) [50 s valid, coverage 0%]
+    Breathing rate: withheld (0 of 7 breathing windows gave a rate, needs 5 (provisional rule)) [50 s valid, coverage 0%]
     RMSSD: withheld (50 s of valid NN intervals, needs 60 s) [50 s valid, coverage 100%]
     SDNN: withheld (50 s of valid NN intervals, needs 120 s) [50 s valid, coverage 100%]
     pNN50: withheld (50 s of valid NN intervals, needs 60 s) [50 s valid, coverage 100%]
@@ -97,10 +104,9 @@ chest          session 5-55 s (50 s): 85 beats, 0 samples lost, NN coverage 100.
     LF: withheld (50 s of valid NN intervals, needs 120 s) [50 s valid, coverage 100%]
     HF: withheld (50 s of valid NN intervals, needs 60 s) [50 s valid, coverage 100%]
     LF/HF: withheld (50 s of valid NN intervals, needs 120 s) [50 s valid, coverage 100%]
-    DFA alpha1: withheld (50 s of valid NN intervals, needs 120 s) [50 s valid, coverage 100%]
-artifact_gaps  session 5-55 s (50 s): 83 beats, 48 samples lost, NN coverage 79.3%, 38.3 s valid; breathing windows with a rate 0/7
+artifact_gaps  standard session 5-55 s (50 s): 83 beats, 48 samples lost, NN coverage 79.3%, 38.3 s valid; breathing windows with a rate 0/7
     HR: 103.4 bpm [49 s valid, coverage 96%]
-    Breathing rate: withheld (0 of 7 breathing windows gave a rate, needs 5) [50 s valid, coverage 0%]
+    Breathing rate: withheld (0 of 7 breathing windows gave a rate, needs 5 (provisional rule)) [50 s valid, coverage 0%]
     RMSSD: withheld (38 s of valid NN intervals, needs 60 s) [38 s valid, coverage 79%]
     SDNN: withheld (38 s of valid NN intervals, needs 120 s) [38 s valid, coverage 79%]
     pNN50: withheld (38 s of valid NN intervals, needs 60 s) [38 s valid, coverage 79%]
@@ -109,10 +115,9 @@ artifact_gaps  session 5-55 s (50 s): 83 beats, 48 samples lost, NN coverage 79.
     LF: withheld (38 s of valid NN intervals, needs 120 s) [38 s valid, coverage 79%]
     HF: withheld (38 s of valid NN intervals, needs 60 s) [38 s valid, coverage 79%]
     LF/HF: withheld (38 s of valid NN intervals, needs 120 s) [38 s valid, coverage 79%]
-    DFA alpha1: withheld (38 s of valid NN intervals, needs 120 s) [38 s valid, coverage 79%]
-tb01           session 20-200 s (180 s): 285 beats, 182 samples lost, NN coverage 62.3%, 108.5 s valid; breathing windows with a rate 0/50
+tb01           standard session 20-200 s (180 s): 285 beats, 182 samples lost, NN coverage 62.3%, 108.5 s valid; breathing windows with a rate 0/50
     HR: 98.43 bpm [179 s valid, coverage 93%]
-    Breathing rate: withheld (0 of 50 breathing windows gave a rate, needs 5) [180 s valid, coverage 0%]
+    Breathing rate: withheld (0 of 50 breathing windows gave a rate, needs 5 (provisional rule)) [180 s valid, coverage 0%]
     RMSSD: 18.12 ms [109 s valid, coverage 62%]
     SDNN: withheld (109 s of valid NN intervals, needs 120 s) [109 s valid, coverage 62%]
     pNN50: 1.274 % [109 s valid, coverage 62%]
@@ -121,10 +126,9 @@ tb01           session 20-200 s (180 s): 285 beats, 182 samples lost, NN coverag
     LF: withheld (109 s of valid NN intervals, needs 120 s) [109 s valid, coverage 62%]
     HF: withheld (coverage 62%, needs 95%) [109 s valid, coverage 62%]
     LF/HF: withheld (109 s of valid NN intervals, needs 120 s) [109 s valid, coverage 62%]
-    DFA alpha1: withheld (109 s of valid NN intervals, needs 120 s) [109 s valid, coverage 62%]
-tb02           session 20-200 s (180 s): 221 beats, 30 samples lost, NN coverage 61.8%, 104.8 s valid; breathing windows with a rate 5/50
+tb02           standard session 20-200 s (180 s): 221 beats, 30 samples lost, NN coverage 61.8%, 104.8 s valid; breathing windows with a rate 5/50
     HR: 76.99 bpm [180 s valid, coverage 99%]
-    Breathing rate: 19.84 breaths/min [180 s valid, coverage 10%]
+    Breathing rate: withheld (window rates span 6.0–19.9 breaths/min, more than 4 (provisional rule)) [180 s valid, coverage 10%]
     RMSSD: 36.28 ms [105 s valid, coverage 62%]
     SDNN: withheld (105 s of valid NN intervals, needs 120 s) [105 s valid, coverage 62%]
     pNN50: 16.39 % [105 s valid, coverage 62%]
@@ -133,4 +137,16 @@ tb02           session 20-200 s (180 s): 221 beats, 30 samples lost, NN coverage
     LF: withheld (105 s of valid NN intervals, needs 120 s) [105 s valid, coverage 62%]
     HF: withheld (coverage 62%, needs 95%) [105 s valid, coverage 62%]
     LF/HF: withheld (105 s of valid NN intervals, needs 120 s) [105 s valid, coverage 62%]
-    DFA alpha1: withheld (105 s of valid NN intervals, needs 120 s) [105 s valid, coverage 62%]
+tb02_ext       extended session 20-290 s (270 s): 341 beats, 65 samples lost, NN coverage 64.4%, 168.0 s valid; breathing windows with a rate 6/80
+    HR: 77.41 bpm [270 s valid, coverage 98%]
+    Breathing rate: withheld (window rates span 6.0–19.9 breaths/min, more than 4 (provisional rule)) [270 s valid, coverage 8%]
+    RMSSD: 34.28 ms [168 s valid, coverage 64%]
+    SDNN: 56.48 ms [168 s valid, coverage 64%]
+    pNN50: 13.07 % [168 s valid, coverage 64%]
+    SD1: 24.29 ms [168 s valid, coverage 64%]
+    SD2: 77.84 ms [168 s valid, coverage 64%]
+    LF: withheld (coverage 64%, needs 95%) [168 s valid, coverage 64%]
+    HF: withheld (coverage 64%, needs 95%) [168 s valid, coverage 64%]
+    LF/HF: withheld (coverage 64%, needs 95%) [168 s valid, coverage 64%]
+    DFA alpha1: withheld (100 NN intervals in runs of 16 or more, needs 200) [168 s valid, coverage 64%]
+    SampEn: withheld (168 s of valid NN intervals, needs 180 s) [168 s valid, coverage 64%]

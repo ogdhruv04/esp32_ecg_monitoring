@@ -32,6 +32,7 @@ from algorithms import NNSeries, hrv_freq, hrv_nonlinear
 import session_reference as S
 
 FS = 256.0
+NN_KEYS = S.HRV_KEYS + ["dfa_alpha1", "sampen"]     # every ported HRV measure
 PARITY = pathlib.Path("android_app/app/src/test/resources/parity")
 OUT = pathlib.Path("android_app/app/src/test/resources/session")
 REPORT = pathlib.Path("analysis/app_session_reference.txt")
@@ -117,6 +118,10 @@ def raw_values(nn):
     }
     runs = nn.runs(min_len=hrv_nonlinear.SCALE_MAX)
     out["dfa_alpha1"] = hrv_nonlinear.dfa_alpha1_raw(runs) if runs else math.nan
+    m = hrv_nonlinear.SAMPEN_M
+    sruns = nn.runs(min_len=m + 1)
+    out["sampen"] = (hrv_nonlinear.sample_entropy_raw(sruns, float(np.std(v, ddof=1)))[0]
+                     if sruns and len(v) > 1 else math.nan)
     return out
 
 
@@ -127,7 +132,7 @@ def write_nn(name, nn):
         for t, m in zip(nn.beat_t[1:], nn.nn_ms):
             f.write(f"{fmt(t)},{fmt(m)}\n")
     h = A.hrv(nn)
-    write_results(OUT / f"nn_{name}_expected.tsv", [(k, h[k]) for k in S.HRV_KEYS])
+    write_results(OUT / f"nn_{name}_expected.tsv", [(k, h[k]) for k in NN_KEYS])
     raw = raw_values(nn)
     with open(OUT / f"nn_{name}_raw.tsv", "w") as f:
         for k, x in raw.items():
@@ -146,7 +151,7 @@ def main():
 
     inputs = {k: read_input(PARITY / f"{k}_input.csv") for k in ("chest", "finger", "artifact_gaps", "polarity_flip")}
     for k, p in TESTBOARD.items():
-        v, s = testboard_input(p, 205.0)
+        v, s = testboard_input(p, 300.0)
         write_input(k, v, s)
         inputs[k] = (v, s)
 
@@ -161,7 +166,7 @@ def main():
             stitched.append(nn.values)
         lines.append(f"{name:14} {len(pt.beats)} beats, {nn.n_accepted}/{nn.n_intervals} accepted "
                      f"(coverage {100 * nn.coverage:.1f}%), {nn.valid_s:.1f} s valid")
-        for k in S.HRV_KEYS:
+        for k in NN_KEYS:
             lines.append(f"    {h[k]}")
     # Every gate passes only on a long series with no holes, which none of our
     # recordings has: the accepted intervals of three recordings joined end to
@@ -170,25 +175,33 @@ def main():
     h, _ = write_nn("stitched", st)
     lines.append(f"{'stitched':14} accepted intervals of finger + tb01 + tb02 joined: {st.n_intervals} intervals, "
                  f"{st.valid_s:.1f} s")
-    for k in S.HRV_KEYS:
+    for k in NN_KEYS:
         lines.append(f"    {h[k]}")
 
     # ---- session fixtures
     tail = int(S.SESSION["tail_s"] * FS)
-    cases = {"finger": (10.0, 90.0), "chest": (5.0, 50.0), "artifact_gaps": (5.0, 50.0),
-             "tb01": (20.0, S.SESSION["duration_s"]), "tb02": (20.0, S.SESSION["duration_s"])}
+    # (input, start s, duration s, kind). No capture of ours holds a 5-minute
+    # session, so the extended case is tb02 over 270 s: the kind decides which
+    # measures are on the report, the duration only what data they get.
+    std = S.SESSION["kinds"]["standard"]["duration_s"]
+    cases = {"finger": ("finger", 10.0, 90.0, "standard"), "chest": ("chest", 5.0, 50.0, "standard"),
+             "artifact_gaps": ("artifact_gaps", 5.0, 50.0, "standard"),
+             "tb01": ("tb01", 20.0, std, "standard"), "tb02": ("tb02", 20.0, std, "standard"),
+             "tb02_ext": ("tb02", 20.0, 270.0, "extended")}
+    lines.append(f"# session-level rules: {S.RULES} ({'PROVISIONAL, not yet in algorithms/config.json' if S.RULES_PROVISIONAL else 'algorithms/config.json'}); "
+                 f"breathing window step {S.BR_STEP_S:g} s (algorithms/config.json bidmc.step_s)")
     lines.append("\n== Session reports (session_reference.py) ==")
     with open(OUT / "session_cases.tsv", "w") as f:
-        f.write("case\tinput\ts0\ts1\n")
-        for name, (start, dur) in cases.items():
+        f.write("case\tinput\ts0\ts1\tkind\n")
+        for name, (inp, start, dur, kind) in cases.items():
             s0 = int(start * FS); s1 = s0 + int(dur * FS)
-            src = f"parity/{name}_input.csv" if name in ("chest", "finger", "artifact_gaps") else f"session/{name}_input.csv"
-            f.write(f"{name}\t{src}\t{s0}\t{s1}\n")
-            v, s = inputs[name]
+            src = f"parity/{inp}_input.csv" if inp in ("chest", "finger", "artifact_gaps") else f"session/{inp}_input.csv"
+            f.write(f"{name}\t{src}\t{s0}\t{s1}\t{kind}\n")
+            v, s = inputs[inp]
             pt, y = S.run_detector(v, s, s1 + tail)
             assert len(y) >= s1 + tail, f"{name}: input too short for the session"
-            rep = S.session_report(pt, y, s0, s1)
-            write_results(OUT / f"session_{name}_expected.tsv", [(k, rep[k]) for k in S.KEYS])
+            rep = S.session_report(pt, y, s0, s1, kind=kind)
+            write_results(OUT / f"session_{name}_expected.tsv", [(k, rep[k]) for k in S.keys(kind)])
             with open(OUT / f"session_{name}_windows.tsv", "w") as g:
                 g.write("w0\tvalue\twithheld\tn_used\tcoverage\n")
                 for w0, r in rep["_windows"]:
@@ -196,10 +209,10 @@ def main():
             nn = rep["_nn"]
             lost = int(np.isnan(y[s0:s1]).sum())
             nw = sum(r.ok for _, r in rep["_windows"])
-            lines.append(f"{name:14} session {start:g}-{start + dur:g} s ({dur:g} s): {len(rep['_beats'])} beats, "
+            lines.append(f"{name:14} {kind} session {start:g}-{start + dur:g} s ({dur:g} s): {len(rep['_beats'])} beats, "
                          f"{lost} samples lost, NN coverage {100 * nn.coverage:.1f}%, {nn.valid_s:.1f} s valid; "
                          f"breathing windows with a rate {nw}/{len(rep['_windows'])}")
-            for k in S.KEYS:
+            for k in S.keys(kind):
                 lines.append(f"    {rep[k]}")
     REPORT.write_text("\n".join(lines) + "\n")
     print("\n".join(lines))

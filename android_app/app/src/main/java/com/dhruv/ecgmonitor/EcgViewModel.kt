@@ -31,11 +31,11 @@ private class BleEcgLink(app: Application, listener: BleEcgListener) : BleLink {
 
 // Where a Session is. Waiting holds the start until the main screen would show
 // a heart rate (GOOD quality), so a session never opens on a signal the app
-// itself would not trust; then it records SessionConfig.DURATION_S.
+// itself would not trust; then it records the kind's duration.
 sealed interface SessionPhase {
     data object Idle : SessionPhase
     data object Waiting : SessionPhase
-    data class Recording(val startedAtMs: Long, val startedElapsedMs: Long) : SessionPhase
+    data class Recording(val kind: SessionKind, val startedAtMs: Long, val startedElapsedMs: Long) : SessionPhase
     data class Done(val report: SessionReport) : SessionPhase
 }
 
@@ -110,6 +110,8 @@ class EcgViewModel(app: Application) : AndroidViewModel(app) {
     private val store by lazy { storeFactory() }
     val history: Flow<List<SessionReport>> get() = store.all
     private var endedEarly = false
+    // The kind chosen on the Session screen; used when the clock starts.
+    var sessionKind by mutableStateOf(SessionKind.STANDARD)
 
     fun startSession() {
         if (sessionPhase is SessionPhase.Idle || sessionPhase is SessionPhase.Done) sessionPhase = SessionPhase.Waiting
@@ -134,7 +136,7 @@ class EcgViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun sessionEnded(rec: SessionRecorder) {
         val r = sessionPhase as? SessionPhase.Recording ?: return
-        val report = SessionReport.from(rec, rec.report(), r.startedAtMs, replayFile, endedEarly)
+        val report = SessionReport.from(rec, rec.report(r.kind), r.kind, r.startedAtMs, replayFile, endedEarly)
         endedEarly = false
         sessionPhase = SessionPhase.Done(report)
         Log.i(TAG, "session done: ${report.beats} beats, lost ${report.samplesLost} samples, " +
@@ -194,8 +196,8 @@ class EcgViewModel(app: Application) : AndroidViewModel(app) {
         }
         pipeline.onPacket(packet)
         if (sessionPhase == SessionPhase.Waiting && link == Link.RECEIVING && currentHeadline() is Headline.Rate) {
-            pipeline.startSession()
-            sessionPhase = SessionPhase.Recording(System.currentTimeMillis(), now)
+            pipeline.startSession(sessionKind.durationS)
+            sessionPhase = SessionPhase.Recording(sessionKind, System.currentTimeMillis(), now)
             Log.i(TAG, "session started at sample ${pipeline.session?.s0}")
         }
         packetTick++
@@ -275,7 +277,7 @@ class EcgViewModel(app: Application) : AndroidViewModel(app) {
                 // A session whose stream stopped for good: close it with what it has.
                 val ph = sessionPhase
                 if (ph is SessionPhase.Recording &&
-                    now - ph.startedElapsedMs > ((SessionConfig.DURATION_S + SessionConfig.TAIL_S) * 1000).toLong() + SESSION_GRACE_MS
+                    now - ph.startedElapsedMs > ((ph.kind.durationS + SessionConfig.TAIL_S) * 1000).toLong() + SESSION_GRACE_MS
                 ) {
                     Log.i(TAG, "session stream stopped; ending it early")
                     endedEarly = true

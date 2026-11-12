@@ -26,7 +26,7 @@ class SessionPipelineTest {
             // Started where the app starts it: before the packet, so a gap in
             // front of that packet already counts as lost session samples.
             if (rec == null && pk.sampleOffset >= startS * 256)
-                rec = SessionRecorder(d.sampleCount, d.sampleCount + (SessionConfig.DURATION_S * 256).toLong())
+                rec = SessionRecorder(d.sampleCount, d.sampleCount + (SessionKind.STANDARD.durationS * 256).toLong())
             val missing = pk.sampleOffset - next
             if (missing > 0) { d.skip(missing.toInt()); rec?.onSkip(missing.toInt()); if (rec?.finished == true) break }
             var ended = false
@@ -46,7 +46,7 @@ class SessionPipelineTest {
         val (_, viaPipeline) = SessionReplay.run(packets, startS)
         assertNotNull("$file: session never finished", viaPipeline)
         val ref = direct(packets, startS)
-        val a = viaPipeline!!.report(); val b = ref.report()
+        val a = viaPipeline!!.report(SessionKind.STANDARD); val b = ref.report(SessionKind.STANDARD)
         assertEquals("$file: session start", ref.s0, viaPipeline.s0)
         assertEquals("$file: samples lost", ref.samplesLost, viaPipeline.samplesLost)
         assertEquals("$file: beats", b.beats, a.beats)

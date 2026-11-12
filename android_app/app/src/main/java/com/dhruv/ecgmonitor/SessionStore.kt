@@ -1,6 +1,7 @@
 package com.dhruv.ecgmonitor
 
 import android.content.Context
+import androidx.room.ColumnInfo
 import androidx.room.Dao
 import androidx.room.Database
 import androidx.room.Embedded
@@ -13,6 +14,8 @@ import androidx.room.Relation
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.Transaction
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import com.dhruv.ecgmonitor.algorithms.AlgConfig
 import com.dhruv.ecgmonitor.algorithms.Result
 import kotlinx.coroutines.flow.Flow
@@ -53,6 +56,7 @@ data class PendingSlots(
 
 data class SessionReport(
     val id: Long = 0,
+    val kind: SessionKind = SessionKind.STANDARD,
     val startedAtMs: Long,
     val durationS: Double,
     /** null = live; otherwise the replayed file. */
@@ -70,8 +74,10 @@ data class SessionReport(
         const val VERSIONS = "session ${SessionConfig.VERSION} · algorithms ${AlgConfig.VERSION} · detector tp2.1"
 
         fun from(
-            rec: SessionRecorder, m: SessionMeasures, startedAtMs: Long, replayFile: String?, endedEarly: Boolean,
+            rec: SessionRecorder, m: SessionMeasures, kind: SessionKind, startedAtMs: Long, replayFile: String?,
+            endedEarly: Boolean,
         ) = SessionReport(
+            kind = kind,
             startedAtMs = startedAtMs,
             durationS = (rec.s1 - rec.s0) / EcgFilter.ECG_SAMPLE_RATE,
             replayFile = replayFile,
@@ -89,6 +95,8 @@ data class SessionReport(
 @Entity(tableName = "sessions")
 data class SessionEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    // SessionKind name, lower case. Added in schema 2; older rows are standard.
+    @ColumnInfo(defaultValue = "standard") val kind: String,
     val startedAtMs: Long,
     val durationS: Double,
     val replayFile: String?,
@@ -150,13 +158,21 @@ abstract class SessionDao {
     abstract suspend fun delete(id: Long)
 }
 
-@Database(entities = [SessionEntity::class, MeasureEntity::class], version = 1, exportSchema = true)
+@Database(entities = [SessionEntity::class, MeasureEntity::class], version = 2, exportSchema = true)
 abstract class SessionDatabase : RoomDatabase() {
     abstract fun sessions(): SessionDao
 
     companion object {
+        /** 1 -> 2: the session kind (extended sessions, 12 Nov 2026). */
+        val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE sessions ADD COLUMN kind TEXT NOT NULL DEFAULT 'standard'")
+            }
+        }
+
         fun open(context: Context): SessionDatabase =
-            Room.databaseBuilder(context, SessionDatabase::class.java, "sessions.db").build()
+            Room.databaseBuilder(context, SessionDatabase::class.java, "sessions.db")
+                .addMigrations(MIGRATION_1_2).build()
         fun inMemory(context: Context): SessionDatabase =
             Room.inMemoryDatabaseBuilder(context, SessionDatabase::class.java).allowMainThreadQueries().build()
     }
@@ -168,6 +184,7 @@ class SessionStore(private val db: SessionDatabase) {
 
     suspend fun save(r: SessionReport): Long = db.sessions().insert(
         SessionEntity(
+            kind = r.kind.name.lowercase(),
             startedAtMs = r.startedAtMs, durationS = r.durationS, replayFile = r.replayFile, beats = r.beats,
             samplesLost = r.samplesLost, goodShare = r.goodShare, endedEarly = r.endedEarly, versions = r.versions,
             rhythm = r.pending.rhythm, ectopicCount = r.pending.ectopicCount,
@@ -185,10 +202,10 @@ class SessionStore(private val db: SessionDatabase) {
         val s = row.session
         val byKey = row.measures.associateBy { it.key }
         return SessionReport(
-            id = s.id, startedAtMs = s.startedAtMs, durationS = s.durationS, replayFile = s.replayFile,
+            id = s.id, kind = SessionKind.valueOf(s.kind.uppercase()), startedAtMs = s.startedAtMs, durationS = s.durationS, replayFile = s.replayFile,
             beats = s.beats, samplesLost = s.samplesLost, goodShare = s.goodShare, endedEarly = s.endedEarly,
             // In report order, whatever order the rows came back in.
-            measures = SessionMeasures.KEYS.mapNotNull { k ->
+            measures = SessionMeasures.ALL_KEYS.mapNotNull { k ->
                 byKey[k]?.let { k to Measure(it.value, it.unit, it.withheld, it.nUsed, it.validS, it.coverage, it.min, it.max) }
             }.toMap(),
             pending = PendingSlots(s.rhythm, s.ectopicCount, s.motionShare, s.arousal),
