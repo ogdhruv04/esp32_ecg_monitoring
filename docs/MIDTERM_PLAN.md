@@ -65,9 +65,11 @@ against the wearer's own baseline. Each one is validated, and each one is shown 
 
 ### App (`app` branch)
 - [ ] "Session" mode: 2-min recording → report (HR, HRV, breathing rate, rhythm check, ectopic count, quality and motion, arousal vs baseline)
+  - 12 Nov, started early: **3-min** session (a 2-min one cannot hold SDNN/LF/DFA, `docs/hrv_minimum_windows.md`); report has HR, breathing rate, RMSSD, SDNN, pNN50, SD1/SD2, LF, HF, LF/HF, DFA α1 and signal quality, each "—" with its reason below its minimum. Rhythm, ectopic count, motion and arousal are hidden slots, waiting for their algorithms. `docs/explained/app.md`
 - [ ] Guided-breathing screen with live HRV (breathing at 6/min)
 - [ ] Session history stored on the phone (Room), with trends against a personal baseline
-- [ ] Every ported algorithm has a parity test against its Python reference
+  - 12 Nov: Room storage and a History screen with per-measure trends done; the only baseline is the median of past sessions (arousal-vs-baseline is the Algorithms item)
+- [x] Every ported algorithm has a parity test against its Python reference (12 Nov: `HrvParityTest`, `SessionParityTest` (incl. breathing), `AlgorithmsConfigTest`; fixtures `make_session_fixtures.py`)
 
 ### Algorithms
 - [ ] Arousal index: HRV, GSR, temperature and PPG features z-scored against the wearer's baseline; leave-one-day-out evaluation on the protocol data; per-feature ablation

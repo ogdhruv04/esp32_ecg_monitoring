@@ -1,0 +1,8 @@
+w0	value	withheld	n_used	coverage
+5.0	nan	no agreement between the modulations and no strong R-amplitude peak	52	0.9811320754716981
+8.0	nan	no agreement between the modulations and no strong R-amplitude peak	52	1.0
+11.0	nan	no agreement between the modulations and no strong R-amplitude peak	52	1.0
+14.0	nan	no agreement between the modulations and no strong R-amplitude peak	53	1.0
+17.0	nan	the two modulations disagree (5.2 and 17.8 breaths/min) and the R-amplitude peak is under 40%	53	1.0
+20.0	nan	the two modulations disagree (5.2 and 17.9 breaths/min) and the R-amplitude peak is under 40%	55	1.0
+23.0	nan	the two modulations disagree (5.0 and 17.8 breaths/min) and the R-amplitude peak is under 40%	54	1.0

@@ -23,14 +23,26 @@ UI work never changes the logic in `EcgFilter.kt`, `BeatDetector.kt`, `SignalQua
 
 ## Screens
 
-- Main screen: the trace, heart rate and signal quality. Nothing else.
+- Main screen: the trace, heart rate and signal quality. Nothing else, apart from the two entry points below.
 - Main screen layout, portrait: the heart rate as a large Plex Sans Condensed number with a small "bpm" after it, and the quality word plus a bar glyph under it, all in the top quarter. The trace fills everything below. When the heart rate is hidden, a muted "—" and the cause line sit in the same place, so the layout never jumps.
 - Main screen layout, landscape: the trace goes full-bleed, with the heart-rate block in a narrow side column. Never a collapsed strip.
-- A small, quiet entry point to Diagnostics, and nothing else on the main screen.
+- Two small, quiet entry points, "Session ›" and "Diagnostics ›", after the trace caption; nothing else on the main screen. While a session records, the Session link shows the time left. The caption and links share a `FlowRow`, so at a large font the links wrap whole onto their own line instead of squeezing the caption.
 - Diagnostics screen: BLE state, packet loss, sample rate, SQI values (kSQI, pSQI), skip counts, raw/filtered view.
 - Heart rate is shown only on GOOD quality. Otherwise show "—" plus one line giving the likely cause and fix: hold still, press the finger fully on the electrode, or check the reference electrode. The rules live in `headline()` (`MonitorUi.kt`, pinned by `HeadlineTest`). "Check the reference electrode" fires when quality isn't GOOD and mains is at least 10% of raw power, a threshold from three recordings of one subject (`analysis/mains_share_dual01-03.txt`), so uncalibrated.
 - With no packets the heart-rate area reads "Scanning for ring…" (with a quiet animated ping) or "Ring not connected", never a zero or -1. "Ring not connected" is red only after a live stream dropped this session; before the first connection it is plain text. In debug builds a replay shows a permanent "REPLAY · <file>" tag.
 - The screen is kept on only while packets are arriving (`View.keepScreenOn`).
+
+## Session mode
+
+`docs/explained/app.md` explains the measurement side; these are the rules.
+
+- A session records `SessionConfig.DURATION_S` (180 s, `session_config.json`). Start waits until the main screen would show a heart rate (GOOD), so a session never opens on a signal the app would not trust. Back leaves the screen and recording continues; Cancel stops it.
+- Every measure is a port of `algorithms/` (`app/src/main/java/.../algorithms/`), never reimplemented from the UI. If the Python changes: `./make_session_fixtures.py`, then `HrvParityTest`, `SessionParityTest` and `AlgorithmsConfigTest` must pass.
+- A withheld measure shows "—" and the algorithm's reason verbatim. Every shown HRV value carries its count and coverage. No measure is ever estimated from less than its minimum window.
+- LF/HF always carries the caveat that it is a band ratio, not a measure of sympathetic–vagal balance.
+- Rhythm check, ectopic count, motion and arousal are stored slots (`PendingSlots`) and are not drawn (`PENDING_SLOTS_VISIBLE`) until a validated algorithm fills them.
+- Reports are saved to Room (`SessionStore.kt`; schema in `app/schemas/`). History draws one unjoined point per session: dots for live, squares for replays, a tick under the axis for withheld, a dashed median line.
+- `EcgPipeline` feeds the recorder in a fixed order (sample, then detector, then end check; skips with the detector). `SessionParityTest` and `SessionPipelineTest` pin that order. Don't reorder it.
 
 ## BLE link
 
@@ -61,4 +73,4 @@ A UI change isn't done until it has been rendered (Roborazzi or `adb exec-out sc
 - A render is a first composition, so it can't show a part of the screen that stops updating. Never pass the pipeline itself to a small composable: it is the same instance every frame and Compose will skip it. Pass values. `MonitorRecompositionTest` drives one composition through a live stream.
 - Device screencaps are in Display P3, not sRGB: `#C0392B` captures as (177, 68, 52) (`screenshots/before/device_check.txt`). Convert before comparing colour values.
 
-Design and screenshot work uses replay mode fed from real `captures/` files, never synthetic sine waves. Debug builds bundle `dual03_ring`, `dual03_ref`, `dual02_ring` and `dual01_ring` (mapping in `app/build.gradle.kts`); start one with `adb shell am start -n com.dhruv.ecgmonitor/.MainActivity --es replay dual03_ring`. Replay feeds `EcgPipeline.onPacket` exactly as BLE does, and `ReplayPipelineTest` pins that path to direct detector calls.
+Design and screenshot work uses replay mode fed from real `captures/` files, never synthetic sine waves. Debug builds bundle `dual03_ring`, `dual03_ref`, `dual02_ring`, `dual01_ring`, and the test-board captures `tb01` and `tb02`, the only ones longer than a session (mapping in `app/build.gradle.kts`). `./make_public_replay.py --dir <main checkout>/data/mitdb` adds MIT-BIH development record 103 as `mitdb103` from the gitignored `replay_public/`: the only replay on which the whole Session report fills. It is never committed, and its screenshot tests skip without it; start one with `adb shell am start -n com.dhruv.ecgmonitor/.MainActivity --es replay dual03_ring`. Replay feeds `EcgPipeline.onPacket` exactly as BLE does, and `ReplayPipelineTest` pins that path to direct detector calls.

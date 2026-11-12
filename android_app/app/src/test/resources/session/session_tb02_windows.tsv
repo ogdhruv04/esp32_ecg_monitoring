@@ -1,0 +1,51 @@
+w0	value	withheld	n_used	coverage
+20.0	nan	no agreement between the modulations and no strong R-amplitude peak	23	0.8846153846153846
+23.0	nan	no agreement between the modulations and no strong R-amplitude peak	27	0.9310344827586207
+26.0	nan	neither modulation gave a usable peak	23	0.7666666666666667
+29.0	nan	no agreement between the modulations and no strong R-amplitude peak	24	0.7272727272727273
+32.0	nan	neither modulation gave a usable peak	25	0.7142857142857143
+35.0	nan	neither modulation gave a usable peak	27	0.7941176470588235
+38.0	nan	neither modulation gave a usable peak	29	0.8787878787878788
+41.0	nan	neither modulation gave a usable peak	33	0.8918918918918919
+44.0	nan	no agreement between the modulations and no strong R-amplitude peak	35	0.8974358974358975
+47.0	nan	no agreement between the modulations and no strong R-amplitude peak	36	0.9
+50.0	nan	no agreement between the modulations and no strong R-amplitude peak	38	0.95
+53.0	nan	the two modulations disagree (7.2 and 19.6 breaths/min) and the R-amplitude peak is under 40%	41	1.0
+56.0	nan	the two modulations disagree (7.2 and 19.7 breaths/min) and the R-amplitude peak is under 40%	40	1.0
+59.0	19.90342800603231		40	1.0
+62.0	19.841656066903937		41	1.0
+65.0	19.533855842647785		40	1.0
+68.0	19.88128799846894		40	1.0
+71.0	nan	the two modulations disagree (6.4 and 20.3 breaths/min) and the R-amplitude peak is under 40%	40	1.0
+74.0	nan	no agreement between the modulations and no strong R-amplitude peak	41	1.0
+77.0	nan	neither modulation gave a usable peak	41	1.0
+80.0	nan	no agreement between the modulations and no strong R-amplitude peak	41	1.0
+83.0	nan	no agreement between the modulations and no strong R-amplitude peak	40	1.0
+86.0	nan	neither modulation gave a usable peak	40	1.0
+89.0	nan	neither modulation gave a usable peak	41	1.0
+92.0	nan	neither modulation gave a usable peak	41	1.0
+95.0	nan	neither modulation gave a usable peak	41	0.9761904761904762
+98.0	nan	no agreement between the modulations and no strong R-amplitude peak	41	0.9761904761904762
+101.0	nan	no agreement between the modulations and no strong R-amplitude peak	41	0.9761904761904762
+104.0	nan	no agreement between the modulations and no strong R-amplitude peak	41	0.9761904761904762
+107.0	nan	no agreement between the modulations and no strong R-amplitude peak	40	0.975609756097561
+110.0	nan	no agreement between the modulations and no strong R-amplitude peak	41	0.9761904761904762
+113.0	nan	no agreement between the modulations and no strong R-amplitude peak	41	0.9761904761904762
+116.0	nan	no agreement between the modulations and no strong R-amplitude peak	42	0.9767441860465116
+119.0	nan	no agreement between the modulations and no strong R-amplitude peak	43	0.9772727272727273
+122.0	5.972481413526976		44	0.9777777777777777
+125.0	nan	no agreement between the modulations and no strong R-amplitude peak	45	0.9782608695652174
+128.0	nan	no agreement between the modulations and no strong R-amplitude peak	45	1.0
+131.0	nan	neither modulation gave a usable peak	45	1.0
+134.0	nan	neither modulation gave a usable peak	45	1.0
+137.0	nan	no agreement between the modulations and no strong R-amplitude peak	44	1.0
+140.0	nan	no agreement between the modulations and no strong R-amplitude peak	46	1.0
+143.0	nan	neither modulation gave a usable peak	45	1.0
+146.0	nan	the two modulations disagree (12.7 and 4.4 breaths/min) and the R-amplitude peak is under 40%	45	1.0
+149.0	nan	neither modulation gave a usable peak	44	1.0
+152.0	nan	no agreement between the modulations and no strong R-amplitude peak	44	1.0
+155.0	nan	no agreement between the modulations and no strong R-amplitude peak	43	1.0
+158.0	nan	neither modulation gave a usable peak	43	1.0
+161.0	nan	neither modulation gave a usable peak	43	1.0
+164.0	nan	no agreement between the modulations and no strong R-amplitude peak	43	1.0
+167.0	nan	the two modulations disagree (7.4 and 18.7 breaths/min) and the R-amplitude peak is under 40%	42	1.0

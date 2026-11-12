@@ -33,6 +33,14 @@ import kotlin.math.sqrt
  */
 class BeatDetector(private val fs: Double = EcgFilter.ECG_SAMPLE_RATE) {
 
+    /** Called for every beat as it is located, warm-up beats included, in the
+     *  order pan_tompkins.py appends to `beats`. Read-only: it changes nothing
+     *  in detection. A Session collects its beats through this. */
+    var onLocated: ((LocatedBeat) -> Unit)? = null
+
+    /** Absolute index of the next sample, counting skipped ones. */
+    val sampleCount: Long get() = n
+
     private class Biquad(
         val b0: Double, val b1: Double, val b2: Double, val a1: Double, val a2: Double
     ) {
@@ -318,6 +326,7 @@ class BeatDetector(private val fs: Double = EcgFilter.ECG_SAMPLE_RATE) {
         if (seenBeat) pushHist(if (usable && !lastR.isNaN() && !u.gap) pos - lastR else Double.NaN)
         seenBeat = true
         lastR = if (usable) pos else Double.NaN
+        onLocated?.invoke(LocatedBeat(pos, u.d, u.searchBack, flagged, u.gap))
         if (u.warm) return null
         lastBeatFlagged = flagged
         return pos
@@ -498,7 +507,7 @@ class BeatDetector(private val fs: Double = EcgFilter.ECG_SAMPLE_RATE) {
         }
 
         /** (accepted mask, dropped count) - see [rmssdMs]. */
-        private fun cleanNn(ms: DoubleArray): Pair<BooleanArray, Int> {
+        internal fun cleanNn(ms: DoubleArray): Pair<BooleanArray, Int> {
             val acc = BooleanArray(ms.size)
             val valid = ms.indices.filter { !ms[it].isNaN() && ms[it] >= 300.0 && ms[it] <= 2000.0 }
             if (valid.isEmpty()) return Pair(acc, 0)
@@ -517,3 +526,11 @@ class BeatDetector(private val fs: Double = EcgFilter.ECG_SAMPLE_RATE) {
         }
     }
 }
+
+/** One located beat, as pan_tompkins.py stores it in `beats`: tp2.1 position
+ *  (fractional sample index), the 5-15 Hz peak index [bp], whether it came from
+ *  search-back, whether tp2 could not time it, and whether samples were lost
+ *  since the previous beat. */
+data class LocatedBeat(
+    val pos: Double, val bp: Long, val searchBack: Boolean, val flagged: Boolean, val gap: Boolean,
+)

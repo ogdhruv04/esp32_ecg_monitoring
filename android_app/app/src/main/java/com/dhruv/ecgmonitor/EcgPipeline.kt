@@ -46,6 +46,43 @@ class EcgPipeline(private val onBeat: ((Long) -> Unit)? = null) {
     // Times the stream restarted after a reconnection.
     var streamBreaks = 0; private set
 
+    // The Session being recorded, if any (Session.kt). It sees every filtered
+    // sample, every lost-sample count and every located beat, in the order
+    // SessionParityTest pins. [onSessionEnd] fires once, on the sample that
+    // completes it.
+    var session: SessionRecorder? = null; private set
+    var onSessionEnd: ((SessionRecorder) -> Unit)? = null
+
+    init {
+        detector.onLocated = { session?.onBeat(it) }
+    }
+
+    /** Start recording a session of [durationS] from the next sample. */
+    fun startSession(durationS: Double = SessionConfig.DURATION_S): SessionRecorder {
+        val s0 = detector.sampleCount
+        return SessionRecorder(s0, s0 + (durationS * EcgFilter.ECG_SAMPLE_RATE).toLong()).also { session = it }
+    }
+
+    fun cancelSession() { session = null }
+
+    /** Close the running session now (the stream stopped); fires onSessionEnd. */
+    fun endSessionEarly() {
+        val s = session ?: return
+        s.finishEarly()
+        endSession(s)
+    }
+
+    private fun endSession(s: SessionRecorder) {
+        session = null
+        onSessionEnd?.invoke(s)
+    }
+
+    // Lost samples go to the detector and the session together.
+    private fun skipSamples(n: Int) {
+        detector.skip(n)
+        session?.let { it.onSkip(n); if (it.finished) endSession(it) }
+    }
+
     // The stream stopped and is starting again on a new connection, about
     // `samplesMissed` samples later by the wall clock. The firmware restarts
     // seq at 0 on every subscribe, so the next packet's seq says nothing about
@@ -55,7 +92,7 @@ class EcgPipeline(private val onBeat: ((Long) -> Unit)? = null) {
         lastSeq = -1
         streamBreaks++
         if (samplesMissed > 0) {
-            detector.skip(samplesMissed)
+            skipSamples(samplesMissed)
             samplesSkipped += samplesMissed
             sweepRaw.skip(samplesMissed)
             sweepFiltered.skip(samplesMissed)
@@ -73,7 +110,7 @@ class EcgPipeline(private val onBeat: ((Long) -> Unit)? = null) {
             val gap = (packet.seq - lastSeq + 256) % 256 - 1
             if (gap > 0) {
                 packetsLost += gap
-                detector.skip(gap * lastCount)
+                skipSamples(gap * lastCount)
                 samplesSkipped += gap * lastCount
                 sweepRaw.skip(gap * lastCount)
                 sweepFiltered.skip(gap * lastCount)
@@ -89,7 +126,9 @@ class EcgPipeline(private val onBeat: ((Long) -> Unit)? = null) {
             // must not sit between them, or the validation numbers stop
             // applying to what is on screen.
             val f = filter.process(v)
+            session?.onSample(f)
             detector.process(f)?.let { onBeat?.invoke(it) }
+            session?.let { if (it.checkEnd()) endSession(it) }
             val display = baseline.process(f)
             filteredBuffer.push(display)
             qrsBuffer.push(detector.lastBandpassed)
@@ -105,6 +144,7 @@ class EcgPipeline(private val onBeat: ((Long) -> Unit)? = null) {
             val filtered = filteredBuffer.snapshot()
             signalQuality = quality.assess(filtered, qrsBuffer.snapshot())
             qualityReady = filtered.size >= EcgFilter.ECG_SAMPLE_RATE
+            if (qualityReady) session?.onQuality(signalQuality.level)
             mainsShare = mainsShareOf(rawBuffer.snapshot())
         }
     }
