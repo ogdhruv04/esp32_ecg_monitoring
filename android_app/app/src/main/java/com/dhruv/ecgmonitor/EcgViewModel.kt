@@ -39,6 +39,14 @@ sealed interface SessionPhase {
     data class Done(val report: SessionReport) : SessionPhase
 }
 
+// The guided-breathing exercise. Running records where it started on the
+// sample clock (for the shaded inhale bands) and on the wall clock (for the pacer).
+sealed interface BreathingPhase {
+    data object Idle : BreathingPhase
+    data class Running(val startElapsedMs: Long, val startIndex: Long) : BreathingPhase
+    data class Done(val last: LiveSnapshot, val startIndex: Long) : BreathingPhase
+}
+
 // Reconnection delays: 1, 2, 4, 8, 16, then 30 s each, back to 1 s once data flows.
 class Backoff(private val firstMs: Long = 1_000, private val maxMs: Long = 30_000) {
     private var nextMs = firstMs
@@ -147,6 +155,24 @@ class EcgViewModel(app: Application) : AndroidViewModel(app) {
             if (now is SessionPhase.Done && now.report === report) sessionPhase = SessionPhase.Done(report.copy(id = id))
         }
     }
+
+    // ----------------------------------------------------- guided breathing
+
+    var breathingPhase by mutableStateOf<BreathingPhase>(BreathingPhase.Idle)
+        private set
+    // The live windows, recomputed once a second while the screen wants them.
+    var liveSnapshot by mutableStateOf<LiveSnapshot?>(null)
+        private set
+    var liveWanted = false
+        set(v) { field = v; if (v) liveSnapshot = pipeline.live.snapshot() }
+    private var lastLiveAt = 0L
+
+    fun startBreathing() {
+        breathingPhase = BreathingPhase.Running(SystemClock.elapsedRealtime(), pipeline.live.index)
+        Log.i(TAG, "guided breathing started at sample ${pipeline.live.index}")
+    }
+
+    fun stopBreathing() { breathingPhase = BreathingPhase.Idle }
 
     fun updateResearchMode(on: Boolean) {
         researchMode = on
@@ -283,6 +309,17 @@ class EcgViewModel(app: Application) : AndroidViewModel(app) {
                     endedEarly = true
                     pipeline.endSessionEarly()
                 }
+                if (liveWanted && now - lastLiveAt >= LIVE_EVERY_MS) {
+                    lastLiveAt = now
+                    liveSnapshot = pipeline.live.snapshot()
+                }
+                val bp = breathingPhase
+                if (bp is BreathingPhase.Running && now - bp.startElapsedMs >= (GuidedBreathingConfig.DURATION_S * 1000).toLong()) {
+                    val last = pipeline.live.snapshot()
+                    liveSnapshot = last
+                    breathingPhase = BreathingPhase.Done(last, bp.startIndex)
+                    Log.i(TAG, "guided breathing done: rmssd=${last.rmssd.value ?: "-"} br=${last.breathing.value ?: "-"}")
+                }
                 if (link == Link.RECEIVING && now - lastStats >= STATS_EVERY_MS) {
                     lastStats = now
                     logStats()
@@ -381,6 +418,7 @@ class EcgViewModel(app: Application) : AndroidViewModel(app) {
         // How long past its nominal end a session may wait for samples (a
         // reconnection) before it is closed with what it has.
         const val SESSION_GRACE_MS = 15_000L
+        private const val LIVE_EVERY_MS = 1_000L
     }
 }
 

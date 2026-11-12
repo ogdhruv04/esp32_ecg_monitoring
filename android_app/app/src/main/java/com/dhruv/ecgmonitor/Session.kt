@@ -9,9 +9,9 @@ import com.dhruv.ecgmonitor.algorithms.f1
 import com.dhruv.ecgmonitor.algorithms.g
 import com.dhruv.ecgmonitor.algorithms.median
 
-/** session_config.json (version ses2). AlgorithmsConfigTest fails on any difference. */
+/** session_config.json (version ses3). AlgorithmsConfigTest fails on any difference. */
 object SessionConfig {
-    const val VERSION = "ses2"
+    const val VERSION = "ses3"
     const val TAIL_S = 4.0
 }
 

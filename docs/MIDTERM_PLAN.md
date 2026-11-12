@@ -67,7 +67,8 @@ against the wearer's own baseline. Each one is validated, and each one is shown 
 - [ ] "Session" mode: 2-min recording → report (HR, HRV, breathing rate, rhythm check, ectopic count, quality and motion, arousal vs baseline)
   - 12 Nov, started early: **3-min** session (a 2-min one cannot hold SDNN/LF, `docs/hrv_minimum_windows.md`) plus a 5-min extended one for DFA α1 and sample entropy. Two-layer report (HR, RMSSD, breathing with "usual" after 3 live sessions; all other measures collapsible; tap for a one-line explanation), each measure "—" with its reason below its minimum. Rhythm, ectopic count, motion and arousal are hidden slots. Not yet run on the phone. `docs/explained/app.md`
   - **For Algorithms:** the session-level rules (HR min intervals 30, breathing min windows 5, max window spread 4 breaths/min) are provisional in the app until `algorithms/config.json` gets a `session` block
-- [ ] Guided-breathing screen with live HRV (breathing at 6/min)
+- [x] Guided-breathing screen with live HRV (breathing at 6/min)
+  - 12 Nov: pacer 6/min, live RMSSD (90 s), live breathing rate (32 s) and beat-to-beat HR curve with in-breaths shaded; parity-tested (`LiveHrvParityTest`). Rendered from replay only; not yet run on the phone, and whether the RSA swing shows on the ring is for bench session 2
 - [ ] Session history stored on the phone (Room), with trends against a personal baseline
   - 12 Nov: Room storage and a History screen with per-measure trends by date done; the baseline is the median and range of earlier live sessions (arousal-vs-baseline is the Algorithms item)
 - [x] Every ported algorithm has a parity test against its Python reference (12 Nov: `HrvParityTest`, `SessionParityTest` (incl. breathing), `AlgorithmsConfigTest`; fixtures `make_session_fixtures.py`)

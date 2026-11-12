@@ -85,6 +85,16 @@ class AlgorithmsConfigTest {
             SessionMeasures.ALL_KEYS.toSet(), com.dhruv.ecgmonitor.EXPLANATIONS.keys)
     }
 
+    @Test fun guidedBreathingSettings() {
+        val g = ses.getJSONObject("guided_breathing")
+        assertEquals(g.getDouble("pace_per_min"), com.dhruv.ecgmonitor.GuidedBreathingConfig.PACE_PER_MIN, 0.0)
+        assertEquals(g.getDouble("inhale_s"), com.dhruv.ecgmonitor.GuidedBreathingConfig.INHALE_S, 0.0)
+        assertEquals(g.getDouble("exhale_s"), com.dhruv.ecgmonitor.GuidedBreathingConfig.EXHALE_S, 0.0)
+        assertEquals(g.getDouble("duration_s"), com.dhruv.ecgmonitor.GuidedBreathingConfig.DURATION_S, 0.0)
+        assertEquals(g.getDouble("rmssd_window_s"), com.dhruv.ecgmonitor.GuidedBreathingConfig.RMSSD_WINDOW_S, 0.0)
+        assertEquals(g.getDouble("curve_s"), com.dhruv.ecgmonitor.GuidedBreathingConfig.CURVE_S, 0.0)
+    }
+
     /** The session-level rules must come from algorithms/config.json. Until the
      *  algorithms workstream adds a "session" block they are provisional; the
      *  moment it does, this fails until the constants are taken from it. */

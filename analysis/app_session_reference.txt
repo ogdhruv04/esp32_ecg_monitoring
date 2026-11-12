@@ -1,4 +1,4 @@
-# ./make_session_fixtures.py (commit a645ec7); session ses2, algorithms alg1 (frozen 2026-11-11), detector tp2.1
+# ./make_session_fixtures.py (commit 2cfab7e); session ses3, algorithms alg1 (frozen 2026-11-11), detector tp2.1
 # causal filter (the phone's), detector run sample by sample; session = beats located by s1 + tail whose position lies in [s0, s1)
 
 == NN series of each whole input: every HRV measure, gated ==
@@ -150,3 +150,16 @@ tb02_ext       extended session 20-290 s (270 s): 341 beats, 65 samples lost, NN
     LF/HF: withheld (coverage 64%, needs 95%) [168 s valid, coverage 64%]
     DFA alpha1: withheld (100 NN intervals in runs of 16 or more, needs 200) [168 s valid, coverage 64%]
     SampEn: withheld (168 s of valid NN intervals, needs 180 s) [168 s valid, coverage 64%]
+
+== Guided-breathing live windows (session_reference.live_window) ==
+tb01   at    20 s: RMSSD: withheld (12 s of valid NN intervals, needs 60 s) [12 s valid, coverage 59%]; BR (fused): withheld (no agreement between the modulations and no strong R-amplitude peak) [32 s valid, coverage 91%]
+tb01   at    60 s: RMSSD: withheld (29 s of valid NN intervals, needs 60 s) [29 s valid, coverage 48%]; BR (fused): withheld (neither modulation gave a usable peak) [32 s valid, coverage 96%]
+tb01   at   100 s: RMSSD: withheld (41 s of valid NN intervals, needs 60 s) [41 s valid, coverage 47%]; BR (fused): withheld (neither modulation gave a usable peak) [32 s valid, coverage 84%]
+tb01   at   150 s: RMSSD: withheld (43 s of valid NN intervals, needs 60 s) [43 s valid, coverage 51%]; BR (fused): withheld (neither modulation gave a usable peak) [32 s valid, coverage 98%]
+tb01   at   200 s: RMSSD: 18.69 ms [76 s valid, coverage 86%]; BR (fused): withheld (no agreement between the modulations and no strong R-amplitude peak) [32 s valid, coverage 100%]
+tb02   at    20 s: RMSSD: withheld (0 s of valid NN intervals, needs 60 s) [0 s valid, coverage 0%]; BR (fused): withheld (neither modulation has enough usable beats) [32 s valid, coverage 0%]
+tb02   at    60 s: RMSSD: withheld (2 s of valid NN intervals, needs 60 s) [2 s valid, coverage 6%]; BR (fused): withheld (no agreement between the modulations and no strong R-amplitude peak) [32 s valid, coverage 72%]
+tb02   at   100 s: RMSSD: withheld (28 s of valid NN intervals, needs 60 s) [28 s valid, coverage 38%]; BR (fused): 19.88 breaths/min [32 s valid, coverage 100%]
+tb02   at   150 s: RMSSD: withheld (59 s of valid NN intervals, needs 60 s) [59 s valid, coverage 66%]; BR (fused): 5.3 breaths/min [32 s valid, coverage 98%]
+tb02   at   200 s: RMSSD: 34.16 ms [76 s valid, coverage 83%]; BR (fused): withheld (the two modulations disagree (7.4 and 19.0 breaths/min) and the R-amplitude peak is under 40%) [32 s valid, coverage 100%]
+tb02   at   250 s: RMSSD: 31.51 ms [72 s valid, coverage 79%]; BR (fused): withheld (no agreement between the modulations and no strong R-amplitude peak) [32 s valid, coverage 93%]

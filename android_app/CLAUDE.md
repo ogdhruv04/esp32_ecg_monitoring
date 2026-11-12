@@ -47,6 +47,12 @@ UI work never changes the logic in `EcgFilter.kt`, `BeatDetector.kt`, `SignalQua
 - History plots one unjoined point per session at its date: dots live, squares replay, a tick under the axis for withheld, a dashed median; first and last dates always labelled.
 - `EcgPipeline` feeds the recorder in a fixed order (sample, then detector, then end check; skips with the detector). `SessionParityTest` and `SessionPipelineTest` pin that order. Don't reorder it.
 
+## Guided breathing
+
+- `GuidedBreathingUi.kt`, from the Session screen. Pacer 6/min, 5 s in, 5 s out, 3 min (`GuidedBreathingConfig`, `session_config.json`), drawn by the frame clock while running. The phase text sits under the circle, never on it.
+- Live numbers come only from `LiveHrv` (sliding windows over `EcgPipeline.live`): RMSSD of the last 90 s and fused breathing of the last 32 s under their usual minimums, and the beat-to-beat heart-rate curve of accepted NN intervals with the in-breaths shaded. `LiveHrvParityTest` pins them to `session_reference.live_window`.
+- Heart rate on this screen follows the main screen's rule (GOOD only). Nothing from the exercise is stored.
+
 ## BLE link
 
 - `BleEcgClient` never reconnects: on a drop it posts "Disconnected" and leaves its GATT open. `EcgViewModel` closes it and starts a fresh client after 1, 2, 4, 8, 16, then 30 s, resetting once data flows; it also restarts a link that goes 8 s without data and without a disconnect. `ReconnectTest` covers it (on SDK 33, so it has its own Robolectric sandbox: sharing one with the Compose tests made the clock jump mid-test).

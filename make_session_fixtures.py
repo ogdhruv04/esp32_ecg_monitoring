@@ -214,6 +214,22 @@ def main():
                          f"breathing windows with a rate {nw}/{len(rep['_windows'])}")
             for k in S.keys(kind):
                 lines.append(f"    {rep[k]}")
+    # ---- guided breathing: the live windows at a few points of tb01 and tb02
+    lines.append("\n== Guided-breathing live windows (session_reference.live_window) ==")
+    with open(OUT / "live_cases.tsv", "w") as f:
+        f.write("case\tn\tkey\tvalue\twithheld\tn_used\tvalid_s\tspan_s\tcoverage\n")
+        for name in ("tb01", "tb02"):
+            v, sk = inputs[name]
+            for t in (20.0, 60.0, 100.0, 150.0, 200.0, 250.0):
+                n = int(t * FS)
+                pt, y = S.run_detector(v, sk, n)
+                if len(y) < n:
+                    continue
+                w = S.live_window(pt, y, n)
+                for k, r in w.items():
+                    f.write(f"{name}\t{n}\t{k}\t{fmt(r.value)}\t{r.withheld or ''}\t{r.n_used}\t"
+                            f"{fmt(r.valid_s)}\t{fmt(r.span_s)}\t{fmt(r.coverage)}\n")
+                lines.append(f"{name:6} at {t:5.0f} s: {w['rmssd']}; {w['br']}")
     REPORT.write_text("\n".join(lines) + "\n")
     print("\n".join(lines))
     print(f"wrote {OUT}/ and {REPORT}")

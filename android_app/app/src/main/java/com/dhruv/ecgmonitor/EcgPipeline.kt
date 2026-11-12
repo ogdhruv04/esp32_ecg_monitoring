@@ -53,8 +53,12 @@ class EcgPipeline(private val onBeat: ((Long) -> Unit)? = null) {
     var session: SessionRecorder? = null; private set
     var onSessionEnd: ((SessionRecorder) -> Unit)? = null
 
+    // Sliding windows for the guided-breathing screen; always fed, computed
+    // only when asked (LiveHrv.snapshot).
+    val live = LiveHrv()
+
     init {
-        detector.onLocated = { session?.onBeat(it) }
+        detector.onLocated = { session?.onBeat(it); live.onBeat(it) }
     }
 
     /** Start recording a session of [durationS] from the next sample. */
@@ -80,6 +84,7 @@ class EcgPipeline(private val onBeat: ((Long) -> Unit)? = null) {
     // Lost samples go to the detector and the session together.
     private fun skipSamples(n: Int) {
         detector.skip(n)
+        live.onSkip(n)
         session?.let { it.onSkip(n); if (it.finished) endSession(it) }
     }
 
@@ -127,6 +132,7 @@ class EcgPipeline(private val onBeat: ((Long) -> Unit)? = null) {
             // applying to what is on screen.
             val f = filter.process(v)
             session?.onSample(f)
+            live.onSample(f)
             detector.process(f)?.let { onBeat?.invoke(it) }
             session?.let { if (it.checkEnd()) endSession(it) }
             val display = baseline.process(f)

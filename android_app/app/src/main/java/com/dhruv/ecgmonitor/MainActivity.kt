@@ -21,6 +21,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.withFrameMillis
+import android.os.SystemClock
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -83,6 +88,7 @@ private fun MonitorApp(vm: EcgViewModel) {
         screen = when {
             screen.startsWith("past:") -> "history"
             screen == "history" -> "session"
+            screen == "breathing" -> { vm.stopBreathing(); "session" }
             // Back from a finished report closes it; a recording keeps going.
             screen == "session" && vm.sessionPhase is SessionPhase.Done -> { vm.closeReport(); "main" }
             else -> "main"
@@ -135,6 +141,7 @@ private fun MonitorApp(vm: EcgViewModel) {
         onBack = { screen = "main" },
         onCycleGain = vm::cycleGain,
         onKind = { vm.sessionKind = it },
+        onBreathing = { screen = "breathing" },
     )
     val needsHistory = screen == "session" || screen == "history" || screen.startsWith("past:")
     val history by (if (needsHistory) vm.history else kotlinx.coroutines.flow.flowOf(emptyList()))
@@ -154,6 +161,24 @@ private fun MonitorApp(vm: EcgViewModel) {
                 screen == "history" -> HistoryScreen(
                     history, trendKey, { trendKey = it }, { screen = "past:${it.id}" }, { screen = "session" }, geometry.insets,
                 )
+                screen == "breathing" -> {
+                    val bp = vm.breathingPhase
+                    // The pacer follows the frame clock while running.
+                    var nowMs by remember { mutableLongStateOf(SystemClock.elapsedRealtime()) }
+                    LaunchedEffect(bp) {
+                        if (bp is BreathingPhase.Running) while (true) withFrameMillis { nowMs = SystemClock.elapsedRealtime() }
+                    }
+                    DisposableEffect(Unit) { vm.liveWanted = true; onDispose { vm.liveWanted = false } }
+                    val elapsed = if (bp is BreathingPhase.Running) (nowMs - bp.startElapsedMs) / 1000.0 else 0.0
+                    GuidedBreathingScreen(
+                        BreathingUiState(bp, elapsed, vm.liveSnapshot, state),
+                        BreathingActions(
+                            onStart = vm::startBreathing, onStop = vm::stopBreathing,
+                            onBack = { vm.stopBreathing(); screen = "session" },
+                        ),
+                        geometry,
+                    )
+                }
                 screen.startsWith("past:") -> {
                     val r = history.firstOrNull { it.id == screen.removePrefix("past:").toLongOrNull() }
                     if (r != null) ReportScreen(

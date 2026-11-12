@@ -87,6 +87,7 @@ class SessionActions(
     val onDelete: (Long) -> Unit = {},
     val onCycleGain: () -> Unit = {},
     val onKind: (SessionKind) -> Unit = {},
+    val onBreathing: () -> Unit = {},
 )
 
 /** Report rows: key, label, unit as shown, decimals, and the noun for nUsed. */
@@ -148,14 +149,14 @@ const val REPORT_END = "report_end"
 
 internal fun formatValue(v: Double, decimals: Int): String = "%.${decimals}f".format(Locale.ROOT, v)
 
-private fun clock(seconds: Int) = "%d:%02d".format(Locale.ROOT, seconds / 60, seconds % 60)
+internal fun clock(seconds: Int) = "%d:%02d".format(Locale.ROOT, seconds / 60, seconds % 60)
 
 internal fun reportDate(ms: Long): String = SimpleDateFormat("d MMM yyyy, HH:mm", Locale.UK).format(Date(ms))
 
 // ---------------------------------------------------------------- scaffold
 
 @Composable
-private fun Page(
+internal fun Page(
     title: String, insets: PaddingValues, right: String?, onRight: () -> Unit,
     scroll: Boolean = true, content: @Composable ColumnScope.() -> Unit,
 ) {
@@ -178,7 +179,7 @@ private fun Page(
 }
 
 @Composable
-private fun PageHeader(title: String, right: String?, onRight: () -> Unit) {
+internal fun PageHeader(title: String, right: String?, onRight: () -> Unit) {
     Row(Modifier.padding(start = 20.dp, end = 20.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(title, style = MaterialTheme.typography.titleLarge, color = MonitorColors.Text, modifier = Modifier.weight(1f))
         if (right != null) Text(
@@ -189,7 +190,7 @@ private fun PageHeader(title: String, right: String?, onRight: () -> Unit) {
 }
 
 @Composable
-private fun PlainButton(text: String, onClick: () -> Unit, enabled: Boolean = true, modifier: Modifier = Modifier) {
+internal fun PlainButton(text: String, onClick: () -> Unit, enabled: Boolean = true, modifier: Modifier = Modifier) {
     OutlinedButton(
         onClick, enabled = enabled, modifier = modifier.heightIn(min = 52.dp),
         shape = RoundedCornerShape(6.dp),
@@ -201,7 +202,7 @@ private fun PlainButton(text: String, onClick: () -> Unit, enabled: Boolean = tr
 }
 
 @Composable
-private fun Muted(text: String, modifier: Modifier = Modifier, maxLines: Int = Int.MAX_VALUE) = Text(
+internal fun Muted(text: String, modifier: Modifier = Modifier, maxLines: Int = Int.MAX_VALUE) = Text(
     text, style = MaterialTheme.typography.bodyMedium, color = MonitorColors.TextMuted, modifier = modifier,
     maxLines = maxLines, overflow = TextOverflow.Ellipsis,
 )
@@ -270,6 +271,15 @@ fun SessionScreen(state: SessionUiState, actions: SessionActions, geometry: Scre
                 Muted(
                     when (state.historyCount) { 0 -> "no sessions yet ›"; 1 -> "1 session ›"; else -> "${state.historyCount} sessions ›" },
                 )
+            }
+            HorizontalDivider(color = MonitorColors.GridMajor, thickness = 1.dp)
+            Row(
+                Modifier.fillMaxWidth().minimumInteractiveComponentSize()
+                    .clickable(role = Role.Button, onClick = actions.onBreathing),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("Guided breathing", style = MaterialTheme.typography.bodyLarge, color = MonitorColors.Text, modifier = Modifier.weight(1f))
+                Muted("6 a minute, live HRV ›")
             }
         }
     }

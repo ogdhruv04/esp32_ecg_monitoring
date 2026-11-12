@@ -37,6 +37,32 @@ which is the version benchmarked on MIT-BIH.
    never returns, the session closes 15 s after its due end with what it has, and the report says
    "Ended early".
 
+## Guided breathing
+
+From the Session screen, "Guided breathing" paces **6 breaths a minute** (5 s in, 5 s out) for
+3 minutes (`session_config.json`, `guided_breathing`), as in the bench protocol's
+paced-breathing segment. A circle grows on the in-breath and shrinks on the out-breath, with the
+phase and its seconds under it. Beside it, live and once a second:
+
+- **Heart rate**, under the main screen's rule (shown only on GOOD signal).
+- **RMSSD over the last 90 s.** Its 60 s valid-time minimum applies, so it reads "—" with the
+  reason for at least the first minute. The window is 90 s rather than 60 s so that the minimum
+  can still be met when some beats are rejected.
+- **The wearer's breathing rate over the last 32 s**: the same fused estimator and gates as the
+  report. It is there to show whether the wearer is following the pacer, and is often withheld.
+- **The beat-to-beat heart rate of the last 60 s** (60 / each accepted NN interval), with the
+  pacer's in-breaths shaded behind it. When slow breathing works, the curve rises on each
+  in-breath and falls on each out-breath (respiratory sinus arrhythmia). Holes in the NN series
+  are gaps in the line, never joined.
+
+All of it is the ported measures applied to sliding windows that end at the newest sample
+(`LiveHrv.kt`). The reference is `session_reference.live_window`. `LiveHrvParityTest` feeds the
+two test-board recordings sample by sample and compares the live RMSSD and breathing rate, value
+or withheld reason, at 11 points. Each window cleans its NN series from its own first intervals,
+the same choice as the session report. Nothing from the exercise is stored. The renders replay
+`tb02`, a recording of normal breathing, so the curve there does not follow the shaded bands:
+they show the screen, not the effect. Whether the effect shows on the ring is for bench session 2.
+
 ## The report
 
 It has two layers.

@@ -124,3 +124,25 @@ def session_report(pt, y, s0, s1, fs=256.0, kind="standard"):
     rep["_beats"] = beats
     rep["_nn"] = nn
     return rep
+
+
+# ------------------------------------------------------------ guided breathing
+LIVE = SESSION["guided_breathing"]
+
+
+def live_window(pt, y, n, fs=256.0):
+    """The guided-breathing screen's numbers once the detector has processed
+    absolute samples [0, n): RMSSD over the last rmssd_window_s and the fused
+    breathing rate over the last breathing window, from the beats located so
+    far (LiveHrv.kt is the port)."""
+    t1 = n / fs
+    w_rm = LIVE["rmssd_window_s"]
+    beats_rm = [b for b in pt.beats if t1 - w_rm <= b["pos"] / fs < t1]
+    nn = NNSeries.from_beats(beats_rm, fs)
+    W = A.CONFIG["breathing"]["window_s"]
+    n0 = n - int(W * fs)
+    ys = np.full(n, np.nan)
+    ys[max(n0, 0):n] = y[max(n0, 0):n]
+    beats_br = [b for b in pt.beats if t1 - W <= b["pos"] / fs < t1]
+    mods = A.modulations(ys, beats_br, fs)
+    return {"rmssd": A.rmssd(nn), "br": A.breathing_rate(mods, t1 - W, t1)["fused"]}
