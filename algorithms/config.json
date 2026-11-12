@@ -87,6 +87,15 @@
     "ramp_alone_share": 0.4,
     "selection": "Chosen on the BIDMC development subjects (analysis/breathing_bidmc_dev_tuning.txt). The band is fixed at 4-40 breaths/min by requirement, not by BIDMC: paced breathing at 6/min must lie inside it, although 6-40 scores better on this dataset. Among the 4-40 rows, the setting with the highest pooled coverage whose per-subject MAE has a 75th percentile of 1.0 breaths/min or less under the causal filter. agree_bpm, min_beats, min_beat_coverage, outlier_mad, share_halfwidth_cycles and lomb_oversample were set by hand and not tuned."
   },
+  "session": {
+    "hr_min_intervals": 60,
+    "breathing_min_windows": 5,
+    "breathing_max_range_bpm": 6.0,
+    "frozen": "2026-11-13",
+    "what": "Rules for the two session-level summaries the app computes (session_reference.py on the app branch): heart rate = 60000 / median beat-to-beat interval, reported with at least hr_min_intervals intervals; breathing rate = median of the 32 s windows (one every bidmc.step_s) that gave a fused rate, reported when at least breathing_min_windows did and they span no more than breathing_max_range_bpm.",
+    "derived_on": "Development data only (analysis/session_rules_dev.txt, ./derive_session_rules.py): the 23 BIDMC development subjects for breathing, all 48 MIT-BIH records for heart rate. Not checked on held-out data: the BIDMC held-out subjects are spent.",
+    "selection": "Breathing: the smallest minimum at which no reported development session was off by more than 2 breaths/min under either filter and either session length, then the range limit with the highest coverage. Heart rate: the smallest n at which 95% of estimates from n intervals scattered over a 180 s session lie within 5 bpm of the session's annotated heart rate on all sessions, arrhythmic ones included; sessions in normal sinus rhythm throughout meet that from n = 5."
+  },
   "bidmc": {
     "split_rule": "By SUBJECT, not by recording: the 53 recordings come from 46 MIMIC-II subjects (bidmc_csv/bidmc_NN_Fix.txt, 'MIMIC II matched wdb ID'); s03386 and s11342 have four recordings each and s25323 two. Subjects sorted by ID alternate dev, held-out, dev, ... and every recording follows its subject.",
     "split_fixed": "2026-11-11, from the Fix.txt metadata alone, before any BIDMC signal or annotation was read",

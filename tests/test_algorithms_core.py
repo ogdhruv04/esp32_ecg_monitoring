@@ -74,3 +74,9 @@ def test_every_measure_has_a_documented_minimum():
         assert minimum(name)["valid_s"] >= 60
     assert minimum("rmssd")["nn"] == PT.MIN_BEATS_FOR_HRV   # never laxer than the frozen tp2.1 rule
     assert CONFIG["hrv"]["dfa"] == {"scale_min": 4, "scale_max": 16}
+
+
+def test_session_rules_are_in_the_config():
+    s = CONFIG["session"]                                 # read by the app's session_reference.py
+    assert s["hr_min_intervals"] == 60 and s["breathing_min_windows"] == 5
+    assert s["breathing_max_range_bpm"] == 6.0 and s["frozen"]
