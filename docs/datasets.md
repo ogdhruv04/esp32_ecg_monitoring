@@ -12,20 +12,31 @@ Confirm the others the same way before using them, and record the date here.
 | BUT QDB (Brno University of Technology ECG Quality Database) | CC BY 4.0 | ✅ 23 Oct 2026, PhysioNet | 18 recordings from 15 subjects at 1000 Hz | Learned signal-quality model (item 2) |
 | MIT-BIH Noise Stress Test Database (NSTDB) | ODC-By 1.0 | ✅ 23 Oct 2026, PhysioNet | | Real electrode-motion / muscle / baseline noise for quality and robustness tests (item 2) |
 | BIDMC PPG and Respiration Dataset | ODC-By 1.0 | ✅ 23 Oct 2026 and again 11 Nov 2026, PhysioNet | 53 recordings of 8 min at 125 Hz, lead II ECG in every one, breaths marked by two annotators. **46 subjects, not 53** (see notes) | Respiration rate from ECG: `validate_breathing_bidmc.py`, split by subject in `algorithms/config.json` |
-| MIT-BIH Arrhythmia Database | ODC-By 1.0 | ✅ 23 Oct 2026, PhysioNet | 48 records from 47 subjects at 360 Hz | Detector benchmark and timing-point check: 12 records are the development subset, the other 36 the held-out test (`tp2_config.json`) |
+| MIT-BIH Arrhythmia Database | ODC-By 1.0 | ✅ 23 Oct 2026, PhysioNet | 48 records from 47 subjects at 360 Hz | Detector benchmark and timing-point check. **All 48 records are development data from 13 Nov 2026** (see notes) |
+| St Petersburg INCART 12-lead Arrhythmia Database | ODC-By 1.0 | ✅ 13 Nov 2026, PhysioNet | 75 half-hour records from 32 patients at 257 Hz, 12 leads, over 175,000 beat annotations | **Held-out** set for beat timing and coverage, replacing the spent MIT-BIH records: `evaluate_tp3.py incart`, protocol in `tp3_candidate.json` |
 | WESAD | **to be checked** | not yet (not hosted on PhysioNet) | | Stress from HRV (item 5); do not use until the licence is known |
 
 ## Notes
 
 - **Sample rates differ from ours.** The confirmed public datasets run from 125 Hz (BIDMC) to
-  1000 Hz (BUT QDB), MIT-BIH at 360 Hz; our boards record at 256 Hz. Models have to be trained and tested on data
+  1000 Hz (BUT QDB), MIT-BIH at 360 Hz, INCART at 257 Hz; our boards record at 256 Hz. Models have to be trained and tested on data
   resampled to 256 Hz, and the resampling belongs inside the evaluation.
 - **ODC-By** and **CC BY 4.0** both require attribution. Cite each dataset as its page asks,
   and cite PhysioNet itself for PhysioNet-hosted data.
-- **MIT-BIH is split.** The 12 records 100, 101, 103, 105, 106, 108, 109, 119, 203, 208, 222 and
-  228 are the **development** subset: every detector and tp2 parameter was tuned on them. The other
-  36 are the **held-out** test, evaluated once with the parameters frozen in `tp2_config.json`.
-  Every MIT-BIH figure must say which set it comes from.
+- **MIT-BIH is all development data from 13 Nov 2026.** Until then the 12 records 100, 101, 103, 105,
+  106, 108, 109, 119, 203, 208, 222 and 228 were the development subset and the other 36 the held-out
+  test. Those 36 were used once for tp2.1 (31 Oct, `tp2_config.json`) and once more for the arithmetic
+  check of the HRV functions (11 Nov), so they can no longer serve as unseen data, and the biphasic-QRS
+  coverage problem was found on them. Results published from them before 13 Nov remain held-out results
+  for the parameters that were frozen at the time. Every MIT-BIH figure must still say which records it
+  comes from and when.
+- **INCART is the held-out set for beat timing.** 32 patients (17 men, 15 women, aged 18-80) tested
+  for coronary artery disease; the header of each record gives its patient number, and records of one
+  patient come from one Holter recording, so summaries are also given per patient. Its beat
+  annotations were placed by an algorithm "in the middle of the QRS complex" and their positions
+  were not corrected by hand (database description), so RMSSD from its annotations carries that
+  jitter. Downloaded on 13 Nov 2026 to `<main checkout>/data/incartdb` (796 MB, SHA-256 checked).
+  Cite the database and PhysioNet as its page asks.
 - **BIDMC has repeated subjects.** The paper describes 53 patients, but the `MIMIC II matched wdb ID`
   in `bidmc_csv/bidmc_NN_Fix.txt` shows 46: s03386 has recordings 06–09, s11342 has 20–23 and
   s25323 has 38–39. The development / held-out split in `algorithms/config.json` is by subject

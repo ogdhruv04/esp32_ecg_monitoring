@@ -1,0 +1,22 @@
+{
+  "version": "tp3-candidate-1",
+  "status": "CANDIDATE. Not shipped, not ported to BeatDetector.kt, not in tp2_config.json. pan_tompkins.py is unchanged; tp3_candidate.retime() re-times its beats offline. Stop for review before any port.",
+  "frozen": "2026-11-13",
+  "timing": {
+    "LAG": 10,
+    "R_MIN": 0.8,
+    "ALIGN": true,
+    "REF": "peak",
+    "TRACK": 2
+  },
+  "what": "Polarity-free beat position: the lag (within +-LAG samples of the 5-15 Hz peak) at which the beat's window correlates best with the median beat, parabolic interpolation of the correlation, referred to one followed peak of the median beat. Flagged when the correlation is under R_MIN, the best lag is at the end of the range, the window holds a gap, the median beat is not ready, or the followed peak had to be picked again. Window and template depth are tp2.1's (R_BEFORE_S, R_AFTER_S, POL_KEEP, POL_MIN).",
+  "tuned_on": "All 48 MIT-BIH Arrhythmia records, which are development data from 13 Nov 2026 (the 36 formerly held-out ones were spent on tp2.1 and on the alg1 arithmetic check), plus our recordings dual03, tb01 and tb02 and the BIDMC ECGs (coverage only). analysis/tp3_mitdb48_dev_grid.txt, tp3_mitdb48_dev.txt, tp3_own_recordings.txt, tp3_bidmc_coverage.txt.",
+  "selection": "Form: aligned template with a followed-peak reference. The unaligned forms mistimed beats on tb02 (zero-phase SDNN 67 ms against 53-54 ms from every other form and from tp2.1); the anchor reference lets absolute beat times wander (sd against annotations 3.5 ms against 1.1 ms). LAG is tp2.1's CORR_LAG. R_MIN is the value with the lowest mean absolute RMSSD error on the 44 non-paced records under the causal filter. TRACK was set by hand.",
+  "heldout_protocol": {
+    "data": "St Petersburg INCART 12-lead Arrhythmia Database (PhysioNet, ODC-By 1.0, checked 13 Nov 2026): 75 half-hour records from 32 patients, downloaded 13 Nov 2026 and not opened before this file was committed.",
+    "front_end": "lead II, 257 -> 256 Hz, 0.5-40 Hz with a 50 Hz notch, causal and zero-phase; tp2.1 detection as frozen",
+    "metrics": "per record and per patient, tp2.1 against tp3 on the same beats: coverage, RMSSD error against annotations, pipeline NN coverage, sd against annotations, EC57 Se and P+",
+    "caveat": "INCART annotations sit 'in the middle of the QRS complex' and their positions were not corrected by hand, so its annotation RMSSD carries that jitter. The before/after comparison stands; the absolute errors do not mean what they mean on MIT-BIH.",
+    "rule": "run once; nothing in this file is changed in response"
+  }
+}
