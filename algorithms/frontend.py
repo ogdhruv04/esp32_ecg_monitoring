@@ -39,3 +39,19 @@ def detect(y, fs=FS, timing=None):
     for v in y:
         pt.process(v)
     return pt.beats
+
+
+def load_capture(path):
+    """(values, skip_before, duplicate rows dropped) of one of our capture CSVs,
+    ordered by sample index: skip_before[i] samples were lost just before
+    values[i]. Same reading as evaluate_tp3.load_capture."""
+    import pandas as pd
+    df = pd.read_csv(path, on_bad_lines="skip", low_memory=False)
+    df = df.assign(index=pd.to_numeric(df["index"], errors="coerce"),
+                   value=pd.to_numeric(df["value"], errors="coerce")).dropna(subset=["index", "value"])
+    idx = df["index"].to_numpy().astype(np.int64); val = df["value"].to_numpy().astype(float)
+    n = len(idx)
+    _, first = np.unique(idx, return_index=True)
+    first.sort(); idx, val = idx[first], val[first]
+    order = np.argsort(idx, kind="stable"); idx, val = idx[order], val[order]
+    return val, np.concatenate([[0], np.diff(idx) - 1]), n - len(first)

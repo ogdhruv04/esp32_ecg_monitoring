@@ -108,6 +108,19 @@
     "what": "Ectopic-beat labels (algorithms/ectopic.py): correlation with the median of the beats labelled normal, and the interval before the beat relative to the normal rhythm. The window, lag range and template depth are the detector's (tp2_config.json).",
     "tuned_on": "MIT-BIH DS1 only (de Chazal's 22 training records; analysis/ectopic_mitdb_ds1_tuning.txt): r_n, r_v, prem_v and r_vv by the highest class-V F1 averaged over the causal and zero-phase filters. prem_s, rr_keep and reseed were set by hand. DS2 was run once after this was frozen, but it is not truly held out: every MIT-BIH record is development data for the detector underneath."
   },
+  "af": {
+    "warmup_s": 2.0,
+    "min_rr": 10,
+    "cosen_r_s": 0.03,
+    "cosen_r_step_s": 0.01,
+    "cosen_r_max_s": 0.3,
+    "cosen_min_a": 5,
+    "window_s": 30.0,
+    "frozen": "2026-11-13",
+    "what": "AF screening (algorithms/af.py): features of one cold-started 30 s window and the gate below which a window is not judged. The model itself is algorithms/af_model.json.",
+    "tuned_on": "Nothing here was tuned. warmup_s is the detector's warm-up; min_rr, the cosen tolerance ladder and its minimum match count were set by hand before any model was fitted.",
+    "model": "algorithms/af_model.json (af1): trees n=100 depth=3 weights=none, selected in analysis/af_cinc_cv.txt"
+  },
   "bidmc": {
     "split_rule": "By SUBJECT, not by recording: the 53 recordings come from 46 MIMIC-II subjects (bidmc_csv/bidmc_NN_Fix.txt, 'MIMIC II matched wdb ID'); s03386 and s11342 have four recordings each and s25323 two. Subjects sorted by ID alternate dev, held-out, dev, ... and every recording follows its subject.",
     "split_fixed": "2026-11-11, from the Fix.txt metadata alone, before any BIDMC signal or annotation was read",
