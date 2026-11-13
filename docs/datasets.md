@@ -44,8 +44,9 @@ Confirm the others the same way before using them, and record the date here.
   (`REFERENCE-v3.csv`), which differs from the `REFERENCE.csv` inside `training2017.zip`.
   Downloaded on 13 Nov 2026 to `<main checkout>/data/cinc2017` (96 MB; the dataset publishes no
   checksum file). Cite Clifford et al., *Computing in Cardiology* 2017, and PhysioNet.
-- **The MIT-BIH AF Database is the external test for AF screening and is spent.** One long
-  recording per subject, analog Holter tape from 1983; unreadable tape blocks in 04043, 08405 and
+- **The MIT-BIH AF Database is the external test for AF screening and is spent.** Its page describes
+  "25 long-term ECG recordings of human subjects" and does not say whether any subject has two;
+  each record is treated as one patient. Analog Holter tape from 1983; unreadable tape blocks in 04043, 08405 and
   08434 were replaced by flat zero, and 9 of our 30 s windows are left out for that. Downloaded on
   13 Nov 2026 to `<main checkout>/data/afdb` (607 MB, SHA-256 checked for every file except the
   `old/` annotation directory, which was not downloaded). Cite Moody & Mark, *Computers in

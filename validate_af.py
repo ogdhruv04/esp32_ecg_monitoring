@@ -27,8 +27,8 @@ higher in class-A F1, because a logistic model is 4 x 11 numbers that port to
 the phone and can be read.
 
 EXTERNAL TEST: MIT-BIH Atrial Fibrillation Database, 23 records with signals
-(one long recording per subject, about 10 h, 250 Hz, analog Holter tape from
-1983), none of it used anywhere in this project before. Signal ECG1,
+(each treated as one patient; the database does not say whether a subject has
+two. About 10 h each, 250 Hz, analog Holter tape from 1983), none of it used anywhere in this project before. Signal ECG1,
 consecutive non-overlapping 30 s windows from sample 0, each resampled to
 256 Hz and processed on its own exactly as a CinC recording is. Truth from the
 manual rhythm annotations (.atr):
