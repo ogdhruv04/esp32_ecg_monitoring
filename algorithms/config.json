@@ -96,6 +96,18 @@
     "derived_on": "Development data only (analysis/session_rules_dev.txt, ./derive_session_rules.py): the 23 BIDMC development subjects for breathing, all 48 MIT-BIH records for heart rate. Not checked on held-out data: the BIDMC held-out subjects are spent.",
     "selection": "Breathing: the smallest minimum at which no reported development session was off by more than 2 breaths/min under either filter and either session length, then the range limit with the highest coverage. Heart rate: the smallest n at which 95% of estimates from n intervals scattered over a 180 s session lie within 5 bpm of the session's annotated heart rate on all sessions, arrhythmic ones included; sessions in normal sinus rhythm throughout meet that from n = 5."
   },
+  "ectopic": {
+    "r_n": 0.97,
+    "r_v": 0.95,
+    "r_vv": 0.7,
+    "prem_v": 0.9,
+    "prem_s": 0.85,
+    "rr_keep": 8,
+    "reseed": 16,
+    "frozen": "2026-11-13",
+    "what": "Ectopic-beat labels (algorithms/ectopic.py): correlation with the median of the beats labelled normal, and the interval before the beat relative to the normal rhythm. The window, lag range and template depth are the detector's (tp2_config.json).",
+    "tuned_on": "MIT-BIH DS1 only (de Chazal's 22 training records; analysis/ectopic_mitdb_ds1_tuning.txt): r_n, r_v, prem_v and r_vv by the highest class-V F1 averaged over the causal and zero-phase filters. prem_s, rr_keep and reseed were set by hand. DS2 was run once after this was frozen, but it is not truly held out: every MIT-BIH record is development data for the detector underneath."
+  },
   "bidmc": {
     "split_rule": "By SUBJECT, not by recording: the 53 recordings come from 46 MIMIC-II subjects (bidmc_csv/bidmc_NN_Fix.txt, 'MIMIC II matched wdb ID'); s03386 and s11342 have four recordings each and s25323 two. Subjects sorted by ID alternate dev, held-out, dev, ... and every recording follows its subject.",
     "split_fixed": "2026-11-11, from the Fix.txt metadata alone, before any BIDMC signal or annotation was read",

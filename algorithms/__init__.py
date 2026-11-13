@@ -11,6 +11,7 @@ from .core import CONFIG, VERSION, NNSeries, Result, gate, minimum
 from .hrv_time import rmssd, sdnn, pnn50, time_domain
 from .hrv_freq import frequency_domain, lomb_scargle
 from .hrv_nonlinear import poincare, dfa_alpha1, sample_entropy, nonlinear
+from . import ectopic
 from .breathing import Modulations, modulations, r_amplitudes, breathing_rate, window_spectra, rate_from_spectra
 
 
