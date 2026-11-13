@@ -1,0 +1,62 @@
+# ./validate_ectopic_mitdb.py --set ds2 --dir /home/dhruv/esp32_ecg_monitoring/data/mitdb /home/dhruv/esp32_ecg_monitoring/data/mitdb_heldout
+# commit dd1029d; detector tp3; ectopic settings {"r_n": 0.97, "r_v": 0.95, "r_vv": 0.7, "prem_v": 0.9, "prem_s": 0.85, "rr_keep": 8, "reseed": 16, "frozen": "2026-11-13", "tuned_on": "MIT-BIH DS1 only (de Chazal's 22 training records; analysis/ectopic_mitdb_ds1_tuning.txt): r_n, r_v, prem_v and r_vv by the highest class-V F1 averaged over the causal and zero-phase filters. prem_s, rr_keep and reseed were set by hand. DS2 was run once after this was frozen, but it is not truly held out: every MIT-BIH record is development data for the detector underneath."}
+# MIT-BIH DS2, 22 records: 100 103 105 111 113 117 121 123 200 202 210 212 213 214 219 221 222 228 231 232 233 234
+# AAMI class V = V, E. Matching 150 ms. MLII, 256 Hz, 0.5-40 Hz with 60 Hz notch.
+# DS2 is NOT truly held out: all 48 MIT-BIH records are development data in this project (docstring).
+
+=== causal filter, class V, gross over 22 records ===
+annotated class-V beats 3221: TP 2772, FN 365, FP 581; not decided 20, not detected 64
+Se 88.36%  P+ 82.67%  F1 85.42  at coverage 98.6% of annotated beats;  end-to-end Se 86.06%
+for information, label S against AAMI class S (A a J S), not tuned: Se 86.0%  P+ 23.3% (TP 1556, FN 254, FP 5125)
+ rec  beats     V    TP    FN    FP     Se%     P+%   cov% undecided V missed V flagged%
+ 100   2273     1     1     0     1  100.00   50.00   99.3           0        0      0.9
+ 103   2084     0     0     0     0     nan     nan   99.2           0        0      0.4
+ 105   2572    41     5    36    80   12.20    5.88   99.1           0        0      2.9
+ 111   2124     1     1     0    25  100.00    3.85   99.2           0        0      1.9
+ 113   1795     0     0     0     0     nan     nan   99.1           0        0      0.5
+ 117   1535     0     0     0     5     nan    0.00   99.0           0        0      0.6
+ 121   1863     1     1     0     0  100.00  100.00   99.1           0        0      0.5
+ 123   1518     3     0     0     0     nan     nan   98.7           0        3      0.6
+ 200   2601   826   754    62     3   92.40   99.60   99.2           8        2     13.9
+ 202   2136    19     8    11     2   42.11   80.00   99.1           0        0      0.6
+ 210   2650   195   135    14    19   90.60   87.66   97.4           1       45      5.2
+ 212   2748     0     0     0     0     nan     nan   99.5           0        0      0.4
+ 213   3251   220   159    60     5   72.60   96.95   99.4           0        1      5.2
+ 214   2262   256    93   160     7   36.76   93.00   99.2           2        1      2.3
+ 219   2154    64    57     4     1   93.44   98.28   99.2           0        3      2.5
+ 221   2427   396   384     3     0   99.22  100.00   99.0           3        6      3.8
+ 222   2483     0     0     0   384     nan    0.00   89.5           0        0      1.1
+ 228   2053   362   354     8    34   97.79   91.24   98.8           0        0      9.6
+ 231   1571     2     2     0     0  100.00  100.00   98.9           0        0      1.2
+ 232   1780     0     0     0     9     nan    0.00   99.3           0        0      0.9
+ 233   3079   831   816     7     6   99.15   99.27   99.3           6        2     18.7
+ 234   2753     3     2     0     0  100.00  100.00   99.4           0        1      0.4
+
+=== zero-phase filter, class V, gross over 22 records ===
+annotated class-V beats 3221: TP 2811, FN 326, FP 648; not decided 22, not detected 62
+Se 89.61%  P+ 81.27%  F1 85.23  at coverage 98.8% of annotated beats;  end-to-end Se 87.27%
+for information, label S against AAMI class S (A a J S), not tuned: Se 87.3%  P+ 23.8% (TP 1584, FN 230, FP 5060)
+ rec  beats     V    TP    FN    FP     Se%     P+%   cov% undecided V missed V flagged%
+ 100   2273     1     1     0     1  100.00   50.00   99.3           0        0      0.4
+ 103   2084     0     0     0     0     nan     nan   99.3           0        0      0.4
+ 105   2572    41     5    36    76   12.20    6.17   97.9           0        0      6.6
+ 111   2124     1     1     0    33  100.00    2.94   99.2           0        0      2.5
+ 113   1795     0     0     0     7     nan    0.00   99.1           0        0      2.5
+ 117   1535     0     0     0     3     nan    0.00   99.0           0        0      0.6
+ 121   1863     1     1     0     0  100.00  100.00   99.1           0        0      0.5
+ 123   1518     3     0     0     0     nan     nan   98.7           0        3      0.6
+ 200   2601   826   720    94     3   88.45   99.59   98.9          10        2     21.1
+ 202   2136    19    10     9     3   52.63   76.92   99.1           0        0      0.7
+ 210   2650   195   136    13    18   91.28   88.31   97.3           1       45      5.5
+ 212   2748     0     0     0    10     nan    0.00   99.5           0        0      1.1
+ 213   3251   220   177    42    10   80.82   94.65   99.4           0        1      5.7
+ 214   2262   256   146   107     5   57.71   96.69   99.2           2        1      2.1
+ 219   2154    64    59     4     1   93.65   98.33   99.3           0        1      2.0
+ 221   2427   396   384     3     0   99.22  100.00   99.0           3        6      4.7
+ 222   2483     0     0     0   431     nan    0.00   95.0           0        0      1.7
+ 228   2053   362   356     6    30   98.34   92.23   98.9           0        0      8.1
+ 231   1571     2     2     0     0  100.00  100.00   98.8           0        0      1.9
+ 232   1780     0     0     0     7     nan    0.00   99.3           0        0      1.0
+ 233   3079   831   811    12     6   98.54   99.27   99.3           6        2     19.6
+ 234   2753     3     2     0     4  100.00   33.33   99.4           0        1      0.8
+

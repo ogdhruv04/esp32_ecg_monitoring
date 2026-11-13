@@ -141,6 +141,50 @@ because coverage is under 95% (`analysis/app_session_reference.txt`).
 INCART is now spent. The next held-out data for beat timing is our own recordings after the clip
 swap at bench session 1.
 
+## Ectopic beats (13 Nov)
+
+A ventricular ectopic beat (a PVC) does not look like the wearer's normal beat and usually comes
+early. `algorithms/ectopic.py` gives every detected beat two numbers and one label:
+
+- **shape**: its best correlation with a template of the wearer's *normal* beats (the median of
+  the last 16 beats that were themselves labelled normal, so ectopic beats do not dilute it);
+- **timing**: the interval before it, divided by the usual interval between two normal beats.
+
+| Label | Rule |
+|---|---|
+| V (ventricular ectopic) | correlation under 0.95 and at least 10% early, or correlation under 0.7 whatever the timing |
+| S (early, normal shape) | correlation 0.97 or more and at least 15% early |
+| N | everything else that could be judged |
+| U (undecided) | no template yet, a gap, or no usual interval yet |
+
+The thresholds were tuned on DS1, the 22 MIT-BIH records de Chazal et al. (2004) set aside for
+training; DS2 is their 22 test records, from other patients.
+
+| Class V, phone's filter | Se | P+ | Coverage | File |
+|---|---|---|---|---|
+| DS1 (tuned on) | 89.1% | 80.3% | 97.0% | `analysis/ectopic_mitdb_ds1.txt` |
+| DS2 (run once, after the freeze) | 88.4% | 82.7% | 98.6% | `analysis/ectopic_mitdb_ds2.txt` |
+
+Coverage is the share of annotated beats that were detected and judged. Counting the ventricular
+beats that were not detected or not judged as missed, sensitivity on DS2 is 86.1%.
+
+**DS2 is not truly held out.** Nothing in the ectopic rule was tuned on it, but every MIT-BIH
+record is development data for the detector underneath, so read the DS2 line as "other patients
+in the same database", not as an estimate for new data.
+
+**Where it fails** (DS2, per record in the file):
+
+- Record 222 has no ventricular beats and 384 were reported: its rhythm changes (atrial flutter,
+  junctional) alter the beat's shape, and a shape under 0.7 is called V whatever the timing.
+- Record 214 (left bundle branch block): 93 of 256 found. Record 105 (noise): 80 false V.
+- **The S label is not usable as it stands**: 86.0% of supraventricular ectopic beats are caught,
+  but only 23.3% of S labels are right. It was not tuned. Do not show an "early beats" count from it.
+- In sustained bigeminy with no normal stretch, everything becomes undecided. That is reported
+  as low coverage, not as a wrong count.
+
+An **ectopic count for a session** is therefore the number of V labels, shown with its coverage,
+and it will over-count in people whose normal beat changes shape.
+
 ## Data and how it is split
 
 `docs/datasets.md` has the licences. In short: all 48 MIT-BIH records are development data from
@@ -153,4 +197,4 @@ BIDMC is split by subject (23 development, 23 held-out, both used).
   Nothing here has been run on the ring.
 - SDNN, SD2 and sample entropy depend on the length of the recording. Compare like with like.
 - DFA α1 uses box sizes 4–16. neurokit2's default (4–11) gives a different number on the same data.
-- AF screening has not been started (see the end-of-session note in `docs/MIDTERM_PLAN.md`).
+- AF screening has not been started. Its brief now uses CinC 2017 by recording for development and the MIT-BIH Atrial Fibrillation Database, by patient, as the external test.
