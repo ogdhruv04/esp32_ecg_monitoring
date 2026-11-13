@@ -1,0 +1,59 @@
+# ./diagnose_tp3_records.py --dir /home/dhruv/esp32_ecg_monitoring/data/incartdb --records I54 I55 I56 I01 --label incart_patient24
+# tp3: {'LAG': 10, 'R_MIN': 0.8, 'ALIGN': True, 'REF': 'peak', 'TRACK': 2} (frozen 2026-11-13); detector tp2.1; causal filter, lead II
+
+=== I54 (patient 24; PVCs, ventricular couplets, paroxysmal VT, noise) ===
+annotated beats: {'N': 2340, 'V': 22, 'A': 1}; detected 2739
+tp2.1: flagged 13.1%, NN coverage 70.1%; median-beat lobe ratio (larger/smaller), percentiles 5 25 50 75 95: 1.55 3.46 4.11 5.09 7.97 (decided at 1.5)
+tp3:   flagged 30.3%, NN coverage 59.8%; why: {'window outside the signal': 1, 'median beat not ready': 8, 'correlation under R_MIN': 678, 'best lag at the end of the range': 138, 'followed peak picked again': 5}
+flagged share by annotated beat type (type: beats, tp2.1 %, tp3 %): N: 2440, 9%, 22%; ?: 275, 53%, 98%; V: 23, 26%, 70%; A: 1, 0%, 0%
+  correlation with the median beat, type N, percentiles 5 25 50 75 95: 0.39 0.92 0.99 0.99 1.00
+  correlation with the median beat, type ?, percentiles 5 25 50 75 95: 0.19 0.33 0.45 0.57 0.74
+  correlation with the median beat, type V, percentiles 5 25 50 75 95: 0.46 0.59 0.76 0.81 0.86
+  through the record in six parts, flagged % tp2.1 / tp3: 5/12  18/39  20/42  23/46  7/24  6/19
+  beats timed by both: 1900; tp3 - tp2.1 position, ms, percentiles 5 25 50 75 95: -1.69 -0.36 0.10 0.53 1.93; beat-to-beat change of that difference, sd 2.26 ms
+  beats tp3 flags for 'best lag at the end of the range': 138, of which tp2.1 timed 138. Where tp2.1 put the R peak relative to the 5-15 Hz peak, ms, percentiles 5 25 50 75 95: those beats -13.98 -11.76 -11.19 -10.55 -8.41; all other beats tp2.1 timed -56.12 -52.98 -51.50 -49.92 -13.50. tp3 can shift by at most +-39 ms.
+  tp3 lags used (samples): {-3: 3, -2: 31, -1: 198, 0: 897, 1: 607, 2: 143, 3: 23, 4: 2, 5: 1, 9: 4}
+  intervals: 2738; unusable before cleaning tp2.1 628, tp3 1091; accepted after the 20% rule tp2.1 1918, tp3 1637
+
+=== I55 (patient 24; paroxysmal VT) ===
+annotated beats: {'N': 2148, 'V': 17, 'A': 1}; detected 2172
+tp2.1: flagged 5.3%, NN coverage 90.5%; median-beat lobe ratio (larger/smaller), percentiles 5 25 50 75 95: 5.60 7.31 8.13 9.23 14.99 (decided at 1.5)
+tp3:   flagged 33.1%, NN coverage 48.1%; why: {'window outside the signal': 1, 'median beat not ready': 8, 'best lag at the end of the range': 571, 'correlation under R_MIN': 130, 'followed peak picked again': 9}
+flagged share by annotated beat type (type: beats, tp2.1 %, tp3 %): N: 2150, 5%, 33%; V: 17, 18%, 71%; ?: 4, 25%, 100%; A: 1, 0%, 0%
+  correlation with the median beat, type N, percentiles 5 25 50 75 95: 0.71 0.98 0.99 1.00 1.00
+  correlation with the median beat, type V, percentiles 5 25 50 75 95: 0.69 0.73 0.78 0.83 0.85
+  correlation with the median beat, type ?, percentiles 5 25 50 75 95: 0.41 0.42 0.42 0.45 0.48
+  through the record in six parts, flagged % tp2.1 / tp3: 3/23  2/25  3/26  6/34  11/44  7/47
+  beats timed by both: 1453; tp3 - tp2.1 position, ms, percentiles 5 25 50 75 95: -0.79 -0.27 0.04 0.38 0.97; beat-to-beat change of that difference, sd 0.88 ms
+  beats tp3 flags for 'best lag at the end of the range': 571, of which tp2.1 timed 570. Where tp2.1 put the R peak relative to the 5-15 Hz peak, ms, percentiles 5 25 50 75 95: those beats -51.24 -11.64 -11.22 -10.80 -10.30; all other beats tp2.1 timed -54.11 -52.97 -52.08 -51.18 -49.16. tp3 can shift by at most +-39 ms.
+  tp3 lags used (samples): {-3: 1, -2: 1, -1: 49, 0: 1236, 1: 164, 2: 1, 3: 1}
+  intervals: 2171; unusable before cleaning tp2.1 192, tp3 1120; accepted after the 20% rule tp2.1 1965, tp3 1044
+
+=== I56 (patient 24; PVCs , positional form and HR change) ===
+annotated beats: {'N': 1672, 'V': 7, 'A': 26}; detected 1706
+tp2.1: flagged 0.9%, NN coverage 94.3%; median-beat lobe ratio (larger/smaller), percentiles 5 25 50 75 95: 3.76 3.95 4.13 7.65 10.58 (decided at 1.5)
+tp3:   flagged 9.5%, NN coverage 79.9%; why: {'window outside the signal': 1, 'median beat not ready': 8, 'best lag at the end of the range': 149, 'correlation under R_MIN': 3, 'followed peak picked again': 1}
+flagged share by annotated beat type (type: beats, tp2.1 %, tp3 %): N: 1672, 1%, 10%; A: 26, 0%, 0%; V: 7, 0%, 29%; ?: 1, 100%, 100%
+  correlation with the median beat, type N, percentiles 5 25 50 75 95: 0.98 0.99 1.00 1.00 1.00
+  correlation with the median beat, type A, percentiles 5 25 50 75 95: 0.99 0.99 1.00 1.00 1.00
+  correlation with the median beat, type V, percentiles 5 25 50 75 95: 0.80 0.81 0.83 0.90 0.91
+  through the record in six parts, flagged % tp2.1 / tp3: 3/20  2/30  0/7  0/0  0/0  0/0
+  beats timed by both: 1542; tp3 - tp2.1 position, ms, percentiles 5 25 50 75 95: -1.15 -0.17 0.06 0.29 1.23; beat-to-beat change of that difference, sd 0.99 ms
+  beats tp3 flags for 'best lag at the end of the range': 149, of which tp2.1 timed 145. Where tp2.1 put the R peak relative to the 5-15 Hz peak, ms, percentiles 5 25 50 75 95: those beats -11.81 -11.32 -10.94 -10.49 -9.88; all other beats tp2.1 timed -55.55 -52.56 -49.09 -47.58 -46.45. tp3 can shift by at most +-39 ms.
+  tp3 lags used (samples): {-9: 1, -4: 1, -3: 1, -2: 2, -1: 558, 0: 888, 1: 93}
+  intervals: 1705; unusable before cleaning tp2.1 26, tp3 283; accepted after the 20% rule tp2.1 1608, tp3 1362
+
+=== I01 (patient 1; PVCs, noise) ===
+annotated beats: {'N': 2413, 'V': 344}; detected 3089
+tp2.1: flagged 31.5%, NN coverage 39.5%; median-beat lobe ratio (larger/smaller), percentiles 5 25 50 75 95: 1.24 2.01 2.80 3.70 7.41 (decided at 1.5)
+tp3:   flagged 31.9%, NN coverage 44.5%; why: {'window outside the signal': 1, 'median beat not ready': 8, 'correlation under R_MIN': 942, 'best lag at the end of the range': 26, 'followed peak picked again': 8}
+flagged share by annotated beat type (type: beats, tp2.1 %, tp3 %): N: 2462, 20%, 15%; V: 354, 91%, 98%; ?: 273, 56%, 95%
+  correlation with the median beat, type N, percentiles 5 25 50 75 95: 0.47 0.94 0.98 0.99 0.99
+  correlation with the median beat, type V, percentiles 5 25 50 75 95: 0.32 0.48 0.56 0.63 0.76
+  correlation with the median beat, type ?, percentiles 5 25 50 75 95: 0.12 0.37 0.59 0.72 0.81
+  through the record in six parts, flagged % tp2.1 / tp3: 31/25  47/50  28/33  32/28  25/30  25/25
+  beats timed by both: 1841; tp3 - tp2.1 position, ms, percentiles 5 25 50 75 95: -1.52 -0.46 0.30 1.51 25.30; beat-to-beat change of that difference, sd 4.43 ms
+  beats tp3 flags for 'best lag at the end of the range': 26, of which tp2.1 timed 18. Where tp2.1 put the R peak relative to the 5-15 Hz peak, ms, percentiles 5 25 50 75 95: those beats -44.20 -8.97 -7.91 -7.08 -2.80; all other beats tp2.1 timed -45.53 -40.49 -11.39 -9.19 -6.93. tp3 can shift by at most +-39 ms.
+  tp3 lags used (samples): {-9: 104, -8: 245, -7: 169, -6: 24, -4: 2, -3: 3, -2: 5, -1: 219, 0: 480, 1: 376, 2: 48, 7: 6, 8: 196, 9: 227}
+  intervals: 3088; unusable before cleaning tp2.1 1566, tp3 1682; accepted after the 20% rule tp2.1 1220, tp3 1375
+

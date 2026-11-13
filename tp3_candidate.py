@@ -70,7 +70,8 @@ def _detrend_rows(w):
 
 def retime(y, beats, fs, cfg=None):
     """tp3 positions for the detector's beats. Returns a new list of beat
-    dicts (pos, flagged replaced; bp, kind, gap kept) with 'r' and 'lag'."""
+    dicts (pos, flagged replaced; bp, kind, gap kept) with 'r', 'lag' and, for a
+    flagged beat, 'why'."""
     cfg = {**DEFAULT, **(CONFIG["timing"] if CONFIG else {}), **(cfg or {})}
     LAG, R_MIN, ALIGN = int(cfg["LAG"]), float(cfg["R_MIN"]), bool(cfg["ALIGN"])
     REF, TRACK = cfg["REF"], int(cfg["TRACK"])
@@ -89,6 +90,7 @@ def retime(y, beats, fs, cfg=None):
         inside = d - lo - LAG >= 0 and d + hi + LAG < n
         w = y[d + idx] if inside else None
         pos, flagged, r_best, lag = None, True, math.nan, 0
+        why = "window outside the signal" if w is None else ("median beat not ready" if len(segs) < need else "gap in the window")
         if w is not None and len(segs) >= need and np.all(np.isfinite(w)):
             t = _detrend_rows(np.median(np.array(segs), axis=0))
             repicked = False
@@ -117,10 +119,12 @@ def retime(y, beats, fs, cfg=None):
             if np.all(np.isfinite(r)):
                 k = int(np.argmax(r))
                 r_best = float(r[k])
+                why = "correlation under R_MIN" if r_best < R_MIN else "best lag at the end of the range"
                 if r_best >= R_MIN and 0 < k < 2 * LAG:
                     lag = k - LAG
                     pos = d + lag + PT._parabolic(r[k - 1], r[k], r[k + 1]) + (ref - lo)
                     flagged = repicked
+                    why = "followed peak picked again" if repicked else None
         if flagged:
             pos = fallback if fallback is not None else _fallback(y, d, fs)
         # the window joins the template after it has been timed
@@ -130,7 +134,7 @@ def retime(y, beats, fs, cfg=None):
                 segs.append(seg)
                 if len(segs) > keep:
                     segs.pop(0)
-        nb.update(pos=float(pos), flagged=bool(flagged), r=r_best, lag=lag)
+        nb.update(pos=float(pos), flagged=bool(flagged), r=r_best, lag=lag, why=why if flagged else None)
         out.append(nb)
     return out
 
