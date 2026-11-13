@@ -3,6 +3,8 @@ bin/
 src_build/
 compile_commands.json
 android_app/local.properties
+# Public-dataset replays (make_public_replay.py); datasets are never committed.
+android_app/replay_public/
 android_app/**/build/
 android_app/.gradle/
 android_app/.kotlin/

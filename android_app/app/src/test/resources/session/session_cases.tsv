@@ -1,0 +1,7 @@
+case	input	s0	s1	kind
+finger	parity/finger_input.csv	2560	25600	standard
+chest	parity/chest_input.csv	1280	14080	standard
+artifact_gaps	parity/artifact_gaps_input.csv	1280	14080	standard
+tb01	session/tb01_input.csv	5120	51200	standard
+tb02	session/tb02_input.csv	5120	51200	standard
+tb02_ext	session/tb02_input.csv	5120	74240	extended

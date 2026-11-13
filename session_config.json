@@ -1,0 +1,29 @@
+{
+  "version": "ses3",
+  "description": "The app's Session mode: the session kinds and how long they record. Read by session_reference.py; AlgorithmsConfigTest fails if Session.kt differs. Every rule about what a session may report comes from algorithms/config.json: the HRV and breathing rules from its hrv and breathing blocks, the breathing window step from bidmc.step_s, and the session-level rules (minimum intervals for heart rate, minimum breathing windows and their allowed spread) from a 'session' block that the algorithms workstream has not written yet. Until it does, session_reference.PROVISIONAL applies and the app labels those rules provisional.",
+  "kinds": {
+    "standard": {
+      "duration_s": 180.0,
+      "extra_keys": []
+    },
+    "extended": {
+      "duration_s": 300.0,
+      "extra_keys": [
+        "dfa_alpha1",
+        "sampen"
+      ],
+      "note": "DFA alpha1 needs 200 NN intervals in unbroken runs and sample entropy 180 s of valid NN time (algorithms/config.json); a 3-minute session can hold neither, so they are reported only here."
+    }
+  },
+  "tail_s": 4.0,
+  "tail_note": "After the last recorded sample the detector runs on for tail_s so that beats inside the session but located late are kept: a search-back beat can be located up to 1.66 RR after it, and HIST_S (4 s) is the furthest the detector looks back. Only beats whose position lies inside the session are used, and only samples inside it.",
+  "guided_breathing": {
+    "pace_per_min": 6.0,
+    "inhale_s": 5.0,
+    "exhale_s": 5.0,
+    "duration_s": 180.0,
+    "rmssd_window_s": 90.0,
+    "curve_s": 60.0,
+    "note": "Guided breathing paces 6 breaths a minute (5 s in, 5 s out) for duration_s, as in the bench protocol's paced-breathing segment. Its live numbers are the ported measures on sliding windows ending at the newest sample: RMSSD over the last rmssd_window_s (90 s, so that its 60 s valid-time minimum can be met with some beats rejected) and the fused breathing rate over the last algorithms breathing.window_s (32 s). The heart-rate curve shows the accepted NN intervals of the last curve_s. Each window uses the beats located so far whose position lies inside it, and the samples inside it; its NN series is cleaned from the window's own first intervals."
+  }
+}

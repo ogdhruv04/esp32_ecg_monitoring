@@ -20,6 +20,12 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.withFrameMillis
+import android.os.SystemClock
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -72,10 +78,22 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+// Screens: "main", "diagnostics", "session", "history", or "past:<id>" (a
+// stored report opened from History). Saved, so rotation keeps the place.
 @Composable
 private fun MonitorApp(vm: EcgViewModel) {
-    var diagnostics by rememberSaveable { mutableStateOf(false) }
-    BackHandler(enabled = diagnostics) { diagnostics = false }
+    var screen by rememberSaveable { mutableStateOf("main") }
+    var trendKey by rememberSaveable { mutableStateOf("rmssd") }
+    BackHandler(enabled = screen != "main") {
+        screen = when {
+            screen.startsWith("past:") -> "history"
+            screen == "history" -> "session"
+            screen == "breathing" -> { vm.stopBreathing(); "session" }
+            // Back from a finished report closes it; a recording keeps going.
+            screen == "session" && vm.sessionPhase is SessionPhase.Done -> { vm.closeReport(); "main" }
+            else -> "main"
+        }
+    }
 
     val metrics = LocalContext.current.resources.displayMetrics
     // xdpi/ydpi describe the panel in its natural orientation and Android does
@@ -94,22 +112,82 @@ private fun MonitorApp(vm: EcgViewModel) {
     val receiving = vm.link == Link.RECEIVING
     SideEffect { view.keepScreenOn = receiving }
 
+    val rec = vm.pipeline.session
+    val phase = vm.sessionPhase
+    val secondsLeft = rec?.let { kotlin.math.ceil((1 - it.progress) * (it.s1 - it.s0) / EcgFilter.ECG_SAMPLE_RATE).toInt() } ?: 0
     val state = MonitorUiState(
         link = vm.link, linkFix = vm.linkFix, dropped = vm.dropped, status = vm.status, replayFile = vm.replayFile,
         pipeline = vm.pipeline, tick = vm.packetTick, gainMmPerMv = vm.gainMmPerMv,
         showFiltered = vm.showFiltered, researchMode = vm.researchMode, sampleRate = vm.sampleRate,
+        sessionLabel = when (phase) {
+            is SessionPhase.Recording -> "Session %d:%02d".format(secondsLeft / 60, secondsLeft % 60)
+            is SessionPhase.Done -> "Session report"
+            else -> "Session"
+        },
     )
     val actions = MonitorActions(
         onCycleGain = vm::cycleGain,
         onShowFiltered = { vm.showFiltered = it },
         onResearchMode = vm::updateResearchMode,
-        onOpenDiagnostics = { diagnostics = true },
-        onBack = { diagnostics = false },
+        onOpenDiagnostics = { screen = "diagnostics" },
+        onOpenSession = { screen = "session" },
+        onBack = { screen = "main" },
     )
+    val sessionActions = SessionActions(
+        onStart = vm::startSession,
+        onCancel = vm::cancelSession,
+        onDone = { vm.closeReport(); screen = "main" },
+        onHistory = { if (vm.sessionPhase is SessionPhase.Done) vm.closeReport(); screen = "history" },
+        onBack = { screen = "main" },
+        onCycleGain = vm::cycleGain,
+        onKind = { vm.sessionKind = it },
+        onBreathing = { screen = "breathing" },
+    )
+    val needsHistory = screen == "session" || screen == "history" || screen.startsWith("past:")
+    val history by (if (needsHistory) vm.history else kotlinx.coroutines.flow.flowOf(emptyList()))
+        .collectAsState(initial = emptyList())
     MonitorTheme {
         Surface(Modifier.fillMaxSize()) {
-            if (diagnostics) DiagnosticsScreen(state, actions, geometry)
-            else MainScreen(state, actions, geometry)
+            when {
+                screen == "diagnostics" -> DiagnosticsScreen(state, actions, geometry)
+                screen == "session" -> SessionScreen(
+                    SessionUiState(
+                        phase, state, rec?.progress ?: 0.0, secondsLeft,
+                        finishing = rec != null && rec.index >= rec.s1, historyCount = history.size,
+                        kind = vm.sessionKind, history = history,
+                    ),
+                    sessionActions, geometry,
+                )
+                screen == "history" -> HistoryScreen(
+                    history, trendKey, { trendKey = it }, { screen = "past:${it.id}" }, { screen = "session" }, geometry.insets,
+                )
+                screen == "breathing" -> {
+                    val bp = vm.breathingPhase
+                    // The pacer follows the frame clock while running.
+                    var nowMs by remember { mutableLongStateOf(SystemClock.elapsedRealtime()) }
+                    LaunchedEffect(bp) {
+                        if (bp is BreathingPhase.Running) while (true) withFrameMillis { nowMs = SystemClock.elapsedRealtime() }
+                    }
+                    DisposableEffect(Unit) { vm.liveWanted = true; onDispose { vm.liveWanted = false } }
+                    val elapsed = if (bp is BreathingPhase.Running) (nowMs - bp.startElapsedMs) / 1000.0 else 0.0
+                    GuidedBreathingScreen(
+                        BreathingUiState(bp, elapsed, vm.liveSnapshot, state),
+                        BreathingActions(
+                            onStart = vm::startBreathing, onStop = vm::stopBreathing,
+                            onBack = { vm.stopBreathing(); screen = "session" },
+                        ),
+                        geometry,
+                    )
+                }
+                screen.startsWith("past:") -> {
+                    val r = history.firstOrNull { it.id == screen.removePrefix("past:").toLongOrNull() }
+                    if (r != null) ReportScreen(
+                        r, baselineFor(r, history), geometry.insets, onDone = { screen = "history" }, title = "Past session", doneLabel = "Back",
+                        onDelete = { vm.deleteSession(r.id); screen = "history" },
+                    )
+                }
+                else -> MainScreen(state, actions, geometry)
+            }
         }
     }
 }

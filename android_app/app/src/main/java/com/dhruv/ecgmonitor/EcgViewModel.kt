@@ -12,6 +12,7 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -26,6 +27,24 @@ private class BleEcgLink(app: Application, listener: BleEcgListener) : BleLink {
     private val client = BleEcgClient(app, listener)
     override fun start() = client.start()
     override fun stop() = client.stop()
+}
+
+// Where a Session is. Waiting holds the start until the main screen would show
+// a heart rate (GOOD quality), so a session never opens on a signal the app
+// itself would not trust; then it records the kind's duration.
+sealed interface SessionPhase {
+    data object Idle : SessionPhase
+    data object Waiting : SessionPhase
+    data class Recording(val kind: SessionKind, val startedAtMs: Long, val startedElapsedMs: Long) : SessionPhase
+    data class Done(val report: SessionReport) : SessionPhase
+}
+
+// The guided-breathing exercise. Running records where it started on the
+// sample clock (for the shaded inhale bands) and on the wall clock (for the pacer).
+sealed interface BreathingPhase {
+    data object Idle : BreathingPhase
+    data class Running(val startElapsedMs: Long, val startIndex: Long) : BreathingPhase
+    data class Done(val last: LiveSnapshot, val startIndex: Long) : BreathingPhase
 }
 
 // Reconnection delays: 1, 2, 4, 8, 16, then 30 s each, back to 1 s once data flows.
@@ -90,6 +109,71 @@ class EcgViewModel(app: Application) : AndroidViewModel(app) {
         prefs.edit().putInt(KEY_GAIN, gainMmPerMv).apply()
     }
 
+    // ------------------------------------------------------------- sessions
+
+    var sessionPhase by mutableStateOf<SessionPhase>(SessionPhase.Idle)
+        private set
+    // Opened on first use, so tests that never touch history never open it.
+    internal var storeFactory: () -> SessionStore = { SessionStore(SessionDatabase.open(getApplication())) }
+    private val store by lazy { storeFactory() }
+    val history: Flow<List<SessionReport>> get() = store.all
+    private var endedEarly = false
+    // The kind chosen on the Session screen; used when the clock starts.
+    var sessionKind by mutableStateOf(SessionKind.STANDARD)
+
+    fun startSession() {
+        if (sessionPhase is SessionPhase.Idle || sessionPhase is SessionPhase.Done) sessionPhase = SessionPhase.Waiting
+    }
+
+    fun cancelSession() {
+        pipeline.cancelSession()
+        sessionPhase = SessionPhase.Idle
+    }
+
+    fun closeReport() {
+        if (sessionPhase is SessionPhase.Done) sessionPhase = SessionPhase.Idle
+    }
+
+    fun deleteSession(id: Long) {
+        viewModelScope.launch { store.delete(id) }
+    }
+
+    private fun currentHeadline() = pipeline.let {
+        headline(link, linkFix, dropped, it.qualityReady, it.signalQuality.level, it.heartRate, it.mainsShare)
+    }
+
+    private fun sessionEnded(rec: SessionRecorder) {
+        val r = sessionPhase as? SessionPhase.Recording ?: return
+        val report = SessionReport.from(rec, rec.report(r.kind), r.kind, r.startedAtMs, replayFile, endedEarly)
+        endedEarly = false
+        sessionPhase = SessionPhase.Done(report)
+        Log.i(TAG, "session done: ${report.beats} beats, lost ${report.samplesLost} samples, " +
+            report.measures.entries.joinToString(" ") { (k, m) -> "$k=${m.value?.let { "%.4g".format(it) } ?: "-"}" })
+        viewModelScope.launch {
+            val id = store.save(report)
+            val now = sessionPhase
+            if (now is SessionPhase.Done && now.report === report) sessionPhase = SessionPhase.Done(report.copy(id = id))
+        }
+    }
+
+    // ----------------------------------------------------- guided breathing
+
+    var breathingPhase by mutableStateOf<BreathingPhase>(BreathingPhase.Idle)
+        private set
+    // The live windows, recomputed once a second while the screen wants them.
+    var liveSnapshot by mutableStateOf<LiveSnapshot?>(null)
+        private set
+    var liveWanted = false
+        set(v) { field = v; if (v) liveSnapshot = pipeline.live.snapshot() }
+    private var lastLiveAt = 0L
+
+    fun startBreathing() {
+        breathingPhase = BreathingPhase.Running(SystemClock.elapsedRealtime(), pipeline.live.index)
+        Log.i(TAG, "guided breathing started at sample ${pipeline.live.index}")
+    }
+
+    fun stopBreathing() { breathingPhase = BreathingPhase.Idle }
+
     fun updateResearchMode(on: Boolean) {
         researchMode = on
         prefs.edit().putBoolean(KEY_RESEARCH, on).apply()
@@ -137,6 +221,11 @@ class EcgViewModel(app: Application) : AndroidViewModel(app) {
             Log.i(TAG, "stream resumed after ${now - lastPacketAt} ms; marked $missed samples as lost")
         }
         pipeline.onPacket(packet)
+        if (sessionPhase == SessionPhase.Waiting && link == Link.RECEIVING && currentHeadline() is Headline.Rate) {
+            pipeline.startSession(sessionKind.durationS)
+            sessionPhase = SessionPhase.Recording(sessionKind, System.currentTimeMillis(), now)
+            Log.i(TAG, "session started at sample ${pipeline.session?.s0}")
+        }
         packetTick++
         lastPacketAt = now
         everReceived = true
@@ -187,6 +276,7 @@ class EcgViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     init {
+        pipeline.onSessionEnd = ::sessionEnded
         viewModelScope.launch {
             var lastStats = 0L
             while (true) {
@@ -209,6 +299,26 @@ class EcgViewModel(app: Application) : AndroidViewModel(app) {
                 ) {
                     Log.i(TAG, "no data for ${now - lastPacketAt} ms on an open link; restarting it")
                     scheduleReconnect()
+                }
+                // A session whose stream stopped for good: close it with what it has.
+                val ph = sessionPhase
+                if (ph is SessionPhase.Recording &&
+                    now - ph.startedElapsedMs > ((ph.kind.durationS + SessionConfig.TAIL_S) * 1000).toLong() + SESSION_GRACE_MS
+                ) {
+                    Log.i(TAG, "session stream stopped; ending it early")
+                    endedEarly = true
+                    pipeline.endSessionEarly()
+                }
+                if (liveWanted && now - lastLiveAt >= LIVE_EVERY_MS) {
+                    lastLiveAt = now
+                    liveSnapshot = pipeline.live.snapshot()
+                }
+                val bp = breathingPhase
+                if (bp is BreathingPhase.Running && now - bp.startElapsedMs >= (GuidedBreathingConfig.DURATION_S * 1000).toLong()) {
+                    val last = pipeline.live.snapshot()
+                    liveSnapshot = last
+                    breathingPhase = BreathingPhase.Done(last, bp.startIndex)
+                    Log.i(TAG, "guided breathing done: rmssd=${last.rmssd.value ?: "-"} br=${last.breathing.value ?: "-"}")
                 }
                 if (link == Link.RECEIVING && now - lastStats >= STATS_EVERY_MS) {
                     lastStats = now
@@ -305,6 +415,10 @@ class EcgViewModel(app: Application) : AndroidViewModel(app) {
         const val SILENT_RESTART_MS = 8_000L
         private const val RATE_WINDOW_MS = 5_000L
         private const val STATS_EVERY_MS = 10_000L
+        // How long past its nominal end a session may wait for samples (a
+        // reconnection) before it is closed with what it has.
+        const val SESSION_GRACE_MS = 15_000L
+        private const val LIVE_EVERY_MS = 1_000L
     }
 }
 

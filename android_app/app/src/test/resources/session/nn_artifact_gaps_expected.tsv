@@ -1,0 +1,11 @@
+key	value	withheld	n_used	valid_s	span_s	coverage
+rmssd	nan	43 s of valid NN intervals, needs 60 s	68	43.469936598902315	59.63831804304284	0.74
+sdnn	nan	43 s of valid NN intervals, needs 120 s	74	43.469936598902315	59.63831804304284	0.74
+pnn50	nan	43 s of valid NN intervals, needs 60 s	68	43.469936598902315	59.63831804304284	0.74
+sd1	nan	43 s of valid NN intervals, needs 60 s	68	43.469936598902315	59.63831804304284	0.74
+sd2	nan	43 s of valid NN intervals, needs 120 s	68	43.469936598902315	59.63831804304284	0.74
+lf	nan	43 s of valid NN intervals, needs 120 s	74	43.469936598902315	59.63831804304284	0.74
+hf	nan	43 s of valid NN intervals, needs 60 s	74	43.469936598902315	59.63831804304284	0.74
+lf_hf	nan	43 s of valid NN intervals, needs 120 s	74	43.469936598902315	59.63831804304284	0.74
+dfa_alpha1	nan	43 s of valid NN intervals, needs 120 s	50	43.469936598902315	59.63831804304284	0.74
+sampen	nan	43 s of valid NN intervals, needs 180 s	64	43.469936598902315	59.63831804304284	0.74
