@@ -19,7 +19,7 @@ gate called GOOD, 5 s window ending at the block's end:
   should NOT be        tb02 after 45 s, dual03, all 48 MIT-BIH Arrhythmia
                        records (arrhythmia, ectopic beats, pauses), the clean
                        segments of the MIT-BIH Noise Stress Test records
-  for information      tb01 (three isolated spikes), dual01 and dual02 (failed
+  for information      tb01 (a burst of large swings at 81-96 s), dual01 and dual02 (failed
                        recordings), the noisy NST segments by SNR
 
 ALL OF IT IS DEVELOPMENT DATA. "Should be rejected" rests on one episode in
