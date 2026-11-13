@@ -1,0 +1,18 @@
+{
+  "version": "sqi2",
+  "frozen": "2026-11-14",
+  "what": "The app's signal-quality gate (SignalQuality.kt; reference signal_quality.py). The kurtosis and band-share thresholds are the published-convention values the app has always used and are not calibrated on our hardware. The artifact check is new in sqi2.",
+  "window_s": 5.0,
+  "k_good": 5.0,
+  "p_good": 0.10,
+  "k_fair": 3.5,
+  "p_fair": 0.05,
+  "artifact": {
+    "block_s": 1.0,
+    "memory_blocks": 30,
+    "ratio_max": 4.0,
+    "hold_blocks": 10,
+    "what": "The display signal is cut into consecutive 1 s blocks; a block's swing is its maximum minus its minimum. A block is an artifact when its swing is more than ratio_max times the median swing of the last memory_blocks blocks (itself included). The verdict is POOR from then until hold_blocks blocks have passed, the artifact block included. The block still being filled counts as soon as its swing so far exceeds ratio_max times the last median.",
+    "developed_on": "Our own recordings (tb01, tb02, dual01-03) and, as a check that clean and noisy ECG is not rejected by it, all 48 MIT-BIH Arrhythmia records and the 12 MIT-BIH Noise Stress Test records (analysis/sqi_artifact_dev.txt). All of it is development data. The transients it is aimed at occur in two recordings (tb02's first 42 s, three spikes in tb01), so nothing here is validated on unseen data."
+  }
+}
