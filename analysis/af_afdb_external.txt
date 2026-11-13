@@ -1,0 +1,48 @@
+# ./validate_af.py afdb --afdb /home/dhruv/esp32_ecg_monitoring/data/afdb
+# commit 08d5bd9; detector tp3; af settings {"warmup_s": 2.0, "min_rr": 10, "cosen_r_s": 0.03, "cosen_r_step_s": 0.01, "cosen_r_max_s": 0.3, "cosen_min_a": 5, "window_s": 30.0, "frozen": "2026-11-13", "model": "algorithms/af_model.json (af1): trees n=100 depth=3 weights=none, selected in analysis/af_cinc_cv.txt"}
+# features: mean_rr ln_nrmssd ln_cv ln_nmasd ln_sd1_sd2 tpr cosen v_share s_share ect_und flag_share
+# MIT-BIH Atrial Fibrillation Database, 23 records with signals (00735 and 03665 have none), signal ECG1.
+# EXTERNAL TEST, run once with model af1 frozen 2026-11-13 (trees n=100 depth=3 weights=none). No setting is changed in response.
+# 30 s windows, non-overlapping, each resampled 250 -> 256 Hz and processed from a cold start; causal filter, 60 Hz notch.
+# Positive = label A. Se and Sp on decided windows (label N, A or O), with coverage; end to end counts undecided AF windows as missed.
+
+windows: 28104 of 30 s; 9 left out for holding a flat (unreadable) stretch
+by rhythm annotation: AF 10952, nonAF 16430, flutter 185, mixed 528
+
+=== pooled over all windows ===
+AF windows 10952: labelled A 9498, O 622, N 179, not decided 653 (of which the gate 1)
+non-AF windows 16430: labelled A 522, O 5551, N 10231, not decided 126 (of which the gate 0)
+Se 92.22%  Sp 96.80%  at coverage 97.16% (AF windows 94.04%, non-AF 99.23%)
+end to end: Se 86.72% of all AF windows; 3.18% of all non-AF windows labelled A
+P+ 94.79% at this database's mix (40.00% of scored windows are AF; P+ depends on that share and would be far lower in screening)
+not in Se/Sp - atrial flutter throughout: 185 windows, labelled A 40 (21.62%), O 124, N 20, not decided 1
+not in Se/Sp - a rhythm change inside the window: 528 windows, labelled A 193 (36.55%), O 183, N 126, not decided 26
+
+=== per patient (one record each) ===
+   rec AF win    Se%   e2e% | non-AF    Sp%   as A |   cov%
+ 04015      5 100.00 100.00 |   1213  97.60     29 |  99.59
+ 04043    184  92.93  92.93 |    882  98.98      9 | 100.00
+ 04048      6 100.00 100.00 |   1208 100.00      0 |  95.06
+ 04126     40 100.00 100.00 |   1174  96.76     38 |  99.92
+ 04746    649 100.00 100.00 |    570 100.00      0 |  99.92
+ 04908     97 100.00 100.00 |   1111  96.58     38 | 100.00
+ 04936    854  83.84  83.84 |    194  99.48      1 | 100.00
+ 05091      0      -      - |   1217 100.00      0 |  99.51
+ 05121    757  82.78  72.39 |    434  98.58      6 |  91.18
+ 05261     11 100.00 100.00 |   1200  99.83      2 | 100.00
+ 06426   1147  91.30  62.25 |     29  73.08      7 |  68.71
+ 06453      7  42.86  42.86 |   1091 100.00      0 |  97.09
+ 06995    574  97.04  97.04 |    646  76.93    149 | 100.00
+ 07162   1227  76.77  67.32 |      0      -      0 |  87.69
+ 07859   1227  88.48  87.61 |      0      -      0 |  99.02
+ 07879    739  99.59  99.59 |    485  98.97      5 |  99.92
+ 07910    193  98.96  98.96 |   1011 100.00      0 | 100.00
+ 08215    988  95.85  95.85 |    236 100.00      0 | 100.00
+ 08219    223  98.65  98.21 |    927  74.13    238 |  99.30
+ 08378    252  97.61  97.22 |    911 100.00      0 |  99.91
+ 08405    883  99.89  99.89 |    340 100.00      0 | 100.00
+ 08434     42 100.00 100.00 |   1174 100.00      0 | 100.00
+ 08455    847  99.88  96.58 |    377 100.00      0 |  97.71
+pooled  10952  92.22  86.72 |  16430  96.80    522 |  97.16
+per-patient Se, patients with 20 or more decided windows of that kind (18): median 98.1%, range 76.8-100.0%; lowest: 07162 76.8%, 05121 82.8%, 04936 83.8%
+per-patient Sp, patients with 20 or more decided windows of that kind (21): median 99.8%, range 73.1-100.0%; lowest: 06426 73.1%, 08219 74.1%, 06995 76.9%

@@ -185,11 +185,92 @@ in the same database", not as an estimate for new data.
 An **ectopic count for a session** is therefore the number of V labels, shown with its coverage,
 and it will over-count in people whose normal beat changes shape.
 
+## AF screening (13 Nov)
+
+Atrial fibrillation makes the beat-to-beat interval irregular with no pattern. `algorithms/af.py`
+looks at one **30 s window** and gives it one of four labels: N (normal), **A (AF-like)**,
+O (other rhythm), ~ (cannot tell). It is a screening label, not a diagnosis: it reads beat timing
+and the ectopic labels only and never looks at P waves, so it cannot tell AF from another
+irregularly irregular rhythm.
+
+- **Features** (11): mean interval, three measures of how much successive intervals differ
+  (RMSSD, SD and the median successive difference, each relative to the mean interval), the
+  Poincaré SD1/SD2 ratio, the turning-point ratio, a sample entropy made for short series
+  (coefficient of sample entropy), and from the ectopic step the share of beats labelled V, the
+  share that came early, and the share it could not judge, plus the share of beats the detector
+  could not time. They use **all** detected intervals: the 20% cleaning used for HRV would remove
+  exactly the irregularity looked for.
+- **Each window starts cold** (filter, detector, ectopic template), because the development
+  recordings are 30 s long. A cold start leaves a median 42% of the beats without an ectopic label.
+- **Gate:** under 10 intervals the window is not judged ("~").
+- **Model:** 100 rounds of depth-3 gradient-boosted trees, stored as plain numbers in
+  `algorithms/af_model.json` (version af1, frozen 13 Nov). The rule fixed beforehand was "logistic
+  regression unless the trees are more than 0.02 better in class-A F1"; they were 0.039 better
+  (0.735 against 0.696). Python only; not ported.
+
+**Development: PhysioNet/CinC 2017**, 8,528 hand-held single-lead recordings, first 30 s of each,
+the phone's causal filter. Cross-validation is **by recording**: the dataset publishes no patient
+identifiers, so one person's recordings can be on both sides of a fold and these figures may be
+optimistic (`analysis/af_cinc_cv.txt`).
+
+| Class | Normal | AF | Other rhythm | Noisy |
+|---|---|---|---|---|
+| F1 | 0.871 | 0.735 | 0.644 | 0.531 |
+
+The mean of the first three, the challenge's own score, is 0.750. The challenge's top entries
+scored 0.83, but on a hidden set of other recordings that is not public, using the waveform as
+well; the two numbers are not comparable. As a screen on these recordings class A has Se 74.0% and
+Sp 97.8% on the 96.2% of recordings given a rhythm label; of the false A labels, 116 are "other
+rhythm" recordings and 30 are normal ones.
+
+**The ectopic features add nothing that can be measured**: class-A F1 is 0.727 without them and
+0.735 with them, and the fold-to-fold spread is 0.027. They stay in because the model was frozen
+with them.
+
+**External test: MIT-BIH Atrial Fibrillation Database** (ODC-By 1.0), 23 patients with about 10 h
+each, never used in this project before, run once after the freeze (commit `08d5bd9`). 30 s
+windows, each resampled to 256 Hz and processed from a cold start. A window counts as AF when the
+whole of it is annotated AF, as non-AF when none of it is AF or flutter
+(`analysis/af_afdb_external.txt`).
+
+| | Windows | Result | Coverage |
+|---|---|---|---|
+| Sensitivity (AF windows labelled A) | 10,952 | 92.2% | 94.0% decided |
+| Specificity (non-AF windows not labelled A) | 16,430 | 96.8% | 99.2% decided |
+
+- **End to end**, counting undecided AF windows as missed, sensitivity is 86.7%, and 3.2% of all
+  non-AF windows are labelled A.
+- **Per patient** the median is Se 98.1% and Sp 99.8%, but the worst are far lower: Se 76.8%
+  (07162), 82.8% (05121), 83.8% (04936); Sp 73.1% (06426), 74.1% (08219), 76.9% (06995). The cause
+  in those patients was not looked into.
+- **Atrial flutter is mostly missed**: 40 of 185 flutter windows are labelled A. Windows with a
+  rhythm change inside them (528) are labelled A 37% of the time. Neither group is in the figures above.
+- **P+ of 94.8% holds only for this database**, where 40% of windows are AF. In people who are
+  mostly in normal rhythm, a 3% false-positive rate per window means most A labels would be false.
+- It scores better here than in cross-validation. The two tasks differ (CinC has an "other
+  rhythm" class that takes many AF recordings; here there are two groups); nothing here tests why.
+
+**Our own recordings** (`analysis/af_own_recordings.txt`): 9 windows could be judged; none is
+labelled A, 4 are N, 4 are O and 1 is undecided. Nobody has read the rhythm of these recordings,
+so this is a count of labels, not a false-alarm rate. Two things it does show:
+
+- **The O label fires on a person presumed healthy** (4 of 5 dual03 windows). Do not show
+  "other rhythm" in the app; show A or not A.
+- **A window with any lost sample is left out**, and that removed all 7 windows of tb01 and 5 of
+  9 of tb02. The features can skip over a gap, but the model was never tested on windows with
+  gaps. On a link that loses packets this has to be solved before the check is useful.
+
+**Before this goes in the app:** a session holds several 30 s windows and no rule yet says how
+many A labels make a session "AF-like" (that rule needs its own data); the model was developed
+on cold-started windows, so the app must either process each window that way or the model must
+be re-checked on a running detector; and there is no parity-tested Kotlin version.
+
 ## Data and how it is split
 
 `docs/datasets.md` has the licences. In short: all 48 MIT-BIH records are development data from
 13 Nov 2026; INCART (32 patients) is the held-out set for beat timing and has been used once;
-BIDMC is split by subject (23 development, 23 held-out, both used).
+BIDMC is split by subject (23 development, 23 held-out, both used). CinC 2017 is development data
+for AF screening; the MIT-BIH Atrial Fibrillation Database was its external test and is now spent.
 
 ## Limits
 
@@ -197,4 +278,5 @@ BIDMC is split by subject (23 development, 23 held-out, both used).
   Nothing here has been run on the ring.
 - SDNN, SD2 and sample entropy depend on the length of the recording. Compare like with like.
 - DFA α1 uses box sizes 4–16. neurokit2's default (4–11) gives a different number on the same data.
-- AF screening has not been started. Its brief now uses CinC 2017 by recording for development and the MIT-BIH Atrial Fibrillation Database, by patient, as the external test.
+- AF screening is a per-window label validated on hospital Holter tape and hand-held recordings.
+  It has no session-level rule, no handling of lost samples and no port to the phone yet.

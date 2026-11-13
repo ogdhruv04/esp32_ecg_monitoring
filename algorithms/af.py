@@ -24,7 +24,8 @@ warm-up are left out. From what remains,
               negative when the spread is slow drift
   tpr         turning-point ratio: the share of interior intervals that are a
               local maximum or minimum. 2/3 for a random series, lower for a
-              rhythm with structure (Dash et al. 2009 use it for AF)
+              rhythm with structure (used for AF by Dash et al. 2009; that
+              citation is from memory and has not been checked)
   cosen       coefficient of sample entropy, after Lake & Moorman 2011:
               sample entropy with m = 1, made comparable across tolerances and
               heart rates: -ln(A / B) + ln(2 r) - ln(mean RR), r and RR in

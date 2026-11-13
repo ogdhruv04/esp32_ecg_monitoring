@@ -1,0 +1,44 @@
+# ./validate_af.py own --captures /home/dhruv/esp32_ecg_monitoring/captures
+# commit 08d5bd9; detector tp3; af settings {"warmup_s": 2.0, "min_rr": 10, "cosen_r_s": 0.03, "cosen_r_step_s": 0.01, "cosen_r_max_s": 0.3, "cosen_min_a": 5, "window_s": 30.0, "frozen": "2026-11-13", "model": "algorithms/af_model.json (af1): trees n=100 depth=3 weights=none, selected in analysis/af_cinc_cv.txt"}
+# features: mean_rr ln_nrmssd ln_cv ln_nmasd ln_sd1_sd2 tpr cosen v_share s_share ect_und flag_share
+# Our own recordings, model af1 frozen 2026-11-13. 30 s windows from the first sample, cold start each,
+# causal filter, 50 and 100 Hz notches. A window with lost samples is left out.
+# THERE IS NO RHYTHM REFERENCE for these recordings: nobody read their rhythm, no second device labelled it.
+# The wearers are presumed to be in normal rhythm. So this is a count of labels, not a measured false-alarm rate.
+
+=== dual03 chest (ring board): 20260929_163314_dual03_both3wire_c3chest_wroomfinger_ring.csv ===
+29606 samples (115.6 s), 0 lost; 3 whole windows
+  window 0: N  p: N 0.72 A 0.00 O 0.28 ~ 0.00  | intervals 45, flagged 9%, V 0%, early 0%
+  window 1: O  p: N 0.08 A 0.00 O 0.92 ~ 0.00  | intervals 48, flagged 12%, V 0%, early 0%
+  window 2: O  p: N 0.09 A 0.00 O 0.90 ~ 0.00  | intervals 47, flagged 10%, V 0%, early 2%
+
+=== dual03 finger (reference board): 20260929_163314_dual03_both3wire_c3chest_wroomfinger_ref.csv ===
+29606 samples (115.6 s), 3 lost; 3 whole windows
+  window 0: left out, 3 samples lost
+  window 1: O  p: N 0.11 A 0.00 O 0.89 ~ 0.00  | intervals 48, flagged 14%, V 0%, early 0%
+  window 2: O  p: N 0.12 A 0.00 O 0.88 ~ 0.00  | intervals 47, flagged 10%, V 0%, early 0%
+
+=== tb01: 20261027_173714_testboard01.csv ===
+58368 samples (228.0 s), 232 lost; 7 whole windows
+  window 0: left out, 19 samples lost
+  window 1: left out, 13 samples lost
+  window 2: left out, 60 samples lost
+  window 3: left out, 40 samples lost
+  window 4: left out, 32 samples lost
+  window 5: left out, 20 samples lost
+  window 6: left out, 23 samples lost
+
+=== tb02: 20261027_174352_testboard02.csv ===
+76593 samples (299.2 s), 68 lost; 9 whole windows
+  window 0: left out, 3 samples lost
+  window 1: ~  p: N 0.07 A 0.07 O 0.10 ~ 0.76  | intervals 26, flagged 74%, V 0%, early 0%
+  window 2: N  p: N 0.84 A 0.01 O 0.16 ~ 0.00  | intervals 35, flagged 25%, V 6%, early 0%
+  window 3: left out, 9 samples lost
+  window 4: left out, 21 samples lost
+  window 5: N  p: N 0.82 A 0.02 O 0.15 ~ 0.01  | intervals 38, flagged 26%, V 8%, early 0%
+  window 6: N  p: N 0.94 A 0.00 O 0.06 ~ 0.00  | intervals 35, flagged 17%, V 0%, early 0%
+  window 7: left out, 12 samples lost
+  window 8: left out, 21 samples lost
+
+all recordings: 9 windows: N 4, O 4, A 0, not decided 1
+dual03's two files are the same 105 s of one person at two sites, so its windows are not independent.

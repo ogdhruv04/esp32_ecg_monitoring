@@ -8,7 +8,8 @@ Confirm the others the same way before using them, and record the date here.
 
 | Dataset | Licence | Confirmed | Content (as confirmed) | Planned use |
 |---|---|---|---|---|
-| PhysioNet/CinC Challenge 2017 (AF classification, single lead) | ODC-By 1.0 | ✅ 23 Oct 2026, PhysioNet | 8,528 training recordings at 300 Hz | Rhythm / AF detection (item 3) |
+| PhysioNet/CinC Challenge 2017 (AF classification, single lead) | ODC-By 1.0 | ✅ 23 Oct 2026 and again 13 Nov 2026, PhysioNet | 8,528 training recordings of 9–61 s at 300 Hz from a hand-held device (lead I equivalent), labels N / A / O / ~ in `REFERENCE-v3.csv`. **No patient identifiers.** The hidden test set is not public | **Development** data for AF screening, cross-validated by recording: `validate_af.py cv` |
+| MIT-BIH Atrial Fibrillation Database | ODC-By 1.0 | ✅ 13 Nov 2026, PhysioNet | 25 records of about 10 h at 250 Hz, two ECG signals, manual rhythm annotations (AFIB, AFL, J, N); 23 have signals (00735 and 03665 do not) | **External test** for AF screening, used once on 13 Nov and now spent: `validate_af.py afdb` |
 | BUT QDB (Brno University of Technology ECG Quality Database) | CC BY 4.0 | ✅ 23 Oct 2026, PhysioNet | 18 recordings from 15 subjects at 1000 Hz | Learned signal-quality model (item 2) |
 | MIT-BIH Noise Stress Test Database (NSTDB) | ODC-By 1.0 | ✅ 23 Oct 2026, PhysioNet | | Real electrode-motion / muscle / baseline noise for quality and robustness tests (item 2) |
 | BIDMC PPG and Respiration Dataset | ODC-By 1.0 | ✅ 23 Oct 2026 and again 11 Nov 2026, PhysioNet | 53 recordings of 8 min at 125 Hz, lead II ECG in every one, breaths marked by two annotators. **46 subjects, not 53** (see notes) | Respiration rate from ECG: `validate_breathing_bidmc.py`, split by subject in `algorithms/config.json` |
@@ -37,6 +38,18 @@ Confirm the others the same way before using them, and record the date here.
   were not corrected by hand (database description), so RMSSD from its annotations carries that
   jitter. Downloaded on 13 Nov 2026 to `<main checkout>/data/incartdb` (796 MB, SHA-256 checked).
   Cite the database and PhysioNet as its page asks.
+- **CinC 2017 cannot be split by patient.** Its public files carry no patient identifiers, so
+  cross-validation is by recording and one person's recordings can fall on both sides of a fold.
+  Figures from it are development figures and may be optimistic. Labels are version 3
+  (`REFERENCE-v3.csv`), which differs from the `REFERENCE.csv` inside `training2017.zip`.
+  Downloaded on 13 Nov 2026 to `<main checkout>/data/cinc2017` (96 MB; the dataset publishes no
+  checksum file). Cite Clifford et al., *Computing in Cardiology* 2017, and PhysioNet.
+- **The MIT-BIH AF Database is the external test for AF screening and is spent.** One long
+  recording per subject, analog Holter tape from 1983; unreadable tape blocks in 04043, 08405 and
+  08434 were replaced by flat zero, and 9 of our 30 s windows are left out for that. Downloaded on
+  13 Nov 2026 to `<main checkout>/data/afdb` (607 MB, SHA-256 checked for every file except the
+  `old/` annotation directory, which was not downloaded). Cite Moody & Mark, *Computers in
+  Cardiology* 1983;10:227–230, and PhysioNet.
 - **BIDMC has repeated subjects.** The paper describes 53 patients, but the `MIMIC II matched wdb ID`
   in `bidmc_csv/bidmc_NN_Fix.txt` shows 46: s03386 has recordings 06–09, s11342 has 20–23 and
   s25323 has 38–39. The development / held-out split in `algorithms/config.json` is by subject
