@@ -1,0 +1,53 @@
+# Live heart rate on the phone: the 27 / 101 bpm bug and its fix (13 Nov 2026, detector tp3)
+
+Seen on the phone (analysis/app_phone_replay_tb02.txt): the tb02 replay showed 27, then 101 bpm on a GOOD
+signal about 30-40 s in, against a session heart rate of 77 bpm.
+
+== Reproduced: EcgPipeline fed tb02 as BLE packets (JVM), every 2 s while GOOD, t = pipeline sample count / 256 ==
+old = BeatDetector.heartRate (median of the detector's last 8 integrator-peak intervals, what the screens showed)
+new = LiveHeartRate (what they show now); rr = those 8 intervals in ms; beats = last 9 located beats in ms
+(F flagged, S searched back, G after lost samples)
+  t=24.0 old=59 new=null rr=[210, 324, 207, 3367, 515, 3242, 1523, 3136] beats(ms)=7858F 8230F 8313FS 11741F 12297F 15535F 17053FS 19993FSG 23226FS
+  t=26.0 old=33 new=null rr=[324, 207, 3367, 515, 3242, 1523, 3136, 2074] beats(ms)=8230F 8313FS 11741F 12297F 15535F 17053FS 19993FSG 23226FS 25268F
+  t=28.0 old=27 new=null rr=[207, 3367, 515, 3242, 1523, 3136, 2074, 2421] beats(ms)=8313FS 11741F 12297F 15535F 17053FS 19993FSG 23226FS 25268F 27671F
+  t=30.0 old=27 new=null rr=[207, 3367, 515, 3242, 1523, 3136, 2074, 2421] beats(ms)=8313FS 11741F 12297F 15535F 17053FS 19993FSG 23226FS 25268F 27671F
+  t=32.0 old=28 new=null rr=[515, 3242, 1523, 3136, 2074, 2421, 2238, 1992] beats(ms)=11741F 12297F 15535F 17053FS 19993FSG 23226FS 25268F 27671F 29870FS
+  t=34.0 old=30 new=null rr=[3136, 2074, 2421, 2238, 1992, 242, 585, 945] beats(ms)=19993FSG 23226FS 25268F 27671F 29870FS 31936F 32139F 32816F 33685F
+  t=36.0 old=75 new=null rr=[2421, 2238, 1992, 242, 585, 945, 253, 644] beats(ms)=25268F 27671F 29870FS 31936F 32139F 32816F 33685F 33944F 34597F
+  t=38.0 old=75 new=null rr=[2238, 1992, 242, 585, 945, 253, 644, 1070] beats(ms)=27671F 29870FS 31936F 32139F 32816F 33685F 33944F 34597F 35690FS
+  t=40.0 old=101 new=null rr=[585, 945, 253, 644, 1070, 597, 246, 566] beats(ms)=32139F 32816F 33685F 33944F 34597F 35690FS 36226FS 36452S 37107FS
+  t=42.0 old=101 new=null rr=[585, 945, 253, 644, 1070, 597, 246, 566] beats(ms)=32139F 32816F 33685F 33944F 34597F 35690FS 36226FS 36452S 37107FS
+  t=48.0 old=78 new=null rr=[566, 5292, 1574, 730, 753, 777, 1417, 292] beats(ms)=36226FS 36452S 37107FS 42332FS 43934S 44686 45429 46180 47648
+
+Cause: not warm-up (2 s) and not a gap (intervals across lost samples never enter the window). The
+8-interval window exists to set the search-back threshold and has no age limit and no plausibility test.
+tb02's first ~36 s are electrode-settling transients of +-1000-2000 counts against beats of ~40
+(analysis/app_live_hr_tb02_beats.png, rows 1-3). The detector fires on them 2-3.4 s apart, and these
+intervals stayed in the window for up to 25 s. Afterwards the threshold, raised by the transients, missed
+beats and search-back added 250 ms double detections (row 4) - the 101 bpm. The quality gate called these
+windows GOOD: kSQI rewards spikes.
+
+Fix: LiveHeartRate.kt. Intervals between located beats whose later beat is in the last 10 s, none across
+lost samples; good = 300-2000 ms and within 20% of the interval before (pan_tompkins.clean_nn bounds);
+rate = 60000 / median(good) when >= 5 good, >= 75% of the window good, and the newest beat not overdue
+(<= 2 x that median ago). The detector's own window is unchanged (it drives search-back; parity with
+pan_tompkins.py holds).
+
+== LiveHeartRateTest (every quality assessment while GOOD; reference: make_live_hr_fixtures.py,
+   analysis/app_live_hr_reference.txt, NeuroKit2 on the zero-phase-filtered capture) ==
+  dual03_ring: GOOD at 458 moments; shown at 444; clean reference at 374, shown at 374; failures 0; old display failures 63; session HR 102.71, live more than 5 bpm off it at 42 moments; curve 119/6041 points >20% off
+  first off the session HR: t=32.02 s live 96.3, reference 96.0; last: t=55.50 s live 107.9, reference 106.7
+  tb02: GOOD at 1041 moments; shown at 915; clean reference at 595, shown at 595; failures 0; old display failures 37; session HR 77.14, live more than 5 bpm off it at 130 moments; curve 0/7605 points >20% off
+  first off the session HR: t=85.78 s live 71.9, reference 72.8; last: t=286.78 s live 82.7, reference 82.6
+
+"failures" = moments where the shown rate is more than 5 bpm from the reference (or from the loose
+reference where one ectopic or missed beat leaves the strict one undefined), or shown with no reference.
+The old display fails that check at the counts given. Rows 5-6 of the plot are tb02 at 140-164 s: clean,
+regular beats about 620 ms apart, a real rise to ~95 bpm (reference highest 94.8 bpm at 156.75 s).
+
+Not tested against the session heart rate, as asked: the live rate is more than 5 bpm from it at the
+moments counted above, and at every one of them the independent reference agrees with the live rate
+(within 5 bpm). A test pinned to the session rate would require the display to be wrong.
+
+Guided breathing: its heart-rate number is the same EcgPipeline.heartRate (fixed with it); its beat-to-beat
+curve (NN-cleaned intervals) was already clean: points more than 20% from the reference as counted above.

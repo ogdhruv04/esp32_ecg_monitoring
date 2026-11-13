@@ -57,8 +57,12 @@ class EcgPipeline(private val onBeat: ((Long) -> Unit)? = null) {
     // only when asked (LiveHrv.snapshot).
     val live = LiveHrv()
 
+    // The heart rate every screen shows (LiveHeartRate.kt), not the
+    // detector's own 8-interval threshold window.
+    private val liveRate = LiveHeartRate()
+
     init {
-        detector.onLocated = { session?.onBeat(it); live.onBeat(it) }
+        detector.onLocated = { session?.onBeat(it); live.onBeat(it); liveRate.onBeat(it) }
     }
 
     /** Start recording a session of [durationS] from the next sample. */
@@ -141,7 +145,7 @@ class EcgPipeline(private val onBeat: ((Long) -> Unit)? = null) {
             sweepRaw.push(v.toFloat())
             sweepFiltered.push(display)
         }
-        heartRate = detector.heartRate
+        heartRate = liveRate.bpm(detector.sampleCount)
         rmssdMs = detector.rmssdMs
 
         sinceQuality += packet.samples.size
