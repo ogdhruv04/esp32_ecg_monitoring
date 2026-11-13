@@ -97,6 +97,7 @@ fun headline(
     level: SignalQuality.Level,
     heartRate: Double?,
     mainsShare: Double,
+    artifact: Boolean = false,
 ): Headline = when (link) {
     Link.SCANNING -> Headline.NoData("Scanning for ring…", RING_FIX)
     Link.NOT_CONNECTED -> Headline.NoData("Ring not connected", linkFix ?: RING_FIX, alert = dropped)
@@ -108,6 +109,9 @@ fun headline(
         // the finger's 186, so FAIR lets wrong rates through.
         level == SignalQuality.Level.GOOD ->
             if (heartRate != null) Headline.Rate(heartRate.roundToInt()) else Headline.Hidden("Measuring")
+        // A swing far larger than a beat (SignalQuality's size check): the
+        // contact is there and something moved, so not the electrode advice.
+        artifact -> Headline.Hidden("Hold still")
         // Mains on the raw input points at the reference electrode before motion.
         mainsShare >= MAINS_REFERENCE_SUSPECT -> Headline.Hidden("Check the reference electrode")
         level == SignalQuality.Level.FAIR -> Headline.Hidden("Hold still")
@@ -134,7 +138,10 @@ class MonitorUiState(
 ) {
     val headline: Headline
         get() = pipeline.let {
-            headline(link, linkFix, dropped, it.qualityReady, it.signalQuality.level, it.heartRate, it.mainsShare)
+            headline(
+                link, linkFix, dropped, it.qualityReady, it.signalQuality.level, it.heartRate, it.mainsShare,
+                it.signalQuality.artifact,
+            )
         }
 }
 
@@ -468,6 +475,7 @@ fun DiagnosticsScreen(state: MonitorUiState, actions: MonitorActions, geometry: 
             Field("Verdict", sq.level.name.lowercase().replaceFirstChar { it.uppercase() })
             Field("kSQI, kurtosis", "%.1f".format(sq.kSqi))
             Field("pSQI, 5–15 Hz share", "%.2f".format(sq.pSqi))
+            Field("Largest swing, last 10 s", "%.1f× a usual second%s".format(sq.artifactRatio, if (sq.artifact) " (artifact)" else ""))
             Field("Mains share, raw", "%.1f%%".format(100 * p.mainsShare))
         } else {
             Field("Verdict", "waiting for 1 s of data")

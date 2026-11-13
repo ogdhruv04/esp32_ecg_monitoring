@@ -28,6 +28,14 @@ class HeadlineTest {
         assertEquals(Headline.Rate(72), h(GOOD, mains = 0.66))
     }
 
+    @Test fun artifactAsksToHoldStill() {
+        // The gate's size check makes the verdict POOR; the contact is fine, something moved.
+        val artifact = headline(Link.RECEIVING, null, false, true, POOR, 72.4, 0.02, artifact = true)
+        assertEquals(Headline.Hidden("Hold still"), artifact)
+        // Before mains: a transient puts broadband energy on the raw input too.
+        assertEquals(Headline.Hidden("Hold still"), headline(Link.RECEIVING, null, false, true, POOR, 72.4, 0.92, artifact = true))
+    }
+
     @Test fun beforeThereIsAVerdictOrARate() {
         assertEquals(Headline.Hidden("Hold still for a few seconds"), h(GOOD, ready = false))
         assertEquals(Headline.Hidden("Measuring"), h(GOOD, hr = null))

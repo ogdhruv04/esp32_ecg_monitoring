@@ -141,6 +141,7 @@ class EcgPipeline(private val onBeat: ((Long) -> Unit)? = null) {
             session?.let { if (it.checkEnd()) endSession(it) }
             val display = baseline.process(f)
             filteredBuffer.push(display)
+            quality.track(display)
             qrsBuffer.push(detector.lastBandpassed)
             sweepRaw.push(v.toFloat())
             sweepFiltered.push(display)
