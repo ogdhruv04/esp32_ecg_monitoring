@@ -6,7 +6,7 @@ import org.junit.Test
 import java.io.File
 
 /**
- * The tp2 and HRV parameters are frozen in tp2_config.json at the repository
+ * The timing-point (tp3) and HRV parameters are frozen in tp2_config.json at the repository
  * root, which pan_tompkins.py reads. BeatDetector.kt hard-codes them; this test
  * fails if any constant drifts from the frozen file, so the phone can never run
  * parameters the held-out evaluation did not.
@@ -31,11 +31,12 @@ class BeatDetectorConfigTest {
         assertEquals(num("R_AFTER_S"), BeatDetector.R_AFTER_S, 0.0)
         assertEquals(num("POL_KEEP"), BeatDetector.POL_KEEP.toDouble(), 0.0)
         assertEquals(num("POL_MIN"), BeatDetector.POL_MIN.toDouble(), 0.0)
-        assertEquals(num("POL_RATIO"), BeatDetector.POL_RATIO, 0.0)
-        assertEquals(num("EDGE"), BeatDetector.EDGE.toDouble(), 0.0)
         assertEquals(num("HIST_S"), BeatDetector.HIST_S, 0.0)
-        assertEquals(num("CORR_MIN"), BeatDetector.CORR_MIN, 0.0)
         assertEquals(num("CORR_LAG"), BeatDetector.CORR_LAG.toDouble(), 0.0)
+        assertEquals(num("R_MIN"), BeatDetector.R_MIN, 0.0)
+        assertEquals(num("TRACK"), BeatDetector.TRACK.toDouble(), 0.0)
+        assertTrue("tp2_config.json is not version ${BeatDetector.VERSION}",
+            Regex("\"version\"\\s*:\\s*\"${BeatDetector.VERSION}\"").containsMatchIn(json))
     }
 
     @Test fun hrvConstantsMatchFrozenConfig() {

@@ -145,7 +145,7 @@ def main():
     lines = []
     commit = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True).stdout.strip()
     lines.append(f"# ./make_session_fixtures.py (commit {commit}); session {S.VERSION}, "
-                 f"algorithms {A.VERSION} (frozen {A.CONFIG['frozen']}), detector tp2.1")
+                 f"algorithms {A.VERSION} (frozen {A.CONFIG['frozen']}), detector {A.core.PT.CONFIG['version']}")
     lines.append("# causal filter (the phone's), detector run sample by sample; session = beats located by "
                  "s1 + tail whose position lies in [s0, s1)")
 

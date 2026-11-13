@@ -1,0 +1,8 @@
+# ./make_parity_fixtures.py  (13 Nov 2026, timing point tp3; fixtures for BeatDetectorParityTest)
+chest           15360 samples    98 beats, 4 flagged (followed peak picked again 0x); RMSSD 22.44 ms, coverage 92% (93 NN), 0 dropped
+finger          26880 samples   175 beats, 5 flagged (followed peak picked again 0x); RMSSD 18.09 ms, coverage 94% (167 NN), 2 dropped
+artifact_gaps   15360 samples    97 beats, 10 flagged (followed peak picked again 0x); RMSSD 19.97 ms, coverage 73% (73 NN), 2 dropped   beats after the artifact: 80 with stall decay, 1 without
+polarity_flip   15360 samples    98 beats, 18 flagged (followed peak picked again 0x); RMSSD 22.29 ms, coverage 72% (73 NN), 5 dropped
+               tp2.1: after the flip 52 beats, 11 flagged, 0 a sample or more from the unflipped run (offset median +0.0 ms, sd 0.00 ms); RMSSD 22.02 ms (coverage 74%) vs 22.56 ms unflipped (coverage 91%)
+               tp3  : after the flip 52 beats, 13 flagged, 39 a sample or more from the unflipped run (offset median +21.6 ms, sd 0.61 ms); RMSSD 22.29 ms (coverage 72%) vs 22.53 ms unflipped (coverage 91%)
+wrote android_app/app/src/test/resources/parity/

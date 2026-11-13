@@ -1,10 +1,11 @@
-"""ECG samples -> tp2.1 beats, the same way for every validation script.
+"""ECG samples -> the detector's beats, the same way for every validation script.
 
 The filter is the monitoring chain (EcgFilter.kt): 0.5 Hz high-pass, mains
 notch, 40 Hz low-pass. causal=True is what the phone runs; False is the
 zero-phase offline version used by benchmark_mitdb.py and agreement.py. Beat
 positions are whatever pan_tompkins.PanTompkins reports with the parameters
-frozen in tp2_config.json; nothing about detection is re-implemented here.
+frozen in tp2_config.json (tp3 from 13 Nov 2026; timing='tp2.1' gives the
+previous timing point); nothing about detection is re-implemented here.
 """
 import numpy as np
 from scipy import signal as sps
@@ -31,10 +32,10 @@ def filter_ecg(x, fs, mains, causal=False, harmonic=False):
     return f2(sps.butter(4, 40.0, "lowpass", fs=fs, output="sos"), y)
 
 
-def detect(y, fs=FS):
-    """Run the tp2.1 detector over a filtered signal; returns its `beats` list
+def detect(y, fs=FS, timing=None):
+    """Run the detector over a filtered signal; returns its `beats` list
     (dicts with pos, bp, kind, flagged, gap)."""
-    pt = PT.PanTompkins(fs)
+    pt = PT.PanTompkins(fs, timing)
     for v in y:
         pt.process(v)
     return pt.beats

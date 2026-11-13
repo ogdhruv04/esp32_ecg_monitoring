@@ -2,7 +2,7 @@
 """Write fixtures for BeatDetectorParityTest (android_app/.../src/test).
 
 BeatDetector.kt must find exactly the beats pan_tompkins.py finds, at the same
-tp2 positions, with the same flags and the same HRV (CLAUDE.md). This runs the
+positions (tp3), with the same flags and the same HRV (CLAUDE.md). This runs the
 Python detector over real recordings and saves its input and its outputs; the
 Kotlin test feeds the same input and compares. Re-run this whenever
 pan_tompkins.py changes, then run the test:
@@ -37,18 +37,16 @@ def load(path, seconds):
                       invalid_raise=False)["value"].astype(float)
     return causal_filter(v)[: int(seconds * FS)].astype(np.float32)
 
-def run(x, skips, stall=True, corr=True):
+def run(x, skips, stall=True, timing=None):
     """What BeatDetector.kt emits on the phone: (position, flagged) for every
     beat process() returns, and the detector, for its HRV history.
 
     Not pt.peaks: that offline list also keeps beats found during the 2 s
     warm-up, which the phone deliberately does not show.
     """
-    pt = pan_tompkins.PanTompkins(FS)
+    pt = pan_tompkins.PanTompkins(FS, timing)   # None = the shipped timing point (tp3)
     if not stall:
         pt.stall = 10**12                      # the detector before the fix
-    if not corr:
-        pt.CORR_MIN = None                     # tp2 without the per-beat check
     out = []
     for i, v in enumerate(x):
         if skips[i]:
@@ -82,8 +80,13 @@ def mistimed(flipped_pt, unflipped_pt, t0):
     on the identical position. Returns (beats after t0, flagged, mistimed)."""
     ref = {b["bp"]: b["pos"] for b in unflipped_pt.beats}
     after = [b for b in flipped_pt.beats if b["bp"] >= t0]
-    mis = sum(1 for b in after if not b["flagged"] and b["bp"] in ref and abs(b["pos"] - ref[b["bp"]]) >= 1.0)
-    return len(after), sum(b["flagged"] for b in after), mis
+    off = np.array([b["pos"] - ref[b["bp"]] for b in after if not b["flagged"] and b["bp"] in ref])
+    mis = int(np.sum(np.abs(off) >= 1.0))
+    # tp3 refers the time to one followed peak of the median beat; after a flip
+    # that can be another lobe, which moves every later beat by the same amount.
+    # What matters for RR is how much that offset varies from beat to beat.
+    spread = (float(np.median(off)) * 1000 / FS, float(np.std(off)) * 1000 / FS) if len(off) else (float("nan"),) * 2
+    return len(after), sum(b["flagged"] for b in after), mis, spread
 
 cases = {}
 chest = load(CAP + "_ring.csv", 60)
@@ -116,7 +119,7 @@ for name, (x, s) in cases.items():
     rm, acc, drop, cov = write(name, x, s, beats, pt)
     after = sum(1 for p, _ in beats if p > (11.5 * FS))
     line = (f"{name:14} {len(x):6d} samples  {len(beats):4d} beats, {sum(f for _, f in beats)} flagged "
-            f"({pt.corr_flagged} by the check); RMSSD {rm if rm is None else round(rm, 2)} ms, "
+            f"(followed peak picked again {pt.repicked}x); RMSSD {rm if rm is None else round(rm, 2)} ms, "
             f"coverage {100*cov:.0f}% ({acc} NN), {drop} dropped")
     if name == "artifact_gaps":
         old, _ = run(x, s, stall=False)
@@ -127,12 +130,13 @@ for name, (x, s) in cases.items():
     if name == "polarity_flip":
         unflipped = finger[: int(60 * FS)]
         z = np.zeros(len(unflipped), int)
-        for corr in (False, True):
-            _, pf = run(x, s, corr=corr); _, pu = run(unflipped, z, corr=corr)
-            n, fl, mis = mistimed(pf, pu, int(30 * FS))
+        for timing in ("tp2.1", "tp3"):
+            _, pf = run(x, s, timing=timing); _, pu = run(unflipped, z, timing=timing)
+            n, fl, mis, (om, osd) = mistimed(pf, pu, int(30 * FS))
             rmf = pan_tompkins.rmssd_nn(pan_tompkins.rr_history(pf.beats, FS))
             rmu = pan_tompkins.rmssd_nn(pan_tompkins.rr_history(pu.beats, FS))
-            print(f"{'':14} check {'on ' if corr else 'off'}: after the flip {n} beats, {fl} flagged, "
-                  f"MISTIMED {mis}; RMSSD {rmf[0]:.2f} ms (coverage {100*rmf[3]:.0f}%) vs "
+            print(f"{'':14} {timing:5}: after the flip {n} beats, {fl} flagged, "
+                  f"{mis} a sample or more from the unflipped run (offset median {om:+.1f} ms, sd {osd:.2f} ms); "
+                  f"RMSSD {rmf[0]:.2f} ms (coverage {100*rmf[3]:.0f}%) vs "
                   f"{rmu[0]:.2f} ms unflipped (coverage {100*rmu[3]:.0f}%)")
 print(f"wrote {OUT}/")

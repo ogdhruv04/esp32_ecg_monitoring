@@ -25,18 +25,17 @@ enum class SessionKind(val durationS: Double, val extraKeys: List<String>, val l
 /**
  * Session-level rules: how many intervals a heart rate needs, how many
  * breathing windows a breathing rate needs and how far apart their rates may
- * be. They belong in algorithms/config.json ("session"), which the algorithms
- * workstream has not written yet; until then these are session_reference.PROVISIONAL,
- * set by hand, and every reason they produce says "(provisional rule)".
- * AlgorithmsConfigTest fails as soon as config.json gains a "session" block,
- * so they cannot silently diverge from it.
+ * be. They are the "session" block of algorithms/config.json (13 Nov 2026,
+ * analysis/session_rules_dev.txt); AlgorithmsConfigTest fails if they differ
+ * from it. PROVISIONAL and TAG remain for the labels the UI and the reasons
+ * carried while the rules were the app's own.
  */
 object SessionRules {
-    const val PROVISIONAL = true
-    const val HR_MIN_INTERVALS = 30
+    const val PROVISIONAL = false
+    const val HR_MIN_INTERVALS = 60
     const val BR_MIN_WINDOWS = 5
-    const val BR_MAX_RANGE_BPM = 4.0
-    internal const val TAG = " (provisional rule)"
+    const val BR_MAX_RANGE_BPM = 6.0
+    internal const val TAG = ""
 }
 
 /**

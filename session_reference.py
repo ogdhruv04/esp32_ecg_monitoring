@@ -8,7 +8,7 @@ gives the same report as this on the fixtures make_session_fixtures.py writes.
 
 A session covers the absolute sample indices [s0, s1):
   - beats: every beat the detector located by the time it had processed
-    sample s1 + tail - 1, whose tp2.1 position lies in [s0, s1)
+    sample s1 + tail - 1, whose position lies in [s0, s1)
   - samples: the filtered signal inside [s0, s1) only; a lost sample is NaN
   - the NN series is built from those beats alone (NNSeries.from_beats), so
     its cleaning is seeded from the session's own first intervals

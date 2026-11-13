@@ -1,13 +1,13 @@
 w0	value	withheld	n_used	coverage
-20.0	nan	neither modulation gave a usable peak	50	0.9615384615384616
-23.0	nan	neither modulation gave a usable peak	49	0.9423076923076923
+20.0	nan	no agreement between the modulations and no strong R-amplitude peak	50	0.9615384615384616
+23.0	nan	no agreement between the modulations and no strong R-amplitude peak	49	0.9423076923076923
 26.0	nan	neither modulation gave a usable peak	51	0.9622641509433962
 29.0	nan	neither modulation gave a usable peak	51	0.9622641509433962
 32.0	nan	neither modulation gave a usable peak	51	0.9622641509433962
 35.0	nan	neither modulation gave a usable peak	51	0.9622641509433962
 38.0	nan	neither modulation gave a usable peak	51	0.9622641509433962
-41.0	nan	no agreement between the modulations and no strong R-amplitude peak	52	0.9811320754716981
-44.0	nan	neither modulation gave a usable peak	50	0.9615384615384616
+41.0	nan	neither modulation gave a usable peak	52	0.9811320754716981
+44.0	nan	no agreement between the modulations and no strong R-amplitude peak	50	0.9615384615384616
 47.0	nan	no agreement between the modulations and no strong R-amplitude peak	50	0.9615384615384616
 50.0	nan	no agreement between the modulations and no strong R-amplitude peak	47	0.8867924528301887
 53.0	nan	no agreement between the modulations and no strong R-amplitude peak	42	0.8076923076923077
@@ -22,17 +22,17 @@ w0	value	withheld	n_used	coverage
 80.0	nan	neither modulation gave a usable peak	33	0.75
 83.0	nan	neither modulation gave a usable peak	26	0.5909090909090909
 86.0	nan	neither modulation gave a usable peak	29	0.6744186046511628
-89.0	nan	neither modulation gave a usable peak	35	0.7954545454545454
-92.0	nan	neither modulation gave a usable peak	40	0.8888888888888888
-95.0	nan	neither modulation gave a usable peak	45	0.9375
-98.0	nan	neither modulation gave a usable peak	50	1.0
-101.0	nan	neither modulation gave a usable peak	53	1.0
-104.0	nan	neither modulation gave a usable peak	51	0.9807692307692307
+89.0	nan	no agreement between the modulations and no strong R-amplitude peak	35	0.7954545454545454
+92.0	nan	no agreement between the modulations and no strong R-amplitude peak	40	0.8888888888888888
+95.0	nan	no agreement between the modulations and no strong R-amplitude peak	45	0.9375
+98.0	nan	no agreement between the modulations and no strong R-amplitude peak	50	1.0
+101.0	nan	no agreement between the modulations and no strong R-amplitude peak	53	1.0
+104.0	nan	no agreement between the modulations and no strong R-amplitude peak	51	0.9807692307692307
 107.0	nan	no agreement between the modulations and no strong R-amplitude peak	51	0.9807692307692307
 110.0	nan	no agreement between the modulations and no strong R-amplitude peak	51	0.9807692307692307
 113.0	nan	no agreement between the modulations and no strong R-amplitude peak	51	0.9807692307692307
-116.0	nan	neither modulation gave a usable peak	52	0.9811320754716981
-119.0	nan	neither modulation gave a usable peak	51	0.9807692307692307
+116.0	nan	no agreement between the modulations and no strong R-amplitude peak	52	0.9811320754716981
+119.0	nan	no agreement between the modulations and no strong R-amplitude peak	51	0.9807692307692307
 122.0	nan	no agreement between the modulations and no strong R-amplitude peak	51	0.9807692307692307
 125.0	nan	no agreement between the modulations and no strong R-amplitude peak	50	0.9803921568627451
 128.0	nan	no agreement between the modulations and no strong R-amplitude peak	50	0.9803921568627451

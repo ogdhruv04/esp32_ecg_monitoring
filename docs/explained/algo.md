@@ -7,7 +7,7 @@ a file in `analysis/`, named next to it.
 
 ## From beats to an NN series
 
-The beat detector (`pan_tompkins.py`, tp2.1) gives each beat a position and a flag. A flagged
+The beat detector (`pan_tompkins.py`, timing point tp3) gives each beat a position and a flag. A flagged
 beat is one whose position could not be trusted. The package turns the beats into an **NN
 series**: one entry per beat-to-beat interval, with a hole wherever the interval is unusable
 (a flagged or searched-back beat at either end, lost samples in between, outside 300–2000 ms, or
@@ -78,19 +78,18 @@ Two things to know before relying on them:
 
 None of this was checked on held-out data: the BIDMC held-out subjects were already spent.
 
-## The biphasic-QRS problem and a candidate fix (13 Nov, not shipped)
+## Beat timing: tp3 (shipped 13 Nov)
 
-**The problem.** tp2.1 times a beat at the peak of its larger QRS lobe, so it must first decide
-which lobe is larger. When the two lobes are close in size it refuses, flags the beat, and the
-recording loses its HRV. On our own test-board recording `tb02`, 102 of 368 beats were flagged
-under the phone's filter, 87 of them for this reason, leaving 62% coverage
+**The problem with tp2.1.** It timed a beat at the peak of its larger QRS lobe, so it first had
+to decide which lobe is larger. When the two lobes are close in size it refused, flagged the
+beat, and the recording lost its HRV. On our test-board recording `tb02`, 102 of 368 beats were
+flagged under the phone's filter, 87 of them for this reason, leaving 62% coverage
 (`analysis/tp3_own_recordings.txt`).
 
-**The candidate, tp3** (`tp3_candidate.py`). Do not ask which lobe is the R wave. Slide the beat
-against the median of the previous 16 beats and take the shift at which they match best. The
-time is then referred to one peak of that median beat, which is followed from beat to beat rather
-than chosen each time. Detection is untouched: the same beats, re-timed. Its settings are frozen
-in `tp3_candidate.json`. `pan_tompkins.py`, `tp2_config.json` and the phone are unchanged.
+**What tp3 does.** It does not ask which lobe is the R wave. It slides the beat against the
+median of the previous 16 beats and takes the shift at which they match best. The time is then
+referred to one peak of that median beat, which is followed from beat to beat rather than chosen
+each time. Detection is untouched: the same beats, timed differently.
 
 **Before and after, same beats, phone's filter:**
 
@@ -110,21 +109,37 @@ in `tp3_candidate.json`. `pan_tompkins.py`, `tp2_config.json` and the phone are 
 On the MIT-BIH records where tp2.1 gave nothing under the phone's filter (111, 117, 215, 230),
 tp3 covers 82–99% of beats with RMSSD errors between −0.12 and −2.27 ms.
 
-**What it does not do.**
+**The port.** tp3 was developed offline (`tp3_candidate.py`), frozen, checked once on INCART, and
+then ported unchanged into `pan_tompkins.py` and `BeatDetector.kt`. Three checks:
 
-- It is not better everywhere. On INCART patient 24 (records I54–I56) coverage fell (90% → 48% on
-  I55) and one RMSSD error grew from −0.25 to −7.55 ms. The cause was not investigated: looking
-  into held-out records and then changing anything would spend the set.
-- It reads RMSSD slightly low: median error −0.15 ms on MIT-BIH against −0.03 ms for tp2.1.
-- It does not bring a noisy recording to 95% coverage. tb02 reaches 82%. By arithmetic that is
-  about 148 s of valid time in a 3-minute session, enough for SDNN and SD2 (not yet run as a
-  session); LF and HF stay withheld.
+- The shipped detector gives exactly what was evaluated: 100 of 100 runs identical
+  (`analysis/tp3_port_check.txt`).
+- Beat detection did not move. On the 36 MIT-BIH records that used to be held out: Se 99.76% /
+  P+ 99.31% with tp3, 99.75% / 99.31% with tp2.1. On the 12 original development records:
+  99.49% / 98.29% and 99.50% / 98.30% (`analysis/ec57_benchmark_tp3.txt`).
+- The phone code gives the Python positions: all 147 Android unit tests pass on regenerated
+  fixtures.
+
+tb02's 3-minute session now reports SDNN and SD2 at 81.8% coverage; LF and HF stay withheld
+because coverage is under 95% (`analysis/app_session_reference.txt`).
+
+**Known limits.**
+
+- **A jump wider than 39 ms.** tp3 looks ±39 ms around the detector's peak. On INCART patient 24
+  that peak alternates between two places 41 ms apart, so many beats found no match in range and
+  were flagged: coverage fell from 90% to 48% on one record, where tp2.1 coped
+  (`analysis/tp3_diagnosis_incart_patient24.txt`). This was found on held-out data and nothing
+  was changed.
+- **After a polarity flip, a constant offset.** If the wearer turns the ring over, the followed
+  peak can settle on another lobe. Beats are then timed about 22 ms later than before. Intervals
+  between beats are unaffected; absolute beat time is, which matters for pulse arrival time.
+- **RMSSD slightly low:** median error −0.15 ms on MIT-BIH against −0.03 ms for tp2.1.
+- **Noise is not fixed.** tb02 reaches 82%, not the 95% that LF and HF need.
 - INCART's annotations were placed by an algorithm and not corrected in position, so its RMSSD
   errors compare the two timing points; they are not absolute accuracy.
 
-**Stopped here for review.** A port would change `BeatDetector.kt`, `pan_tompkins.py`, the parity
-fixtures and `tp2_config.json`, add about 39 ms of waiting per beat, and INCART is now spent for
-beat timing.
+INCART is now spent. The next held-out data for beat timing is our own recordings after the clip
+swap at bench session 1.
 
 ## Data and how it is split
 

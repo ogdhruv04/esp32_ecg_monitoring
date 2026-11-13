@@ -1,6 +1,6 @@
 {
   "version": "tp3-candidate-1",
-  "status": "CANDIDATE. Not shipped, not ported to BeatDetector.kt, not in tp2_config.json. pan_tompkins.py is unchanged; tp3_candidate.retime() re-times its beats offline. Stop for review before any port.",
+  "status": "PORTED on 13 Nov 2026 with these settings unchanged: pan_tompkins.py and BeatDetector.kt run tp3, tp2_config.json is version tp3, and analysis/tp3_port_check.txt shows the shipped streaming detector gives the positions tp3_candidate.retime() gave. This file and tp3_candidate.py remain as the record of what was evaluated and as the offline reference; do not change them.",
   "frozen": "2026-11-13",
   "timing": {
     "LAG": 10,

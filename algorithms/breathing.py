@@ -6,7 +6,7 @@ Breathing changes the ECG in two ways that survive a 0.5 Hz high-pass:
          Series = accepted NN intervals at their beat times (the same cleaned
          series the HRV measures use).
   RAMP   the R-wave amplitude changes as the heart's axis and the chest
-         impedance move. Series = R amplitude at every unflagged tp2.1 beat.
+         impedance move. Series = R amplitude at every beat (peak-to-peak needs no beat position).
 
 Each is a series sampled once per beat. In a window (32 s by default) it is
 cleaned of outliers, detrended, and its Lomb-Scargle spectrum taken over the

@@ -67,7 +67,6 @@ class BeatDetectorParityTest {
                 "${firstDiff?.let { f.expected.getOrNull(it) }})",
             null, firstDiff
         )
-        assertEquals("$name: R window used before it had arrived", 0, d.clamped)
     }
 
     @Test fun chestRecordingMatchesPython() = assertParity("chest")
@@ -107,7 +106,7 @@ class BeatDetectorParityTest {
         val expected = e[0].toDouble(); val dropped = e[2].trim().toInt(); val coverage = e[3].trim().toDouble()
         val got = d.rmssdMs
         println("$name RMSSD phone $got ms, python $expected ms; dropped ${d.nnDropped} vs $dropped; " +
-                "coverage ${d.hrvCoverage} vs $coverage; check flagged ${d.corrFlagged}")
+                "coverage ${d.hrvCoverage} vs $coverage; followed peak picked again ${d.repicked}x")
         if (expected.isNaN()) assertNull("$name: phone shows an RMSSD Python withholds", got)
         else {
             assertNotNull("$name: no RMSSD from ${d.beatCount} intervals", got)

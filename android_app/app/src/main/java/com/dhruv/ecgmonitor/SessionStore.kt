@@ -71,7 +71,7 @@ data class SessionReport(
     val versions: String = VERSIONS,
 ) {
     companion object {
-        const val VERSIONS = "session ${SessionConfig.VERSION} · algorithms ${AlgConfig.VERSION} · detector tp2.1"
+        const val VERSIONS = "session ${SessionConfig.VERSION} · algorithms ${AlgConfig.VERSION} · detector ${BeatDetector.VERSION}"
 
         fun from(
             rec: SessionRecorder, m: SessionMeasures, kind: SessionKind, startedAtMs: Long, replayFile: String?,

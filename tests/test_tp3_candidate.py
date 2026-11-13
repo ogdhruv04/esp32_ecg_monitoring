@@ -1,4 +1,5 @@
-"""The tp3 candidate (tp3_candidate.py): polarity-free timing by alignment. Not shipped."""
+"""tp3: polarity-free timing by alignment. tp3_candidate.py is the offline form that was
+evaluated; pan_tompkins.py ships the same thing streaming. Baselines here are tp2.1."""
 import math
 import numpy as np
 import pan_tompkins as PT
@@ -39,15 +40,15 @@ def rr_error_ms(beats, truth):
 def test_settings_are_frozen_and_detection_is_untouched():
     assert T3.CONFIG["frozen"] and T3.CONFIG["timing"] == {"LAG": 10, "R_MIN": 0.8, "ALIGN": True, "REF": "peak", "TRACK": 2}
     t = beat_times(60.0); x = ecg(t, 60.0)
-    beats = frontend.detect(x, FS)
+    beats = frontend.detect(x, FS, "tp2.1")
     b3 = T3.retime(x, beats, FS)
     assert [b["bp"] for b in b3] == [b["bp"] for b in beats] and [b["kind"] for b in b3] == [b["kind"] for b in beats]
-    assert beats[20]["pos"] == frontend.detect(x, FS)[20]["pos"]        # retime() does not alter its input
+    assert beats[20]["pos"] == frontend.detect(x, FS, "tp2.1")[20]["pos"]        # retime() does not alter its input
 
 
 def test_on_a_plain_qrs_it_agrees_with_tp2():
     t = beat_times(120.0); x = ecg(t, 120.0)
-    beats = frontend.detect(x, FS); b3 = T3.retime(x, beats, FS)
+    beats = frontend.detect(x, FS, "tp2.1"); b3 = T3.retime(x, beats, FS)
     late = [i for i, b in enumerate(beats) if b["pos"] > 15 * FS and not b["flagged"] and not b3[i]["flagged"]]
     assert len(late) > 100
     d = np.array([b3[i]["pos"] - beats[i]["pos"] for i in late]) / FS * 1000
@@ -59,7 +60,7 @@ def test_on_a_plain_qrs_it_agrees_with_tp2():
 def test_biphasic_qrs_tp2_flags_everything_tp3_times_it():
     t = beat_times(180.0, seed=3)
     x = ecg(t, 180.0, lobes=((-0.012, 1.0), (0.012, -0.9)))            # two lobes, ratio 1.1: under POL_RATIO
-    beats = frontend.detect(x, FS); b3 = T3.retime(x, beats, FS)
+    beats = frontend.detect(x, FS, "tp2.1"); b3 = T3.retime(x, beats, FS)
     assert np.mean([b["flagged"] for b in beats]) > 0.95               # tp2.1 cannot decide the polarity
     assert np.mean([b["flagged"] for b in b3[12:]]) < 0.03
     assert NNSeries.from_beats(beats, FS).coverage < 0.05 and NNSeries.from_beats(b3, FS).coverage > 0.9
@@ -69,7 +70,7 @@ def test_biphasic_qrs_tp2_flags_everything_tp3_times_it():
 
 def test_absolute_time_does_not_wander_with_the_peak_reference():
     t = beat_times(300.0, seed=5); x = ecg(t, 300.0, noise=0.03)
-    beats = frontend.detect(x, FS)
+    beats = frontend.detect(x, FS, "tp2.1")
 
     def offset_sd(cfg):
         b3 = T3.retime(x, beats, FS, cfg)
@@ -81,7 +82,7 @@ def test_absolute_time_does_not_wander_with_the_peak_reference():
 
 def test_a_polarity_flip_is_flagged_then_followed():
     t = beat_times(120.0, seed=7); x = ecg(t, 120.0, flip_after=60.0)
-    beats = frontend.detect(x, FS); b3 = T3.retime(x, beats, FS)
+    beats = frontend.detect(x, FS, "tp2.1"); b3 = T3.retime(x, beats, FS)
     pos = np.array([b["pos"] for b in b3]) / FS; fl = np.array([b["flagged"] for b in b3])
     just_after = (pos > 60.0) & (pos < 64.0)
     assert fl[just_after].mean() > 0.6                                  # inverted beats do not match the median beat
@@ -92,10 +93,34 @@ def test_a_polarity_flip_is_flagged_then_followed():
 
 def test_gaps_noise_and_start_are_flagged():
     t = beat_times(60.0, seed=9); x = ecg(t, 60.0)
-    beats = frontend.detect(x, FS)
+    beats = frontend.detect(x, FS, "tp2.1")
     y = x.copy(); k = int(beats[30]["bp"]); y[k - 3:k + 3] = np.nan     # a hole inside one beat's window
     b3 = T3.retime(y, beats, FS)
     assert b3[30]["flagged"] and math.isfinite(b3[30]["pos"])
     assert all(b["flagged"] for b in b3[:PT.CONFIG["detector"]["POL_MIN"]])   # no median beat yet
     z = x.copy(); z[k - 40:k + 40] += 3.0 * np.random.default_rng(2).standard_normal(80)
     assert T3.retime(z, beats, FS)[30]["flagged"]                        # correlation under R_MIN
+
+
+def test_the_shipped_detector_is_the_candidate():
+    assert PT.TIMING_POINT == "tp3" and PT.PanTompkins(FS).timing == "tp3"
+    t = beat_times(120.0, seed=11)
+    for x in (ecg(t, 120.0), ecg(t, 120.0, lobes=((-0.012, 1.0), (0.012, -0.9))), ecg(t, 120.0, flip_after=60.0)):
+        shipped = frontend.detect(x, FS)
+        cand = T3.retime(x, frontend.detect(x, FS, "tp2.1"), FS)
+        n = min(len(shipped), len(cand))
+        assert n >= len(cand) - 1
+        assert [b["bp"] for b in shipped[:n]] == [b["bp"] for b in cand[:n]]
+        assert [b["flagged"] for b in shipped[:n]] == [b["flagged"] for b in cand[:n]]
+        assert max(abs(a["pos"] - b["pos"]) for a, b in zip(shipped[:n], cand[:n]) if not a["flagged"]) < 1e-6
+
+
+def test_gaps_through_skip_are_flagged_by_the_shipped_detector():
+    t = beat_times(60.0, seed=13); x = ecg(t, 60.0)
+    pt = PT.PanTompkins(FS)
+    for i, v in enumerate(x):
+        if i == int(30.2 * FS):
+            pt.skip(12)
+        pt.process(v)
+    assert any(b["gap"] for b in pt.beats) and all(math.isfinite(b["pos"]) for b in pt.beats)
+    assert np.mean([b["flagged"] for b in pt.beats[12:]]) < 0.1

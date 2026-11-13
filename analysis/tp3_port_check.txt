@@ -1,0 +1,113 @@
+# ./evaluate_tp3.py port --dir /home/dhruv/esp32_ecg_monitoring/data/mitdb /home/dhruv/esp32_ecg_monitoring/data/mitdb_heldout --captures /home/dhruv/esp32_ecg_monitoring/captures
+# commit 23bc7f8 + uncommitted changes; shipped timing point tp3 (tp2_config.json)
+# tp3 candidate: {"LAG": 10, "R_MIN": 0.8, "ALIGN": true, "REF": "peak", "TRACK": 2}, frozen: 2026-11-13
+# both use the window (0.1 s before to 0.06 s after the 5-15 Hz peak) and template depth (POL_KEEP 16, POL_MIN 8)
+
+Is the shipped detector (pan_tompkins.py, timing tp3, streaming) the candidate that was evaluated (tp3_candidate.retime(),
+offline, on the tp2.1 detector's beats)? Same beats, same flags, and positions of unflagged beats compared.
+The streaming detector waits CORR_LAG samples longer per beat, so the last beat of a record may be missing from one of the two.
+
+100 runs (50 records x 2 filters): 100 identical; largest position difference 5.8e-11 samples; flags differing 0; runs with different beats 0
+beats 221840, flagged by the shipped detector 17454, followed peak picked again 616 times
+
+                            record     filter  beats  cand. same beats flag diffs max |dpos|  flagged repicks
+                               100     causal   2273   2273       True          0    0.0e+00       21       0
+                               100 zero-phase   2273   2273       True          0    0.0e+00       10       0
+                               101     causal   1868   1868       True          0    0.0e+00       44       0
+                               101 zero-phase   1869   1869       True          0    0.0e+00       14       0
+                               103     causal   2085   2085       True          0    0.0e+00        9       0
+                               103 zero-phase   2085   2085       True          0    0.0e+00        8       0
+                               105     causal   2613   2613       True          0    0.0e+00       76       0
+                               105 zero-phase   2615   2615       True          0    0.0e+00      172       6
+                               106     causal   2027   2027       True          0    0.0e+00      148       3
+                               106 zero-phase   2027   2027       True          0    0.0e+00      164       1
+                               108     causal   2128   2128       True          0    0.0e+00      302      37
+                               108 zero-phase   2099   2099       True          0    1.5e-11      395      55
+                               109     causal   2528   2528       True          0    0.0e+00        8       0
+                               109 zero-phase   2528   2528       True          0    9.1e-13        9       0
+                               119     causal   1989   1989       True          0    1.5e-11      453       0
+                               119 zero-phase   1991   1991       True          0    1.5e-11      453       1
+                               203     causal   2920   2920       True          0    4.5e-13      626      13
+                               203 zero-phase   2934   2934       True          0    2.3e-13      668      11
+                               208     causal   2943   2943       True          0    4.5e-13      795       0
+                               208 zero-phase   2945   2945       True          0    0.0e+00      914       3
+                               222     causal   2474   2474       True          0    0.0e+00       28       0
+                               222 zero-phase   2476   2476       True          0    0.0e+00       41       0
+                               228     causal   2062   2062       True          0    0.0e+00      197       3
+                               228 zero-phase   2068   2068       True          0    0.0e+00      167       3
+                               102     causal   2191   2191       True          0    0.0e+00      556      12
+                               102 zero-phase   2200   2200       True          0    0.0e+00      808      46
+                               104     causal   2255   2255       True          0    0.0e+00     1451      39
+                               104 zero-phase   2251   2251       True          0    0.0e+00      796      20
+                               107     causal   2133   2133       True          0    0.0e+00      761      59
+                               107 zero-phase   2131   2131       True          0    0.0e+00      245       3
+                               111     causal   2126   2126       True          0    0.0e+00       40       0
+                               111 zero-phase   2126   2126       True          0    0.0e+00       53       0
+                               112     causal   2540   2540       True          0    0.0e+00        9       0
+                               112 zero-phase   2540   2540       True          0    7.3e-12        9       0
+                               113     causal   1795   1795       True          0    0.0e+00        9       0
+                               113 zero-phase   1796   1796       True          0    0.0e+00       45       0
+                               114     causal   1879   1879       True          0    5.8e-11       55       0
+                               114 zero-phase   1879   1879       True          0    1.8e-12       55       0
+                               115     causal   1953   1954       True          0    0.0e+00        9       0
+                               115 zero-phase   1953   1954       True          0    0.0e+00        9       0
+                               116     causal   2396   2397       True          0    0.0e+00       15       0
+                               116 zero-phase   2396   2397       True          0    5.8e-11       22       0
+                               117     causal   1536   1536       True          0    0.0e+00        9       0
+                               117 zero-phase   1537   1537       True          0    0.0e+00        9       0
+                               118     causal   2282   2282       True          0    4.5e-13       24       2
+                               118 zero-phase   2280   2280       True          0    1.8e-12       21       0
+                               121     causal   1863   1863       True          0    0.0e+00       10       0
+                               121 zero-phase   1863   1863       True          0    0.0e+00       10       0
+                               122     causal   2477   2477       True          0    0.0e+00        9       0
+                               122 zero-phase   2477   2477       True          0    0.0e+00       10       0
+                               123     causal   1515   1515       True          0    0.0e+00        9       0
+                               123 zero-phase   1515   1515       True          0    4.5e-13        9       0
+                               124     causal   1617   1617       True          0    0.0e+00       46       3
+                               124 zero-phase   1618   1618       True          0    0.0e+00       45       2
+                               200     causal   2602   2602       True          0    0.0e+00      361       2
+                               200 zero-phase   2601   2601       True          0    5.8e-11      550       0
+                               201     causal   1921   1921       True          0    0.0e+00       86       0
+                               201 zero-phase   1921   1921       True          0    5.8e-11      100       0
+                               202     causal   2133   2133       True          0    0.0e+00       12       0
+                               202 zero-phase   2133   2133       True          0    0.0e+00       14       0
+                               205     causal   2653   2653       True          0    0.0e+00       92       5
+                               205 zero-phase   2654   2654       True          0    3.6e-12       84       7
+                               207     causal   2287   2287       True          0    0.0e+00      421      57
+                               207 zero-phase   2296   2296       True          0    0.0e+00      400      54
+                               209     causal   3007   3007       True          0    0.0e+00        9       0
+                               209 zero-phase   3007   3007       True          0    0.0e+00        9       0
+                               210     causal   2600   2600       True          0    0.0e+00      136       0
+                               210 zero-phase   2598   2598       True          0    0.0e+00      142       0
+                               212     causal   2750   2750       True          0    0.0e+00       12       0
+                               212 zero-phase   2750   2750       True          0    0.0e+00       31       1
+                               213     causal   3249   3249       True          0    2.9e-11      169       0
+                               213 zero-phase   3248   3248       True          0    0.0e+00      186       0
+                               214     causal   2266   2266       True          0    5.8e-11       51       0
+                               214 zero-phase   2264   2264       True          0    9.1e-13       47       0
+                               215     causal   3362   3362       True          0    0.0e+00       79       0
+                               215 zero-phase   3362   3362       True          0    0.0e+00       81       0
+                               217     causal   2206   2206       True          0    2.9e-11      852      90
+                               217 zero-phase   2207   2207       True          0    0.0e+00      608      73
+                               219     causal   2153   2153       True          0    9.1e-13       54       0
+                               219 zero-phase   2155   2155       True          0    2.9e-11       43       0
+                               220     causal   2048   2048       True          0    0.0e+00        9       0
+                               220 zero-phase   2048   2048       True          0    0.0e+00        9       0
+                               221     causal   2421   2421       True          0    0.0e+00       91       0
+                               221 zero-phase   2422   2422       True          0    7.3e-12      115       0
+                               223     causal   2605   2605       True          0    4.5e-13      118       2
+                               223 zero-phase   2605   2605       True          0    0.0e+00      100       0
+                               230     causal   2257   2257       True          0    0.0e+00       10       0
+                               230 zero-phase   2257   2257       True          0    0.0e+00       10       0
+                               231     causal   1573   1573       True          0    0.0e+00       19       0
+                               231 zero-phase   1572   1572       True          0    0.0e+00       30       0
+                               232     causal   1791   1791       True          0    0.0e+00       16       0
+                               232 zero-phase   1792   1792       True          0    0.0e+00       18       0
+                               233     causal   3077   3078       True          0    0.0e+00      576       0
+                               233 zero-phase   3078   3078       True          0    0.0e+00      602       0
+                               234     causal   2753   2753       True          0    0.0e+00       11       0
+                               234 zero-phase   2753   2753       True          0    0.0e+00       22       0
+   20261027_173714_testboard01.csv     causal    365    365       True          0    0.0e+00       49       0
+   20261027_173714_testboard01.csv zero-phase    367    367       True          0    0.0e+00       46       0
+   20261027_174352_testboard02.csv     causal    368    368       True          0    0.0e+00       52       2
+   20261027_174352_testboard02.csv zero-phase    363    363       True          0    0.0e+00       42       1

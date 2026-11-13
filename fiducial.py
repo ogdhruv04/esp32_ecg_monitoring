@@ -61,7 +61,7 @@ FS = args.fs
 FIDS = ["bp", "bp+parab", "R", "R+parab", "tp2", "tp2.1"]
 DETECTOR = {"tp2", "tp2.1"}
 FILTERS = ["zero-phase", "causal"]
-C = PT.CONFIG["detector"]
+C = PT.CONFIG["detector"]          # window sizes; tp3 kept them
 
 # ------------------------------------------------------------------ filters
 def filt(x, fs, mains, harmonic, causal):
@@ -84,7 +84,7 @@ def bandpassed(y, fs):
     return out
 
 def run_detector(y, fs, check):
-    pt = PT.PanTompkins(fs)
+    pt = PT.PanTompkins(fs, timing="tp2.1")      # this script compares tp2 and tp2.1; tp3: evaluate_tp3.py
     if not check:
         pt.CORR_MIN = None
     for v in y:

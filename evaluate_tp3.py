@@ -1,5 +1,13 @@
 #!/usr/bin/env python3
-"""Before and after: tp2.1 (shipped) against the candidate tp3 (tp3_candidate.py).
+"""Before and after: tp2.1 against tp3.
+
+tp3 was the candidate in tp3_candidate.py when the result files were written
+and is the shipped timing point from 13 Nov 2026 (pan_tompkins.py). "tp2.1"
+below is PanTompkins(fs, timing="tp2.1"); "tp3" is tp3_candidate.retime() on
+those beats, which the `port` mode shows to be what the shipped detector gives.
+
+    ./evaluate_tp3.py port   --dir <main>/data/mitdb <main>/data/mitdb_heldout --captures <main>/captures
+
 
     ./evaluate_tp3.py mitdb  --dir <main>/data/mitdb <main>/data/mitdb_heldout [--grid]
     ./evaluate_tp3.py own    --captures <main>/captures
@@ -48,7 +56,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import numpy as np
 
 ap = argparse.ArgumentParser()
-ap.add_argument("mode", choices=["mitdb", "incart", "own", "bidmc"])
+ap.add_argument("mode", choices=["mitdb", "incart", "own", "bidmc", "port"])
 ap.add_argument("--dir", nargs="+", default=None)
 ap.add_argument("--captures", default="captures")
 ap.add_argument("--grid", action="store_true")
@@ -88,7 +96,7 @@ def vname(c):
 class Instrumented(PT.PanTompkins):
     """The shipped detector, recording the polarity it had decided for each beat."""
     def __init__(self, fs):
-        super().__init__(fs); self.signs = []
+        super().__init__(fs, timing="tp2.1"); self.signs = []
 
     def _finish(self):
         self.signs.append(self._polarity()[0])
@@ -368,6 +376,54 @@ def bidmc_record(rec):
     return out
 
 
+# ---------------------------------------------------------------- port check
+def port_one(job):
+    kind, path = job
+    out = []
+    if kind == "mitdb":
+        import wfdb
+        r = wfdb.rdrecord(path); names = list(r.sig_name)
+        x = frontend.resample(r.p_signal[:, names.index("MLII") if "MLII" in names else 0], float(r.fs))
+        runs = [(filt, frontend.filter_ecg(x, FS, 60.0, causal=(filt == "causal")), None) for filt in FILTERS]
+    else:
+        val, skips, _ = load_capture(path)
+        runs = [(filt, frontend.filter_ecg(val, FS, 50.0, causal=(filt == "causal"), harmonic=True), skips) for filt in FILTERS]
+    for filt, y, skips in runs:
+        old, new = PT.PanTompkins(FS, timing="tp2.1"), PT.PanTompkins(FS)
+        for pt in (old, new):
+            for i, v in enumerate(y):
+                if skips is not None and skips[i]:
+                    pt.skip(int(skips[i]))
+                pt.process(float(v))
+        cand = T3.retime(y if skips is None else by_index(y, skips), old.beats, FS)
+        n = min(len(new.beats), len(cand))
+        same = [a["bp"] for a in new.beats[:n]] == [b["bp"] for b in cand[:n]] and abs(len(new.beats) - len(cand)) <= 1
+        fl = sum(a["flagged"] != b["flagged"] for a, b in zip(new.beats[:n], cand[:n]))
+        dp = max((abs(a["pos"] - b["pos"]) for a, b in zip(new.beats[:n], cand[:n]) if not a["flagged"] and not b["flagged"]), default=0.0)
+        out.append((os.path.basename(path), filt, len(new.beats), len(cand), same, fl, dp,
+                    sum(b["flagged"] for b in new.beats), new.repicked))
+    return out
+
+
+def port_check():
+    import multiprocessing as mp
+    jobs = [("mitdb", str(p.with_suffix(""))) for d in (args.dir or []) for p in sorted(pathlib.Path(d).glob("*.hea"))]
+    cap = pathlib.Path(args.captures)
+    jobs += [("own", str(cap / f)) for f in ("20261027_173714_testboard01.csv", "20261027_174352_testboard02.csv")]
+    with mp.Pool(args.jobs) as pool:
+        rows = [r for part in pool.map(port_one, jobs) for r in part]
+    print("Is the shipped detector (pan_tompkins.py, timing tp3, streaming) the candidate that was evaluated (tp3_candidate.retime(),")
+    print("offline, on the tp2.1 detector's beats)? Same beats, same flags, and positions of unflagged beats compared.")
+    print("The streaming detector waits CORR_LAG samples longer per beat, so the last beat of a record may be missing from one of the two.\n")
+    bad = [r for r in rows if not r[4] or r[5] or r[6] > 1e-6]
+    print(f"{len(rows)} runs ({len(jobs)} records x {len(FILTERS)} filters): {len(rows) - len(bad)} identical; largest position difference "
+          f"{max(r[6] for r in rows):.1e} samples; flags differing {sum(r[5] for r in rows)}; runs with different beats {sum(1 for r in rows if not r[4])}")
+    print(f"beats {sum(r[2] for r in rows)}, flagged by the shipped detector {sum(r[7] for r in rows)}, followed peak picked again {sum(r[8] for r in rows)} times\n")
+    print(f"{'record':>34} {'filter':>10} {'beats':>6} {'cand.':>6} {'same beats':>10} {'flag diffs':>10} {'max |dpos|':>10} {'flagged':>8} {'repicks':>7}")
+    for r in rows:
+        print(f"{r[0]:>34} {r[1]:>10} {r[2]:6d} {r[3]:6d} {str(r[4]):>10} {r[5]:10d} {r[6]:10.1e} {r[7]:8d} {r[8]:7d}")
+
+
 # ---------------------------------------------------------------------- main
 def header():
     commit = subprocess.run(["git", "-C", str(HERE), "rev-parse", "--short", "HEAD"], capture_output=True, text=True).stdout.strip()
@@ -376,12 +432,12 @@ def header():
     print(f"# ./evaluate_tp3.py {' '.join(sys.argv[1:])}")
     if args.cfg:
         print(f"# DEVELOPMENT COMPARISON with overrides {args.cfg}: tp3 settings in effect {json.dumps(T3.DEFAULT if not T3.CONFIG else T3.CONFIG['timing'])}")
-    print(f"# commit {commit}{' + uncommitted changes' if dirty else ''}; detector {PT.CONFIG['version']} (tp2_config.json, unchanged)")
+    print(f"# commit {commit}{' + uncommitted changes' if dirty else ''}; shipped timing point {PT.CONFIG['version']} (tp2_config.json)")
     if T3.CONFIG:
         print(f"# tp3 candidate: {json.dumps(T3.CONFIG['timing'])}, frozen: {T3.CONFIG.get('frozen')}")
     else:
         print(f"# tp3 candidate: no tp3_candidate.json yet; defaults {json.dumps(T3.DEFAULT)}")
-    print(f"# tp3 uses tp2.1's window ({PT.CONFIG['detector']['R_BEFORE_S']} s before to {PT.CONFIG['detector']['R_AFTER_S']} s after the 5-15 Hz peak) "
+    print(f"# both use the window ({PT.CONFIG['detector']['R_BEFORE_S']} s before to {PT.CONFIG['detector']['R_AFTER_S']} s after the 5-15 Hz peak) "
           f"and template depth (POL_KEEP {PT.CONFIG['detector']['POL_KEEP']}, POL_MIN {PT.CONFIG['detector']['POL_MIN']})\n")
 
 
@@ -405,6 +461,11 @@ def main():
                       f"{len(set(r['patient'] for r in rows))} patients. HELD-OUT: run once with tp3_candidate.json frozen. Lead II.\n")
                 report_ann(rows, [("all records", lambda r: True)], per_patient=True)
         name = f"tp3_{args.mode}{'48_dev' if args.mode == 'mitdb' else '_heldout'}{'_grid' if args.grid else ''}.txt"
+    elif args.mode == "port":
+        with contextlib.redirect_stdout(buf):
+            header()
+            port_check()
+        name = "tp3_port_check.txt"
     elif args.mode == "own":
         cap = pathlib.Path(args.captures)
         with contextlib.redirect_stdout(buf):

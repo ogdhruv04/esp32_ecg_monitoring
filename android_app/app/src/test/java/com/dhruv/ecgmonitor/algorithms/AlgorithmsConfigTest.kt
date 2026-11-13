@@ -95,14 +95,12 @@ class AlgorithmsConfigTest {
         assertEquals(g.getDouble("curve_s"), com.dhruv.ecgmonitor.GuidedBreathingConfig.CURVE_S, 0.0)
     }
 
-    /** The session-level rules must come from algorithms/config.json. Until the
-     *  algorithms workstream adds a "session" block they are provisional; the
-     *  moment it does, this fails until the constants are taken from it. */
-    @Test fun sessionRulesAreProvisionalUntilConfigHasThem() {
-        assertTrue("SessionRules must say it is provisional", SessionRules.PROVISIONAL)
-        assertFalse(
-            "algorithms/config.json now has a \"session\" block: take SessionRules from it and set PROVISIONAL = false",
-            alg.has("session"),
-        )
+    /** The session-level rules come from the "session" block of algorithms/config.json. */
+    @Test fun sessionRulesMatchConfig() {
+        val s = alg.getJSONObject("session")
+        assertFalse("SessionRules are no longer provisional", SessionRules.PROVISIONAL)
+        assertEquals(s.getInt("hr_min_intervals"), SessionRules.HR_MIN_INTERVALS)
+        assertEquals(s.getInt("breathing_min_windows"), SessionRules.BR_MIN_WINDOWS)
+        assertEquals(s.getDouble("breathing_max_range_bpm"), SessionRules.BR_MAX_RANGE_BPM, 0.0)
     }
 }

@@ -29,7 +29,7 @@ BEAT = set("NLRejAaJSVEFP/fQ")
 
 class Instrumented(PT.PanTompkins):
     def __init__(self, fs):
-        super().__init__(fs); self.info = []
+        super().__init__(fs, timing="tp2.1"); self.info = []
 
     def _finish(self):
         sign, t = self._polarity()

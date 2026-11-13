@@ -61,7 +61,7 @@ class NNSeries:
     # ------------------------------------------------------------ builders
     @classmethod
     def from_beats(cls, beats, fs):
-        """From PanTompkins.beats (tp2.1 positions, flags, kinds, gaps), cleaned
+        """From PanTompkins.beats (positions, flags, kinds, gaps), cleaned
         by the detector's own rules."""
         t = np.array([b["pos"] for b in beats], dtype=float) / fs
         rr = PT.rr_history(beats, fs, depth=len(beats) + 1)

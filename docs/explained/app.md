@@ -4,6 +4,15 @@ What the Android app does, how its numbers are made, and how we know the phone c
 thing as the validated Python. Written 12 Nov 2026 on the `app` branch, revised the same day after
 review. UI rules live in `android_app/CLAUDE.md`; this file explains the measurement side.
 
+> **13 Nov 2026, from the algorithms work.** Two things below have changed since this was written.
+> The beat detector now times beats with **tp3** instead of tp2.1 (`docs/explained/algo.md`), and
+> the session-level rules are no longer provisional: 60 intervals for heart rate, 5 breathing
+> windows spanning at most 6 breaths/min (`algorithms/config.json`, `session`). The fixtures were
+> regenerated and every parity test passes. Numbers quoted below for `tb01` and `tb02` are the
+> 12 Nov ones; the current ones are in `analysis/app_session_reference.txt`: tb02's 3-minute
+> session has 81.8% NN coverage and now reports SDNN and SD2, tb01's has 78.9%. The on-phone
+> replay (`analysis/app_phone_replay_tb02.txt`) has not been repeated with tp3.
+
 ## What it does
 
 The app connects to the ring over Bluetooth and does two things.

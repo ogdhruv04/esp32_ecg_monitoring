@@ -1,4 +1,4 @@
-"""Algorithms on top of the tp2.1 beat detector: HRV and ECG-derived breathing rate.
+"""Algorithms on top of the beat detector (pan_tompkins.py): HRV and ECG-derived breathing rate.
 
     from algorithms import NNSeries, hrv, breathing_rate, modulations
     nn = NNSeries.from_beats(detector.beats, fs).window(t0, t1)

@@ -25,8 +25,10 @@ ap.add_argument("--records", nargs="*", help="records to use (default: every .he
 ap.add_argument("--lead", choices=["0", "mlii"], default="0",
                 help="channel 0 (default, as the dev results), or MLII where the record has it "
                      "(the held-out protocol in tp2_config.json)")
+ap.add_argument("--timing", choices=["tp3", "tp2.1"], default="tp3",
+                help="method ours: the shipped timing point (tp3) or the previous one")
 ap.add_argument("--check", choices=["on", "off"], default="on",
-                help="method ours: the per-beat correlation check (tp2.1) on, or off (tp2)")
+                help="method ours with --timing tp2.1: its per-beat correlation check on (tp2.1) or off (tp2)")
 ap.add_argument("--positions", choices=["tp2", "bp"], default="tp2",
                 help="method ours: score tp2 positions (default) or the 5-15 Hz peak "
                      "(tp1 location, with the 23 Oct search-back fix) - for attribution")
@@ -83,7 +85,7 @@ print(f"\nANSI/AAMI EC57 QRS detection - {len(recs)} records, {label}, "
       f"method={args.method}, tolerance={args.tolerance_ms:g} ms")
 if args.method == "ours":
     import pan_tompkins
-    tp = (f"{pan_tompkins.TIMING_POINT}" if args.check == "on" else "tp2 (correlation check off)") \
+    tp = (args.timing if args.check == "on" or args.timing == "tp3" else "tp2 (correlation check off)") \
         if args.positions == "tp2" else "bp (5-15 Hz peak, search-back fixed)"
     print(f"timing point: {tp} (pan_tompkins.py, tp2_config.json); lead: "
           f"{'MLII where present, else channel 0' if args.lead == 'mlii' else 'channel 0'}")
@@ -113,11 +115,11 @@ for rec in recs:
     if args.method == "ours":
         import pan_tompkins
         if args.positions == "bp":
-            pt = pan_tompkins.PanTompkins(fs)
+            pt = pan_tompkins.PanTompkins(fs, timing=args.timing)
             for v in y: pt.process(v)
             test = np.array(pt.bp_peaks, dtype=int)
         else:
-            pt = pan_tompkins.PanTompkins(fs)
+            pt = pan_tompkins.PanTompkins(fs, timing=args.timing)
             if args.check == "off":
                 pt.CORR_MIN = None
             for v in y: pt.process(v)
