@@ -1,0 +1,14 @@
+# QualityGateReplayTest: gate sqi2 on our own recordings through EcgPipeline (the app's own filter,
+# baseline remover and detector), one line per verdict the pipeline produced (about 4 a second).
+# before = kurtosis and band share alone; now = with the artifact check. No rhythm or quality reference exists;
+# tb02's first 42 s are known electrode-settling transients (analysis/app_live_hr.txt).
+
+tb02, first 42 s         159 verdicts | before: GOOD  47.8%  FAIR  32.7%  POOR  19.5% | now: GOOD   2.5%  FAIR  10.7%  POOR  86.8% | artifact at 132
+tb02, after 45 s         985 verdicts | before: GOOD  94.1%  FAIR   3.6%  POOR   2.3% | now: GOOD  94.1%  FAIR   3.6%  POOR   2.3% | artifact at 0
+tb01                     878 verdicts | before: GOOD  80.6%  FAIR  18.1%  POOR   1.3% | now: GOOD  75.6%  FAIR  13.0%  POOR  11.4% | artifact at 95
+dual03 chest             445 verdicts | before: GOOD 100.0%  FAIR   0.0%  POOR   0.0% | now: GOOD 100.0%  FAIR   0.0%  POOR   0.0% | artifact at 0
+dual03 finger            445 verdicts | before: GOOD  57.3%  FAIR  27.6%  POOR  15.1% | now: GOOD  57.3%  FAIR  27.6%  POOR  15.1% | artifact at 0
+dual01 chest (failed)   1116 verdicts | before: GOOD   2.4%  FAIR   4.7%  POOR  92.8% | now: GOOD   2.0%  FAIR   0.7%  POOR  97.3% | artifact at 130
+dual01 finger (failed)  1115 verdicts | before: GOOD   1.7%  FAIR   3.0%  POOR  95.2% | now: GOOD   0.0%  FAIR   1.2%  POOR  98.8% | artifact at 82
+dual02 chest (failed)    449 verdicts | before: GOOD   1.8%  FAIR  81.7%  POOR  16.5% | now: GOOD   1.8%  FAIR  81.7%  POOR  16.5% | artifact at 0
+dual02 finger            449 verdicts | before: GOOD  95.3%  FAIR   3.8%  POOR   0.9% | now: GOOD  95.3%  FAIR   3.8%  POOR   0.9% | artifact at 0

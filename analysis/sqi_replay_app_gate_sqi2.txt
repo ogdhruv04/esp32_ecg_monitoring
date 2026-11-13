@@ -1,0 +1,13 @@
+# ./sqi_replay.py   commit c9c4315; gate sqi2; settings 30 blocks, ratio 4, hold 10
+# Python replay of the app's chain, whole recording, one verdict every 64 samples. before = kurtosis and band share alone.
+# No quality reference exists for these recordings; tb02's first 42 s are known electrode-settling transients.
+
+tb02, first 42 s           165 verdicts | before: GOOD  47.9%  FAIR  34.5%  POOR  17.6% | now: GOOD   2.4%  FAIR  10.9%  POOR  86.7% | artifact at 137; GOOD turned to POOR 75
+tb02, after 45 s          1016 verdicts | before: GOOD  94.2%  FAIR   3.5%  POOR   2.3% | now: GOOD  94.2%  FAIR   3.5%  POOR   2.3% | artifact at 0; GOOD turned to POOR 0
+tb01                       909 verdicts | before: GOOD  81.5%  FAIR  17.2%  POOR   1.3% | now: GOOD  76.2%  FAIR  12.1%  POOR  11.7% | artifact at 100; GOOD turned to POOR 48
+dual03 chest               459 verdicts | before: GOOD 100.0%  FAIR   0.0%  POOR   0.0% | now: GOOD 100.0%  FAIR   0.0%  POOR   0.0% | artifact at 0; GOOD turned to POOR 0
+dual03 finger              459 verdicts | before: GOOD  57.5%  FAIR  26.8%  POOR  15.7% | now: GOOD  57.5%  FAIR  26.8%  POOR  15.7% | artifact at 0; GOOD turned to POOR 0
+dual01 chest (failed)     1152 verdicts | before: GOOD   3.1%  FAIR   3.0%  POOR  93.8% | now: GOOD   2.6%  FAIR   0.8%  POOR  96.6% | artifact at 134; GOOD turned to POOR 6
+dual01 finger (failed)    1151 verdicts | before: GOOD   0.3%  FAIR   4.6%  POOR  95.1% | now: GOOD   0.0%  FAIR   1.2%  POOR  98.8% | artifact at 84; GOOD turned to POOR 3
+dual02 chest (failed)      464 verdicts | before: GOOD   2.4%  FAIR  81.2%  POOR  16.4% | now: GOOD   2.4%  FAIR  81.2%  POOR  16.4% | artifact at 0; GOOD turned to POOR 0
+dual02 finger              464 verdicts | before: GOOD  95.0%  FAIR   4.1%  POOR   0.9% | now: GOOD  95.0%  FAIR   4.1%  POOR   0.9% | artifact at 0; GOOD turned to POOR 0

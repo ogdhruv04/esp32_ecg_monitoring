@@ -1,34 +1,67 @@
 #!/usr/bin/env python3
-# Replay the APP's quality gate (SignalQuality.kt) on the dual03 recordings:
-# causal filter -> 0.6 s rolling-median baseline removal (display buffer, which is
-# what assess() is handed) ; pSQI = energy(5-15 Hz RBJ biquads) / energy(display)
-import numpy as np, sys
-from scipy import signal as sps
-from scipy.ndimage import median_filter
-FS=256.0; WIN=int(sys.argv[1]) if len(sys.argv)>1 else 1280
-def load(p, skip=10):
-    r=np.genfromtxt(p,delimiter=",",names=True,dtype=None,encoding="utf-8",invalid_raise=False)
-    return r["value"].astype(float)[int(skip*FS):]
-def causal(x):
-    y=sps.sosfilt(sps.butter(4,0.5,"highpass",fs=FS,output="sos"),x)
-    for f in (50.,100.):
-        b,a=sps.iirnotch(f,30.,fs=FS); y=sps.lfilter(b,a,y)
-    return sps.sosfilt(sps.butter(4,40.,"lowpass",fs=FS,output="sos"),y)
-def bp(x):
-    b1,a1=sps.butter(2,5.0,"highpass",fs=FS); b2,a2=sps.butter(2,15.0,"lowpass",fs=FS)
-    return sps.lfilter(b2,a2,sps.lfilter(b1,a1,x))
-B=sys.argv[2] if len(sys.argv)>2 else "captures/20260929_163314_dual03_both3wire_c3chest_wroomfinger"
-print(f"window {WIN} samples = {WIN/FS:.1f} s, stepped every 1 s")
-for name,path in (("chest",B+"_ring.csv"),("finger",B+"_ref.csv")):
-    f=causal(load(path)); disp=f-median_filter(f,size=int(.6*FS),mode="nearest"); q=bp(f)
-    lv=[]; ks=[]; ps=[]
-    for e in range(WIN,len(f),int(FS)):
-        d=disp[e-WIN:e]; qq=q[e-WIN:e]
-        m=d.mean(); m2=((d-m)**2).mean(); k=((d-m)**4).mean()/m2**2
-        p=min(1,(qq**2).sum()/(d**2).sum())
-        ks.append(k); ps.append(p)
-        lv.append("GOOD" if k>=5 and p>=.10 else "FAIR" if k>=3.5 and p>=.05 else "POOR")
-    lv=np.array(lv)
-    print(f"  {name:6} kSQI median {np.median(ks):5.1f}  pSQI median {np.median(ps):.3f}   "
-          f"GOOD {np.mean(lv=='GOOD')*100:5.1f}%  FAIR {np.mean(lv=='FAIR')*100:5.1f}%  POOR {np.mean(lv=='POOR')*100:5.1f}%"
-          f"   -> HR shown {np.mean(lv!='POOR')*100:.0f}% of the time, RMSSD {np.mean(lv=='GOOD')*100:.0f}%")
+"""Replay the app's quality gate (signal_quality.py = SignalQuality.kt) on our recordings.
+
+    ./sqi_replay.py --captures <main>/captures      # -> analysis/sqi_replay_app_gate_sqi2.txt
+
+Each capture goes through the app's chain as Python can reproduce it: causal
+monitoring filter (scipy's Butterworth sections, an approximation of
+EcgFilter.kt), the 0.6 s running-median baseline remover, the detector's
+5-15 Hz signal, 5 s buffers, one verdict every 64 samples from the first
+second on. Lost samples close up, as in the app's buffers.
+
+"before" is the gate up to 13 Nov 2026: kurtosis and band share alone.
+"now" adds the artifact check (sqi2). Both come from the same verdicts.
+
+The earlier report, analysis/sqi_replay_app_gate_dual01-03.txt, came from the
+first version of this script: it skipped the first 10 s, stepped 1 s, used a
+centred median and a Butterworth 5-15 Hz band. Its shares are therefore not
+the "before" column here. The app's own numbers are in
+analysis/app_quality_gate_replay.txt (QualityGateReplayTest, through EcgPipeline).
+"""
+import argparse, os, pathlib, subprocess, sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import numpy as np
+import signal_quality as SQ
+from algorithms import frontend
+
+ap = argparse.ArgumentParser()
+ap.add_argument("--captures", default="captures")
+args = ap.parse_args()
+HERE = pathlib.Path(os.path.dirname(os.path.abspath(__file__)))
+FS = frontend.FS
+FILES = [("tb02", "20261027_174352_testboard02.csv"), ("tb01", "20261027_173714_testboard01.csv"),
+         ("dual03 chest", "20260929_163314_dual03_both3wire_c3chest_wroomfinger_ring.csv"),
+         ("dual03 finger", "20260929_163314_dual03_both3wire_c3chest_wroomfinger_ref.csv"),
+         ("dual01 chest (failed)", "20260929_153252_dual01_c3chest_wroomfinger_ring.csv"),
+         ("dual01 finger (failed)", "20260929_153252_dual01_c3chest_wroomfinger_ref.csv"),
+         ("dual02 chest (failed)", "20260929_155511_dual02_rbias_c3chest_wroomfinger_ring.csv"),
+         ("dual02 finger", "20260929_155511_dual02_rbias_c3chest_wroomfinger_ref.csv")]
+
+
+def shares(v):
+    return "  ".join(f"{k} {100 * np.mean(np.array(v) == k):5.1f}%" for k in ("GOOD", "FAIR", "POOR"))
+
+
+def main():
+    commit = subprocess.run(["git", "-C", str(HERE), "rev-parse", "--short", "HEAD"], capture_output=True, text=True).stdout.strip()
+    out = [f"# ./sqi_replay.py   commit {commit}; gate {SQ.VERSION}; settings {SQ.CONFIG['artifact']['memory_blocks']} blocks, "
+           f"ratio {SQ.CONFIG['artifact']['ratio_max']:g}, hold {SQ.CONFIG['artifact']['hold_blocks']}",
+           "# Python replay of the app's chain, whole recording, one verdict every 64 samples. before = kurtosis and band share alone.",
+           "# No quality reference exists for these recordings; tb02's first 42 s are known electrode-settling transients.", ""]
+    for name, fn in FILES:
+        val, skips, _ = frontend.load_capture(f"{args.captures}/{fn}")
+        at, res = SQ.replay(frontend.filter_ecg(val, FS, 50.0, causal=True, harmonic=True), FS)
+        t = at / FS
+        parts = [("first 42 s", t <= 42), ("after 45 s", t > 45)] if name == "tb02" else [("", np.ones(len(t), bool))]
+        for label, m in parts:
+            r = [q for q, k in zip(res, m) if k]
+            before = [q["level_kp"] for q in r]; now = [q["level"] for q in r]
+            lost = sum(1 for a, b in zip(before, now) if a == "GOOD" and b != "GOOD")
+            out.append(f"{(name + (', ' + label if label else '')):24} {len(r):5d} verdicts | before: {shares(before)} | now: {shares(now)} | "
+                       f"artifact at {sum(q['artifact'] for q in r)}; GOOD turned to POOR {lost}")
+    text = "\n".join(out) + "\n"; print(text, end="")
+    (HERE / "analysis" / "sqi_replay_app_gate_sqi2.txt").write_text(text)
+
+
+if __name__ == "__main__":
+    main()
