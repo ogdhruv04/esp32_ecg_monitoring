@@ -47,15 +47,29 @@ LF/HF 4–8% low; with 5% flagged (coverage 90%) HF read 16–30% high. LF and H
 withheld below 95% coverage. neurokit2's Lomb–Scargle has the same floor, so agreement with it does
 not show the floor is absent.
 
+## LF/HF is not "sympatho-vagal balance"
+
+The package computes LF/HF, but the results to report are **LF power and HF power**. The ratio
+does not measure the balance between the two autonomic branches: LF power is not a clean index of
+sympathetic activity, the branches do not act reciprocally, and the mechanics of breathing alone
+move the ratio (Billman GE. The LF/HF ratio does not accurately measure cardiac sympatho-vagal
+balance. *Front Physiol* 2013;4:26. doi:10.3389/fphys.2013.00026). If LF/HF is shown, show it
+next to LF and HF, without that interpretation.
+
 ## Choices that are ours, not the literature's
 
-- **DFA box sizes 4–16 beats.** neurokit2's default is 4–11 with half-overlapping boxes. The two
+- **DFA box sizes 4–16 beats, non-overlapping boxes.** neurokit2's default is 4–11 with half-overlapping boxes. The two
   definitions give different numbers on the same series: on 5-minute windows without holes the
   difference (ours − neurokit2's default) was up to 0.20 on the MIT-BIH development records
   (median −0.13) and up to 0.24 on the held-out ones (median +0.09)
-  (`analysis/hrv_vs_neurokit_mitdb_dev.txt`, `..._heldout.txt`). Before comparing α1 with a
-  published threshold, check which range that publication used. The range in the original paper
-  (Peng et al. 1995) was not checked for this document.
+  (`analysis/hrv_vs_neurokit_mitdb_dev.txt`, `..._heldout.txt`). **4–16 is the range of the original
+  paper**, confirmed on 13 Nov 2026: "an exponent α1 by making a least squares fit of log F(n) vs
+  log n for 4 ≤ n ≤ 16. Similarly, an exponent α2 was obtained from 16 ≤ n ≤ 64" (Peng C-K,
+  Havlin S, Stanley HE, Goldberger AL. Quantification of scaling exponents and crossover phenomena
+  in nonstationary heartbeat time series. *Chaos* 1995;5(1):82–87, p. 85). That paper computed α1
+  on series of 8192 beats and called 4096 less reliable; our 200-interval minimum is far shorter,
+  so our α1 is noisier than theirs (sd 0.07–0.09 at 200 intervals in our simulation). Before
+  comparing α1 with a published threshold, still check which range and length that publication used.
 - **pNN50 divides by the number of successive differences.** neurokit2 divides by the number of
   intervals (differences + 1). With holes only the number of differences is well defined.
 - **HF needs mean NN ≤ 1250 ms** (48 beats/min or faster). One sample per beat cannot represent

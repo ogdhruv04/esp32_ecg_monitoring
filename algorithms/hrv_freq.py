@@ -13,6 +13,13 @@ and no hole is filled.
           a grid of step 1/(oversample * T) that includes both band edges
   LF/HF, LFnu = 100 * LF / (LF + HF)
 
+LF and HF power are the results to report. LF/HF is computed because it is
+asked for, but it is not a measure of "sympatho-vagal balance": LF power is
+not a clean index of sympathetic outflow, the two branches do not act
+reciprocally, and breathing rate alone moves the ratio (Billman GE. The LF/HF
+ratio does not accurately measure cardiac sympatho-vagal balance. Front
+Physiol 2013;4:26). Show it only next to LF and HF, never alone.
+
 HF and everything using it are withheld when the mean beat rate is below twice
 the top of the HF band (mean NN above 1250 ms): beats cannot sample 0.4 Hz then.
 

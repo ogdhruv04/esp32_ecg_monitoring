@@ -10,9 +10,11 @@ None of them crosses a hole in the NN series:
              from the start of each run of consecutive accepted intervals, so
              no box spans a hole; a line is fitted in each box; F(n) = rms
              residual over all boxes; alpha1 = slope of log F(n) on log n over
-             n = 4 .. 16. That range is our choice (neurokit2 uses 4-11, and
-             the two give different numbers: docs/hrv_minimum_windows.md). Only
-             runs at least 16 long are used, so every box size sees the same data.
+             n = 4 .. 16, the range Peng et al. define alpha1 on ("a least
+             squares fit of log F(n) vs log n for 4 <= n <= 16", Chaos
+             1995;5:82-87, p. 85). neurokit2 uses 4-11 and gives a different
+             number (docs/hrv_minimum_windows.md). Only runs at least 16 long
+             are used, so every box size sees the same data.
   SampEn     Richman & Moorman 2000, m = 2, r = 0.2 x sd of the accepted
              intervals: -ln(A / B), B = pairs of length-2 templates within r
              (Chebyshev distance, self-matches excluded), A = the same for
