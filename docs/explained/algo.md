@@ -265,6 +265,80 @@ many A labels make a session "AF-like" (that rule needs its own data); the model
 on cold-started windows, so the app must either process each window that way or the model must
 be re-checked on a running detector; and there is no parity-tested Kotlin version.
 
+## Quality gate: the artifact check (14 Nov)
+
+The app only shows a heart rate when its quality gate says GOOD. The gate had two measures over
+the last 5 s: how spiky the signal is (kurtosis) and how much of its energy is in the QRS band.
+Kurtosis rewards spikes, so `tb02`'s electrode-settling transients, about 30 times the size of a
+beat, scored GOOD (`docs/explained/app.md`).
+
+Version **sqi2** adds a check on size (`signal_quality.py`, `SignalQuality.kt`, settings in
+`sqi_config.json`):
+
+- The display signal is cut into 1 s blocks. A block's **swing** is its maximum minus its minimum.
+- The **reference** is the median swing of the last 30 blocks: the size of an ordinary second,
+  which is the size of a beat as long as most seconds hold one.
+- A block whose swing is more than **4 times** the reference is an artifact. The verdict is POOR
+  for that block and the next 9, because the detector stays upset for a while after a transient.
+  The block still being filled counts as soon as its swing is over the limit.
+
+The median was chosen over a lower percentile because at 45 beats a minute a quarter of the
+seconds hold no beat, and a reference taken from those would call every beat an artifact. The
+price: when more than half of the last 30 s is artifact, the reference itself is inflated and the
+check sees less. The 10 s hold covers most of that on `tb02`.
+
+**How it was developed** (`analysis/sqi_artifact_dev.txt`, all development data). Counted on the
+seconds the old gate called GOOD:
+
+| Data | Old-GOOD seconds | Turned to POOR |
+|---|---|---|
+| `tb02`, first 42 s (settling transients) | 20 | 19 |
+| `tb02` after 45 s | 240 | 0 |
+| dual03, both sites | 177 | 0 |
+| All 48 MIT-BIH Arrhythmia records | 69,088 | 0 |
+| MIT-BIH Noise Stress Test, clean segments | 11,440 | 0 |
+| MIT-BIH Noise Stress Test, noisy segments | 3,517 | 3 |
+| `tb01` (a 16 s burst of large swings) | 187 | 11 |
+
+Thresholds of 3, 4 and 5 all reject 19 of the 20 settling seconds and none of the clean ones on
+our recordings; at 3 a few MIT-BIH seconds (0.02%) start to be rejected, at 6 the settling catch
+drops to 17. So 4.
+
+**The noise stress test does not exercise this check.** Its noise is continuous electrode-motion
+noise, not isolated large swings, so the check does nothing there, and the old gate already
+handles heavy noise: it calls 96% of seconds GOOD at 24 dB, 41% at 12 dB and 1.6% at 0 dB. That
+database only shows the check does no harm.
+
+**On our recordings, through the app's own pipeline** (`analysis/app_quality_gate_replay.txt`,
+written by `QualityGateReplayTest`):
+
+| Recording | GOOD / FAIR / POOR before | Now |
+|---|---|---|
+| `tb02`, first 42 s | 47.8 / 32.7 / 19.5% | 2.5 / 10.7 / 86.8% |
+| `tb02`, after 45 s | 94.1 / 3.6 / 2.3% | unchanged |
+| `tb01` | 80.6 / 18.1 / 1.3% | 75.6 / 13.0 / 11.4% |
+| dual03 chest | 100 / 0 / 0% | unchanged |
+| dual03 finger | 57.3 / 27.6 / 15.1% | unchanged |
+| dual01 chest (failed run) | 2.4 / 4.7 / 92.8% | 2.0 / 0.7 / 97.3% |
+| dual01 finger (failed run) | 1.7 / 3.0 / 95.2% | 0.0 / 1.2 / 98.8% |
+| dual02, both | 1.8 / 81.7 / 16.5% and 95.3 / 3.8 / 0.9% | unchanged |
+
+The Python replay (`sqi_replay.py`, `analysis/sqi_replay_app_gate_sqi2.txt`) gives the same picture
+(`tb02`'s first 42 s: GOOD 47.9% before, 2.4% now). The phone's gate is pinned to the Python
+reference by `SignalQualityParityTest` on four stretches of real signal: same kurtosis, band share
+and swing ratio to 1e-9 and the same verdict at every assessment.
+
+Limits:
+
+- **It rests on one settling episode and one burst**, both in development data. There is no
+  unseen recording with transients to test it on. Bench session 1 is the first chance.
+- **dual03's finger channel is GOOD only 57% of the time in the app's pipeline**, before and after
+  this change: its kurtosis has a median of 5.7 against a threshold of 5. The older report that
+  said 100% (`analysis/sqi_replay_app_gate_dual01-03.txt`) came from an approximate replay with a
+  centred baseline median. The kurtosis and band-share thresholds are still not calibrated.
+- The check needs most seconds to hold a beat. Below about 30 beats a minute it would misfire.
+- It looks at size only. An artifact the size of a beat passes it.
+
 ## Data and how it is split
 
 `docs/datasets.md` has the licences. In short: all 48 MIT-BIH records are development data from

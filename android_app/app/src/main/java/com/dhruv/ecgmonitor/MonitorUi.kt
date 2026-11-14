@@ -475,7 +475,7 @@ fun DiagnosticsScreen(state: MonitorUiState, actions: MonitorActions, geometry: 
             Field("Verdict", sq.level.name.lowercase().replaceFirstChar { it.uppercase() })
             Field("kSQI, kurtosis", "%.1f".format(sq.kSqi))
             Field("pSQI, 5–15 Hz share", "%.2f".format(sq.pSqi))
-            Field("Largest swing, last 10 s", "%.1f× a usual second%s".format(sq.artifactRatio, if (sq.artifact) " (artifact)" else ""))
+            Field("Largest swing", "%.1f× a usual second, last 10 s%s".format(sq.artifactRatio, if (sq.artifact) " (artifact)" else ""))
             Field("Mains share, raw", "%.1f%%".format(100 * p.mainsShare))
         } else {
             Field("Verdict", "waiting for 1 s of data")

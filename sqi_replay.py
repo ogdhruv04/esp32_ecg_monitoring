@@ -58,7 +58,8 @@ def main():
             before = [q["level_kp"] for q in r]; now = [q["level"] for q in r]
             lost = sum(1 for a, b in zip(before, now) if a == "GOOD" and b != "GOOD")
             out.append(f"{(name + (', ' + label if label else '')):24} {len(r):5d} verdicts | before: {shares(before)} | now: {shares(now)} | "
-                       f"artifact at {sum(q['artifact'] for q in r)}; GOOD turned to POOR {lost}")
+                       f"artifact at {sum(q['artifact'] for q in r)}; GOOD turned to POOR {lost} | "
+                       f"kSQI median {np.median([q['k'] for q in r]):5.1f}  pSQI median {np.median([q['p'] for q in r]):.3f}")
     text = "\n".join(out) + "\n"; print(text, end="")
     (HERE / "analysis" / "sqi_replay_app_gate_sqi2.txt").write_text(text)
 

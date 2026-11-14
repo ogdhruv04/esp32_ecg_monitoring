@@ -44,6 +44,10 @@ detections. The quality gate called those windows GOOD, because kurtosis rewards
 (`analysis/app_live_hr.txt`, with a plot). The detector's window is unchanged, since detection
 depends on it; only the display moved.
 
+*14 Nov, from the algorithms session:* the gate now has a size check (sqi2) that turns these
+windows to POOR: in this replay `tb02`'s first 42 s go from GOOD at 47.8% of verdicts to 2.5%
+(`analysis/app_quality_gate_replay.txt`; `docs/explained/algo.md`). The live-rate rule above stays.
+
 `LiveHeartRateTest` replays `tb02` and `dual03` through the pipeline and checks every GOOD moment
 (4 a second). The reference is independent of the streaming detector: R peaks found offline by
 NeuroKit2 on the zero-phase-filtered capture (`make_live_hr_fixtures.py`). Where the reference
