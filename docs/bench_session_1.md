@@ -288,8 +288,10 @@ With the reference board's ECG electrodes on:
 
 ## 6. Calibration-source test (#21 and #23)
 
-Unchanged from `bench_session_plan.md`, step 2, which has the reasoning and the register
-decoding. Commands go to a board as single characters: `printf e > /dev/ttyUSB0` (reference) or
+**Run this step as written in `docs/amplitude_investigation.md` ("Bench A/B protocol"),** which
+replaces 6a and 6b below with a 10-minute d/e/d/e/d sequence, a scale capture, an idle pair,
+the read-out commands (`amplitude_check.py`) and decision rules fixed in advance. The text
+below is kept for the register decoding and the reasoning in `bench_session_plan.md`, step 2. Commands go to a board as single characters: `printf e > /dev/ttyUSB0` (reference) or
 `/dev/ttyACM0` (ring), from a second terminal while a capture is running. Each one echoes the
 registers read back from the chip, `# cfg emux:...... cal:...... mode:x (set)`, and the same
 line without `(set)` repeats every 5 s, so **check the capture's `.log` before trusting its
@@ -312,8 +314,9 @@ label `b1_cal_<board>_c`. *Prediction from the nominal scale* (1 mV = 2621.44 co
 the formula is from the MAX30001 datasheet, not ours): each edge of the square wave is a
 1.0 mV step, about 2,621 codes. The open question is a factor of about ten (dual03 spans
 0.136 / 0.153 mV under that scale, `analysis/nominal_mv_scale_dual03.txt`), not a few percent.
-The script that measures the step is not written yet; it is part of the Algorithms stream's
-week-2 analysis of this session.
+The step cannot be read off a plateau, because the 40 Hz low-pass leaves little more than the
+16 Hz fundamental: `./amplitude_check.py --cal` measures the fundamental (1668.9 codes
+predicted) and converts it.
 
 - [ ] **Decide the configuration for step 7 now** (`d` or `e`), from 6a, and put it in step 7's
       label. If 6a is not clear on the day, use `d`, which is what dual03 used.
