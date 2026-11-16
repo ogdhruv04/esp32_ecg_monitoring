@@ -1,0 +1,6 @@
+# amplitude_check.py, mode idle; raw codes, ETAG 0/2 only, first 10 s dropped
+# nominal scale 2621.44 codes/mV (datasheet check #23, unverified); amplifier noise 0.53 typ / 1.0 max uV rms in 0.05-40 Hz (datasheet p.4) = 1.39 / 2.62 codes
+file	seconds	index_gaps	raw_mean	windows	sd_codes	sd_uV	pp_codes	mains_share	rms_100ms_codes
+20260929_152557_linktest_noelectrodes_ring.csv	164.0	0	-118.8	32	1.42	0.54	9	13.7%	1.17
+20260929_152557_linktest_noelectrodes_ref.csv	164.0	0	-90.6	32	3.22	1.23	17	69.8%	3.08
+# generated 2026-11-16 by: ./amplitude_check.py --idle captures/20260929_152557_linktest_noelectrodes_ring.csv captures/20260929_152557_linktest_noelectrodes_ref.csv --label linktest_noelectrodes
