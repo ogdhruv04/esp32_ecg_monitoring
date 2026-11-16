@@ -64,6 +64,7 @@ against the wearer's own baseline. Each one is validated, and each one is shown 
   - **For App:** `SignalQuality.Result` has `artifact` and `artifactRatio`; `EcgPipeline` calls `quality.track()` per display sample; `headline()` takes `artifact` and says "Hold still"; Diagnostics shows the swing ratio. dual03's finger channel is GOOD only 57% of the time in the pipeline (kurtosis near its threshold), which the earlier replay report missed.
 - [ ] PPG: beat detection, pulse-rate variability vs ECG HRV (agreement), pulse arrival time, perfusion index; SpO2 only as an uncalibrated ratio
 - [ ] GSR: tonic/phasic decomposition, skin-response count; temperature slope
+  - 16 Nov, **WESAD instead of bench data, not finished**: plan frozen in `docs/wesad_plan.md` (commit `300b751`) before any signal was read. Done and pushed: loader (`algorithms/wesad.py`), `ppg.py`, `eda.py`, `temp.py`, `arousal.py`, settings in `algorithms/config.json`, 36 unit tests on synthetic data. WESAD.zip is in `<main>/data/wesad_download` (SHA-256 `5e15d260…38fd71c`), S2 and S3 extracted to `<main>/data/wesad_cache`. **Not done: `wesad_features.py`, `wesad_evaluate.py`, the 2-subject pilot.** No WESAD signal has been processed and there is no result. The session ended after four WSL crashes; the full Python test suite was not re-run after the last one.
 
 ### Firmware
 - [ ] Fixes from bench session 1; the new sensor streams over BLE, if they're on the BLE board
