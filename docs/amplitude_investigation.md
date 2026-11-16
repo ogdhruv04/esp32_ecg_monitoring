@@ -17,14 +17,19 @@ MAX30003 Rev 3 PDF in `docs/`; our numbers are from the files named beside them.
 - **Our recordings do not settle it.** They make a wrong code-to-millivolt scale unlikely
   (the electrode-free noise floor matches the datasheet's amplifier noise on the nominal
   scale). They do not separate "the calibration source loads the input" from "the signal is
-  genuinely small at these electrode positions", and the noise in dual03 leans slightly
-  towards the second.
+  genuinely small at these electrode positions". The noise in dual03 leans slightly towards
+  the second; the placement fact below leans towards the first.
+- **The finger clips were on different hands** (Dhruv, 16 Nov), so the finger pair is a
+  lead-I-like lead and 38 µV is far too small for it. Both sites, on two boards, are then
+  about ten times low. One shared cause is more likely than two unlucky placements, and what
+  the boards share is the chip configuration. Loading is the leading suspect; it is still
+  unproven.
 - **The 10-minute bench test below separates all three**, with the decision rules written
   down before the data. The firmware option that boots in `e` is built and is not the
   default.
-- **One thing I need from you:** where exactly the clips were in dual03 (see
-  [Expected amplitude](#expected-amplitude-for-our-placements)). If both finger clips were
-  on the same hand, 38 µV is roughly what that should give, and only the chest is anomalous.
+- **The software is not the cause.** The raw codes leaving the chip are already small, and the
+  app draws them on the same nominal scale (`EcgTrace.kt`, `NOMINAL_CODES_PER_MV`): at
+  40 mm/mV a 38 µV QRS is 1.5 mm tall and a 103 µV one 4.1 mm.
 
 ## What `begin()` leaves, and how it could attenuate
 
@@ -102,18 +107,19 @@ All from `d` (there is no other configuration on file yet).
 ## Expected amplitude for our placements
 
 `docs/Finger_vs_Chest_ECG_Result.docx` says only that the chest pair "is not a clinical
-Lead II" and the finger pair "is not a clinical Lead I". **The repo does not record where the
-clips were**, and the expected amplitude depends on that more than on anything else.
+Lead II" and the finger pair "is not a clinical Lead I". The finger clips were on different
+hands (Dhruv, 16 Nov), which is the second row below. **The chest positions and spacing are
+still not recorded.**
 
 | Placement | Expected QRS | Source | Ours, nominal |
 |---|---|---|---|
 | Standard lead II (right arm to left leg, or the torso equivalents) | R wave about 1 mV typical; one reference table gives 1.5 mV with 0.5 mV as the lower normal limit. Below 0.5 mV peak-to-peak in every limb lead is clinically "low voltage". | [1], [2], [3] | chest 0.103 mV: about 10 times below typical, 5 times below the low-voltage line |
 | Lead I (one hand to the other: a ring touched by the opposite hand) | A limb lead, usually smaller than lead II. I have no sourced range; from memory 0.3–1 mV. | from memory, unchecked | fingers 0.038 mV: 13 times below the 0.5 mV low-voltage line |
 | Two chest electrodes a few centimetres apart | 0.7–2.33 mV across the bipolar leads of one 36-patient study, about 1.9 mV at 8.7 cm over the left ventricle; amplitude falls as the spacing shrinks. A 6 cm pair still gives a usable signal. | [4], [5] | chest 0.103 mV: 7 times below the bottom of that range |
-| Both finger clips on the same hand | Tens of microvolts: both electrodes are far from the heart and close together. | from memory, unchecked | fingers 0.038 mV would be **as expected** |
+| Both finger clips on the same hand (not our case) | Tens of microvolts: both electrodes are far from the heart and close together. | from memory, unchecked | — |
 
-So the chest amplitude is anomalous for every chest placement I can find figures for. The
-finger amplitude is anomalous only if the two clips were on different hands. The on-chip
+So both amplitudes are anomalous: the chest for every chest placement I can find figures for,
+and the fingers for a hand-to-hand lead. The on-chip
 40 Hz low-pass also shaves the R peak; that is not quantified here and cannot be a factor of
 five.
 
@@ -122,7 +128,7 @@ five.
 | # | Hypothesis | What supports it | What weakens it | Test |
 |---|---|---|---|---|
 | 1 | **The calibration sources load the inputs** (#21). | The datasheet forbids this configuration on a connected subject and draws the source on the amplifier node. Both boards are affected, as a shared register setting would be. | No impedance figure exists. The noise argument above: it would require 30–50 µV of true body noise at rest. | `d` / `e` A/B, step 1 below. |
-| 2 | **The signal is genuinely small at these electrode positions.** | Noise level and QRS-to-noise ratio look like an ordinary small lead. Both leads are known to be non-standard. Certain for the fingers if both clips were on one hand. | The chest reads below every published short-spacing figure I found. | Placement facts, then the wide-lead control, step 4 below. |
+| 2 | **The signal is genuinely small at these electrode positions.** | Noise level and QRS-to-noise ratio look like an ordinary small lead. Both leads are known to be non-standard. | The chest reads below every published short-spacing figure I found, and the fingers were on different hands, so it would take two independent placements both ten times low. | Placement facts, then the wide-lead control, step 4 below. |
 | 3 | **The code-to-millivolt scale or the gain is not what we assume** (#23, #15). | The formula is from the MAX30001 datasheet, and no capture log records `CNFG_ECG` read back. | The electrode-free noise floor matches the datasheet on the nominal scale. | `c`, step 2 below. It measures scale and gain together. |
 | 4 | Something in the electrode path of both boards (cable, clips, the 49.9 kΩ with dry contact). | — | In `e` the amplifier's input impedance is 1500 MΩ (p.3), so series resistance of this size costs nothing. | Only if 1–3 all fail. |
 
