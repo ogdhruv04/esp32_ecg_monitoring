@@ -286,5 +286,162 @@
       300.0,
       150.0
     ]
+  },
+  "wesad": {
+    "frozen": "2026-11-16",
+    "plan": "docs/wesad_plan.md, frozen 16 Nov 2026 before any WESAD signal was read",
+    "what": "WESAD (Schmidt et al., ICMI 2018) as development data for the PPG, EDA, temperature and arousal code. Read by algorithms/wesad.py.",
+    "subjects": [
+      "S2",
+      "S3",
+      "S4",
+      "S5",
+      "S6",
+      "S7",
+      "S8",
+      "S9",
+      "S10",
+      "S11",
+      "S13",
+      "S14",
+      "S15",
+      "S16",
+      "S17"
+    ],
+    "pilot": [
+      "S2",
+      "S3"
+    ],
+    "fs": {
+      "chest": 700.0,
+      "bvp": 64.0,
+      "eda": 4.0,
+      "temp": 4.0
+    },
+    "labels": {
+      "1": "baseline",
+      "2": "stress",
+      "3": "amusement",
+      "4": "meditation"
+    },
+    "window_s": 180.0,
+    "step_s": 30.0,
+    "mains_hz": 50.0,
+    "chest_temp_withheld": [
+      "S2",
+      "S17"
+    ],
+    "match_tol_s": 0.15
+  },
+  "ppg": {
+    "frozen": "2026-11-16",
+    "plan": "docs/wesad_plan.md, frozen 16 Nov 2026 before any WESAD signal was read",
+    "what": "Pulse detection (algorithms/ppg.py): Elgendi et al. 2013, PLoS ONE 8(10): e76585, with the paper's windows and offset. The filter order, the merge distance and the timing point are ours and were set before any data was read.",
+    "band_hz": [
+      0.5,
+      8.0
+    ],
+    "filter_order": 2,
+    "peak_window_s": 0.111,
+    "beat_window_s": 0.667,
+    "beat_offset": 0.02,
+    "min_delay_s": 0.3,
+    "min_pulses": 60
+  },
+  "eda": {
+    "frozen": "2026-11-16",
+    "plan": "docs/wesad_plan.md, frozen 16 Nov 2026 before any WESAD signal was read",
+    "what": "Tonic and phasic skin conductance (algorithms/eda.py): cvxEDA, Greco et al., IEEE Trans Biomed Eng 2016;63(4):797-804, published defaults, through neurokit2 and cvxopt, on the whole recording at fs_hz with the input standardised. Skin responses are local maxima of the phasic component.",
+    "fs_hz": 4.0,
+    "tau0": 2.0,
+    "tau1": 0.7,
+    "delta_knot_s": 10.0,
+    "alpha": 0.0008,
+    "gamma": 0.01,
+    "scr_min_us": 0.01,
+    "scr_min_separation_s": 1.0,
+    "scr_min_us_sensitivity": 0.05
+  },
+  "temp": {
+    "frozen": "2026-11-16",
+    "plan": "docs/wesad_plan.md, frozen 16 Nov 2026 before any WESAD signal was read",
+    "what": "Temperature slope (algorithms/temp.py): least-squares slope over the window, deg C per minute; withheld outside the plausible range.",
+    "fs_hz": 4.0,
+    "valid_range_c": [
+      20.0,
+      42.0
+    ]
+  },
+  "arousal": {
+    "frozen": "2026-11-16",
+    "plan": "docs/wesad_plan.md, frozen 16 Nov 2026 before any WESAD signal was read",
+    "what": "Arousal index (algorithms/arousal.py): features z-scored against the subject's own reference segment, logistic regression, leave-one-subject-out.",
+    "min_reference_windows": 5,
+    "sd_floor_share": 0.5,
+    "z_clip": 10.0,
+    "C": 1.0,
+    "class_weight": "balanced",
+    "threshold": 0.5,
+    "bootstrap": 2000,
+    "seed": 20261116,
+    "features": {
+      "ecg_time": [
+        "hr",
+        "ln_rmssd",
+        "pnn50",
+        "ln_sdnn",
+        "ln_sd2"
+      ],
+      "ecg_full": [
+        "hr",
+        "ln_rmssd",
+        "pnn50",
+        "ln_sdnn",
+        "ln_sd2",
+        "ln_lf",
+        "ln_hf",
+        "dfa_alpha1"
+      ],
+      "bvp": [
+        "pr",
+        "ln_rmssd_p",
+        "ln_sdnn_p",
+        "ln_amp"
+      ],
+      "eda": [
+        "scl",
+        "scl_slope",
+        "scr_rate",
+        "phasic_mean"
+      ],
+      "temp": [
+        "temp_slope"
+      ]
+    },
+    "models": {
+      "ECG": [
+        "ecg_full"
+      ],
+      "BVP": [
+        "bvp"
+      ],
+      "EDA": [
+        "eda_wrist"
+      ],
+      "TEMP": [
+        "temp_wrist"
+      ],
+      "Wrist-only": [
+        "bvp",
+        "eda_wrist",
+        "temp_wrist"
+      ],
+      "All four": [
+        "ecg_full",
+        "bvp",
+        "eda_wrist",
+        "temp_wrist"
+      ]
+    }
   }
 }
