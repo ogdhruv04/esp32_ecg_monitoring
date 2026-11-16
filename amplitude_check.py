@@ -18,6 +18,10 @@ and 40 Hz low-pass left), each beat referred to its own baseline window:
            beat, rms in the 100 ms window ending 250 ms before the beat, linear
            trend removed; median over beats. (Without subtracting the median
            beat the window holds the previous T wave at 100 bpm.)
+  hf_noise the same window, sd of the first difference / sqrt(2): blind to slow
+           content (T-wave variation, wander), equal to the rms for white noise
+           and lower for band-limited noise, so compare it only with the same
+           column of an --idle capture, never with a datasheet figure
 The nominal scale is 1 mV = 2621.44 codes (datasheet check #23, unverified).
 
 --idle: no beat detection; sd, peak-to-peak and mains share in 5 s windows,
@@ -82,11 +86,12 @@ def ecg(idx, x):
     beats = np.array(beats)
     m = np.median(beats, axis=0)
     noise = [detrended_rms(b[b0:b1] - m[b0:b1]) for b in beats]
+    hf = [np.std(np.diff(b[b0:b1] - m[b0:b1])) / np.sqrt(2) for b in beats]
     q = m[lo - int(0.06 * FS):lo + int(0.06 * FS) + 1]
     tw = m[lo + int(0.15 * FS):lo + int(0.40 * FS) + 1]
     r = q[np.argmax(np.abs(q))]; tt = tw[np.argmax(np.abs(tw))]
     return dict(beats=len(beats), qrs_pp=q.max() - q.min(), r=r, t=tt,
-                noise=float(np.median(noise)), noise_p10=float(np.percentile(noise, 10)))
+                noise=float(np.median(noise)), noise_p10=float(np.percentile(noise, 10)), hf=float(np.median(hf)))
 
 
 def detrended_rms(w):
@@ -107,7 +112,8 @@ def idle(x):
     wins = [x[s:s + n] for s in range(0, len(x) - n + 1, n)]
     k = int(0.10 * FS)
     short = [detrended_rms(x[s:s + k]) for s in range(0, len(x) - k + 1, k)]
-    return dict(windows=len(wins), sd=float(np.median([w.std() for w in wins])), short=float(np.median(short)),
+    hf = [np.std(np.diff(x[s:s + k])) / np.sqrt(2) for s in range(0, len(x) - k + 1, k)]
+    return dict(windows=len(wins), hf=float(np.median(hf)), sd=float(np.median([w.std() for w in wins])), short=float(np.median(short)),
                 pp=float(np.median([w.max() - w.min() for w in wins])),
                 mains=float(np.median([mains_share(w) for w in wins])))
 
@@ -134,9 +140,9 @@ p(f"# nominal scale {CODES_PER_MV:.2f} codes/mV (datasheet check #23, unverified
   f"= {AMP_NOISE_UV[0] * CODES_PER_MV / 1000:.2f} / {AMP_NOISE_UV[1] * CODES_PER_MV / 1000:.2f} codes")
 if mode == "ecg":
     p("file\tseconds\tindex_gaps\traw_mean\traw_median\tbeats\tqrs_pp_codes\tqrs_pp_uV\tr_codes\tt_codes\t|t/r|\t"
-      "noise_rms_codes\tnoise_rms_uV\tnoise_p10_codes\tqrs_pp/noise")
+      "noise_rms_codes\tnoise_rms_uV\tnoise_p10_codes\tqrs_pp/noise\thf_noise_codes")
 elif mode == "idle":
-    p("file\tseconds\tindex_gaps\traw_mean\twindows\tsd_codes\tsd_uV\tpp_codes\tmains_share\trms_100ms_codes")
+    p("file\tseconds\tindex_gaps\traw_mean\twindows\tsd_codes\tsd_uV\tpp_codes\tmains_share\trms_100ms_codes\thf_noise_codes")
 else:
     p(f"# predicted for a {args.cal_mv:g} mV step on the nominal scale: fundamental "
       f"{2 / np.pi * args.cal_mv * CODES_PER_MV:.1f} codes, step {args.cal_mv * CODES_PER_MV:.1f} codes")
@@ -150,10 +156,10 @@ for path in args.files:
         r = ecg(idx, x)
         p(f"{head}\t{x.mean():.1f}\t{np.median(x):.0f}\t{r['beats']}\t{r['qrs_pp']:.0f}\t{uv(r['qrs_pp']):.1f}\t"
           f"{r['r']:.0f}\t{r['t']:.0f}\t{abs(r['t'] / r['r']):.2f}\t{r['noise']:.2f}\t{uv(r['noise']):.2f}\t"
-          f"{r['noise_p10']:.2f}\t{r['qrs_pp'] / r['noise']:.0f}")
+          f"{r['noise_p10']:.2f}\t{r['qrs_pp'] / r['noise']:.0f}\t{r['hf']:.2f}")
     elif mode == "idle":
         r = idle(x)
-        p(f"{head}\t{x.mean():.1f}\t{r['windows']}\t{r['sd']:.2f}\t{uv(r['sd']):.2f}\t{r['pp']:.0f}\t{100 * r['mains']:.1f}%\t{r['short']:.2f}")
+        p(f"{head}\t{x.mean():.1f}\t{r['windows']}\t{r['sd']:.2f}\t{uv(r['sd']):.2f}\t{r['pp']:.0f}\t{100 * r['mains']:.1f}%\t{r['short']:.2f}\t{r['hf']:.2f}")
     else:
         r = cal(idx, x)
         p(f"{head}\t{r['periods']}\t{r['a1']:.1f}\t{r['a3']:.1f}\t{r['pp']:.1f}\t{r['resid']:.2f}\t"

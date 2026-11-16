@@ -1,6 +1,6 @@
 # amplitude_check.py, mode ecg; raw codes, ETAG 0/2 only, first 10 s dropped
 # nominal scale 2621.44 codes/mV (datasheet check #23, unverified); amplifier noise 0.53 typ / 1.0 max uV rms in 0.05-40 Hz (datasheet p.4) = 1.39 / 2.62 codes
-file	seconds	index_gaps	raw_mean	raw_median	beats	qrs_pp_codes	qrs_pp_uV	r_codes	t_codes	|t/r|	noise_rms_codes	noise_rms_uV	noise_p10_codes	qrs_pp/noise
-20260929_163314_dual03_both3wire_c3chest_wroomfinger_ring.csv	105.6	0	-116.8	-111	179	270	103.0	-231	-17	0.07	14.08	5.37	11.82	19
-20260929_163314_dual03_both3wire_c3chest_wroomfinger_ref.csv	105.7	0	-117.5	-116	179	100	38.1	-93	-32	0.34	6.29	2.40	4.38	16
+file	seconds	index_gaps	raw_mean	raw_median	beats	qrs_pp_codes	qrs_pp_uV	r_codes	t_codes	|t/r|	noise_rms_codes	noise_rms_uV	noise_p10_codes	qrs_pp/noise	hf_noise_codes
+20260929_163314_dual03_both3wire_c3chest_wroomfinger_ring.csv	105.6	0	-116.8	-111	179	270	103.0	-231	-17	0.07	14.08	5.37	11.82	19	7.53
+20260929_163314_dual03_both3wire_c3chest_wroomfinger_ref.csv	105.7	0	-117.5	-116	179	100	38.1	-93	-32	0.34	6.29	2.40	4.38	16	3.67
 # generated 2026-11-16 by: ./amplitude_check.py captures/20260929_163314_dual03_both3wire_c3chest_wroomfinger_ring.csv captures/20260929_163314_dual03_both3wire_c3chest_wroomfinger_ref.csv --label dual03
