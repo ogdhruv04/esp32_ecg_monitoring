@@ -36,3 +36,11 @@ src_build_test/
 
 # Kotlin 2.x compiler session data
 android_app/.kotlin/
+
+# INPUT_DEFAULT=e variant builds (build.sh, build_ref.sh, build_test.sh)
+build_e/
+build_ref_e/
+build_test_e/
+src_build_e/
+src_build_ref_e/
+src_build_test_e/

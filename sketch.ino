@@ -857,6 +857,12 @@ void setup()
     else                                  Serial.println("# WARNING: setSamplingRate failed");
     delay(50);
 
+#ifdef INPUT_DEFAULT_E
+    // Before the interrupt is armed; setInputConfig() also resets the FIFO.
+    Serial.println("# build: INPUT_DEFAULT_E - boots in 'e' (electrodes only, calibration sources off)");
+    setInputConfig("e-default", 0x000000UL, 0x000000UL);
+#endif
+
     // Before the ECG interrupt is armed, so the probe's delays cost no samples.
     initSensors("");
 
@@ -911,6 +917,13 @@ void setRbias(bool on)
 //        chip, ECGP <- VCALP, ECGN <- VMID; bipolar 0.5 mV, ~16 Hz, 50% duty
 // The active values are read back from the chip and logged on every change and
 // every 5 s ("# cfg ..."), so every capture log records what it was taken in.
+//
+// Build option, OFF by default: -DINPUT_DEFAULT_E (INPUT_DEFAULT=e ./build.sh,
+// into build_e/) makes 'e' the power-up configuration, so a board that resets
+// mid-session does not fall back to the begin() values. It changes nothing
+// else, and 'd' still restores what begin() leaves. Whether 'e' becomes the
+// default for every build waits for the bench A/B result
+// (docs/amplitude_investigation.md); until then both boards run the default.
 static const char *inputMode = "begin";
 
 void logInputConfig(const char *why)
