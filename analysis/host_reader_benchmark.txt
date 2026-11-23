@@ -1,0 +1,6 @@
+# ./test_capture_sensors.py --bench   2026-11-10 21:38
+# One reader thread taking 62-byte lines from a raw pty that another thread
+# writes as fast as it is accepted. A pty is not the WSL/usbip serial path: this
+# compares the two readers, it is not a capacity figure for the real link.
+  pyserial readline() :     2786 lines/s    172.7 kB/s  (27859 lines in 10.0 s, 0 not intact)
+  LineReader          :   162406 lines/s  10069.1 kB/s  (1624064 lines in 10.0 s, 0 not intact)

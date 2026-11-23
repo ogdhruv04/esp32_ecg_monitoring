@@ -71,8 +71,10 @@ Measure the step as the mean of the samples just after each edge has settled min
 just before it, over all edges. The on-chip 0.5 Hz high-pass and 40 Hz low-pass bias that by a
 few percent at 16 Hz, which does not matter here: the open question is a factor of about ten
 (dual03 spans 0.136 / 0.153 mV under the nominal scale, `analysis/nominal_mv_scale_dual03.txt`
-on the `ui-redesign` branch), not a few percent. A small script for this measurement still has
-to be written.
+on the `ui-redesign` branch), not a few percent. **Corrected 16 Nov:** the edges cannot be
+measured that way, because at 16 Hz the 40 Hz low-pass leaves little more than the fundamental.
+`./amplitude_check.py --cal` measures the fundamental instead (1668.9 codes predicted); see
+`docs/amplitude_investigation.md`, which also has the current version of this whole step.
 
 **Together, 2a and 2b answer:** why is the signal so small? Scale right and `e` larger → the
 calibration routing attenuates, and `e` (or OPENP/OPENN-correct settings) becomes the default.
