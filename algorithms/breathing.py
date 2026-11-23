@@ -106,7 +106,14 @@ def _spectrum(t, v, t0, t1, n_all, f, cfg):
     if n_all and len(v) / n_all < cfg["min_beat_coverage"]:
         return None, (f"{100 * len(v) / n_all:.0f}% of the window's beats usable, "
                       f"needs {100 * cfg['min_beat_coverage']:.0f}%"), len(v)
+    scale = float(np.max(np.abs(v)))
     v = v - np.polyval(np.polyfit(t - t0, v, 1), t - t0)
+    # Zero-variance guard. A constant (or exactly linear) series leaves only rounding error
+    # after detrending, and its normalised spectrum can still show a "peak": 4.49 breaths/min
+    # for a constant R-amplitude series on numpy 2.5 / scipy 1.18. A residue at floating-point
+    # level (1e-9 of the series' size) is no variation; real series vary at about 1e-2.
+    if not float(np.std(v)) > 1e-9 * scale:
+        return None, "no variation in the series", len(v)
     p = lomb_scargle(t, v, f)
     s = float(p.sum())
     if not s > 0:

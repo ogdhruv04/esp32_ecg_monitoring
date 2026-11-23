@@ -1,0 +1,69 @@
+# Test run for the Phase-I report freeze (tag phase1-report), 23 Nov 2026
+# Tree: merge commit 9872455 (main + fw + algo) plus the zero-variance guard in algorithms/breathing.py,
+# its test case and the exact pins in requirements.txt, committed together with this file.
+# Python 3.13.9; neurokit2==0.2.13 numpy==2.4.2 pytest==9.1.1 scipy==1.17.0 
+# Android: ./gradlew testDebugUnitTest --no-daemon --max-workers=1, in four batches (WSL memory cap)
+
+== Python: python3 -m pytest tests -q ==
+117 passed in 17.41s
+tests per file:
+       7 tests/test_algorithms_af.py
+      13 tests/test_algorithms_arousal.py
+      13 tests/test_algorithms_breathing.py
+       8 tests/test_algorithms_core.py
+       9 tests/test_algorithms_ectopic.py
+       8 tests/test_algorithms_hrv_freq.py
+      15 tests/test_algorithms_hrv_nonlinear.py
+       7 tests/test_algorithms_hrv_time.py
+      13 tests/test_algorithms_ppg_eda_temp.py
+      10 tests/test_algorithms_wesad.py
+       6 tests/test_signal_quality.py
+       8 tests/test_tp3_candidate.py
+
+== Python: ./test_capture_sensors.py (simulated stream; exit 0) ==
+  ok  test_clean_stream_single_capture
+  ok  test_faults_are_reported
+  ok  test_dual_capture_ring_has_no_sensors
+  ok  test_sensor_check_finds_the_events
+
+== Android unit tests ==
+batch 1: --tests "*Test"
+  BaselineTest                    2 tests  failures 0  errors 0  skipped 0
+  BeatDetectorConfigTest          2 tests  failures 0  errors 0  skipped 0
+  BeatDetectorParityTest         10 tests  failures 0  errors 0  skipped 0
+  BleConnectionReleaseTest        3 tests  failures 0  errors 0  skipped 0
+  ExplanationsTest                1 tests  failures 0  errors 0  skipped 0
+  HeadlineTest                    6 tests  failures 0  errors 0  skipped 0
+  LiveHeartRateTest               2 tests  failures 0  errors 0  skipped 0
+  MonitorRecompositionTest        1 tests  failures 0  errors 0  skipped 0
+  PacerTest                       2 tests  failures 0  errors 0  skipped 0
+  QualityGateReplayTest           1 tests  failures 0  errors 0  skipped 0
+  ReconnectTest                   5 tests  failures 0  errors 0  skipped 0
+  ReplayPipelineTest              4 tests  failures 0  errors 0  skipped 0
+  SessionMigrationTest            1 tests  failures 0  errors 0  skipped 0
+  SessionPipelineTest             2 tests  failures 0  errors 0  skipped 0
+  SessionStoreTest                1 tests  failures 0  errors 0  skipped 0
+  SignalQualityParityTest         5 tests  failures 0  errors 0  skipped 0
+  SweepTest                       5 tests  failures 0  errors 0  skipped 0
+  AlgorithmsConfigTest            6 tests  failures 0  errors 0  skipped 0
+  HrvParityTest                   7 tests  failures 0  errors 0  skipped 0
+  LiveHrvParityTest               2 tests  failures 0  errors 0  skipped 0
+  SessionParityTest               6 tests  failures 0  errors 0  skipped 0
+  batch total 74 tests, failures 0, errors 0, skipped 0
+batch: --tests "*GuidedBreathingScreenshotsPortrait" --tests "*GuidedBreathingScreenshotsLandscape"
+  GuidedBreathingScreenshotsLandscape    6 tests  failures 0  errors 0  skipped 0
+  GuidedBreathingScreenshotsPortrait    6 tests  failures 0  errors 0  skipped 0
+  batch total 12 tests, failures 0, errors 0, skipped 0
+batch: --tests "*MonitorScreenshotsPortrait" --tests "*MonitorScreenshotsLandscape"
+  MonitorScreenshotsLandscape    18 tests  failures 0  errors 0  skipped 0
+  MonitorScreenshotsPortrait     18 tests  failures 0  errors 0  skipped 0
+  batch total 36 tests, failures 0, errors 0, skipped 0
+batch: --tests "*SessionScreenshotsPortrait" --tests "*SessionScreenshotsLandscape"
+  SessionScreenshotsLandscape    17 tests  failures 0  errors 0  skipped 3
+  SessionScreenshotsPortrait     17 tests  failures 0  errors 0  skipped 3
+  batch total 34 tests, failures 0, errors 0, skipped 6
+
+Android total: 156 tests, 0 failures, 0 errors, 6 skipped.
+The 6 skipped are SessionScreenshots reportPublic, reportPublicExtended and reportWithBaseline (portrait and landscape):
+assumeTrue("make_public_replay.py has not been run") - the mitdb103 replay asset is generated from MIT-BIH and never committed.
+Without it the six session_history_*.png renders differ from the committed ones; those regenerated files were not committed.

@@ -152,6 +152,14 @@ def test_constant_series_is_withheld():
     m = Modulations(t, t[1:], np.full(59, 800.0), t, np.full(60, 1.0))
     r = breathing_rate(m, 0.0, 40.0)
     assert all(v.value is None for v in r.values())
+    # Rounding-level variation is still no variation. Without the zero-variance guard this
+    # case reports an RSA rate of 4.99 breaths/min on any numpy; the constant series above
+    # did the same (4.49) on numpy 2.5 / scipy 1.18.
+    rng = np.random.default_rng(0)
+    m = Modulations(t, t[1:], 800.0 * (1 + 1e-15 * rng.standard_normal(59)), t, 1.0 + 1e-15 * rng.standard_normal(60))
+    r = breathing_rate(m, 0.0, 40.0)
+    assert all(v.value is None and "no variation" in v.withheld for v in r.values() if v is not r["fused"])
+    assert r["fused"].value is None
 
 
 def test_an_ectopic_amplitude_does_not_decide_the_rate():
