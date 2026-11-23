@@ -82,6 +82,20 @@ def test_noise_bursts_lose_coverage_rather_than_invent_variability():
     assert nn.window(100, 160).coverage < 0.8 and nn.window(10, 90).coverage > 0.95
 
 
+def test_apparent_delay_and_matching():
+    bt = beats(100)
+    pt = bt + 0.25
+    d = ppg.apparent_delays(bt, pt)
+    assert np.allclose(d, 0.25)
+    assert ppg.match(bt, pt, 0.25, 0.15) == (100, 100, 100)
+    extra = np.sort(np.r_[pt, bt[10:20] + 0.6])                      # 10 spurious pulses
+    tp, nb, npl = ppg.match(bt, extra, 0.25, 0.15)
+    assert (tp, nb, npl) == (100, 100, 110)
+    tp, _, _ = ppg.match(bt, np.delete(pt, range(30, 40)), 0.25, 0.15)
+    assert tp == 90
+    assert np.isnan(ppg.apparent_delays([0.0], [0.9]))[0]            # nothing within 0.6 s
+
+
 # ------------------------------------------------------------------- EDA
 def eda_signal(scr_t, scr_amp, dur=600.0, fs=4.0, level=3.0, drift=0.001, noise=0.0005, seed=0):
     t = np.arange(int(dur * fs)) / fs

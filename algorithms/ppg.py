@@ -96,6 +96,37 @@ def pulse_intervals(pulses):
     return NNSeries.from_times(pulses.t)
 
 
+def apparent_delays(beat_t, pulse_t, max_s=0.6):
+    """For each ECG beat, the time to the first pulse peak after it, if within
+    max_s; NaN otherwise. Between two separately clocked devices aligned by hand
+    this is NOT pulse arrival time (docs/wesad_plan.md, section 2)."""
+    beat_t, pulse_t = np.asarray(beat_t, float), np.asarray(pulse_t, float)
+    k = np.searchsorted(pulse_t, beat_t, side="right")
+    d = np.full(len(beat_t), np.nan)
+    ok = k < len(pulse_t)
+    d[ok] = pulse_t[k[ok]] - beat_t[ok]
+    d[d > max_s] = np.nan
+    return d
+
+
+def match(beat_t, pulse_t, delay_s, tol_s):
+    """One-to-one matching of pulses to beats after shifting the pulses back by
+    delay_s: (matched, n_beats, n_pulses). Greedy in time order, nearest first."""
+    b = np.asarray(beat_t, float)
+    p = np.asarray(pulse_t, float) - delay_s
+    used = np.zeros(len(p), bool)
+    tp = 0
+    for t in b:
+        k = np.searchsorted(p, t)
+        best, bd = -1, tol_s
+        for j in (k - 1, k):
+            if 0 <= j < len(p) and not used[j] and abs(p[j] - t) <= bd:
+                best, bd = j, abs(p[j] - t)
+        if best >= 0:
+            used[best] = True; tp += 1
+    return tp, len(b), len(p)
+
+
 def window_features(pulses, nn, t0, t1):
     """The plan's four wrist-BVP features of one window: (values, info). A
     withheld feature is NaN; info says how much data the window held."""
