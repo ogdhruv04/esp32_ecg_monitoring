@@ -26,10 +26,13 @@ REFERENCE = "reference"
 
 # ------------------------------------------------------------------ columns
 def columns(block):
-    """Column names of one block: 'ecg_full', 'ecg_time', 'bvp', 'eda_wrist',
+    """Column names of one block: 'ecg_full', 'ecg_time', 'bvp', 'bvp_primary'
+    (pr and ln_amp only: the 23 Nov rule-3 amendment), 'eda_wrist',
     'eda_chest', 'temp_wrist', 'temp_chest'."""
     if block.startswith("ecg"):
         return [f"ecg.{f}" for f in A["features"][block]]
+    if block.startswith("bvp"):
+        return [f"bvp.{f}" for f in A["features"][block]]
     return [f"{block}.{f}" for f in A["features"][block.split("_")[0]]]
 
 

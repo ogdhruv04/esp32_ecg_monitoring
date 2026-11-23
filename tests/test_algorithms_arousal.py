@@ -33,7 +33,10 @@ def test_columns_of_blocks_and_models():
     assert set(arousal.columns("ecg_time")) < set(arousal.columns("ecg_full"))
     for name, blocks in arousal.A["models"].items():
         assert len(arousal.model_columns(blocks)) == len(set(arousal.model_columns(blocks))), name
-    assert len(arousal.model_columns(arousal.A["models"]["All four"])) == 17
+    assert arousal.columns("bvp_primary") == ["bvp.pr", "bvp.ln_amp"]
+    # the 23 Nov rule-3 amendment: ECG-time 5 + BVP pr, ln_amp 2 + EDA 4 + TEMP 1; as frozen 16 Nov, 8 + 4 + 4 + 1
+    assert len(arousal.model_columns(arousal.A["models"]["All four"])) == 12
+    assert len(arousal.model_columns(arousal.A["models_as_frozen_16_nov"]["All four"])) == 17
 
 
 def test_reference_stats_need_enough_windows():

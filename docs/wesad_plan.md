@@ -279,9 +279,8 @@ Not for the size or direction of any pilot z-score, and never for a classificati
 
 ## Amendment log
 
-**23 Nov 2026, pilot findings (S2, S3; `analysis/wesad_pilot.txt`, `analysis/wesad_pilot_pulse_shape.txt`).
-Nothing below has been applied: the primary models are still as in section 6.** No classification
-metric was computed.
+**23 Nov 2026, pilot findings (S2, S3; `analysis/wesad_pilot.txt`, `analysis/wesad_pilot_pulse_shape.txt`).**
+No classification metric was computed. *(Applied later the same day: see "23 Nov 2026, decision" below.)*
 
 - *Rule 1 (format), checked, no change.* The beat-locked average of the wrist BVP in S2's
   meditation 1 (lock 0.95) is a normal pulse: minimum, then a rise of about 220 ms to the maximum,
@@ -295,7 +294,7 @@ metric was computed.
   part. Pulse RMSSD reads above ECG RMSSD at rest (median +8.5 to +22 ms) and matches only in S2's
   meditations (−1.0, +0.4 ms). Consequence for A2: the delay trend (+57.6 and +10.4 ms per hour) is
   not interpretable as clock drift, because the delay is not stable within a window.
-- *Rule 3 (availability): triggered. Proposed, waiting for a decision:*
+- *Rule 3 (availability): triggered. Proposed (decided below):*
   1. ECG in the primary models: use **ECG-time** instead of ECG-full. LF, HF and DFA α1 are
      reported in 0% of S3's baseline windows (coverage under 95%, or under 120 s of valid NN time,
      at heart rate 54 with a large RSA). ECG-full becomes the secondary analysis in place of B3.
@@ -305,3 +304,20 @@ metric was computed.
   3. Chest TEMP for S2 is withheld by design (the authors' note), so no change.
   Without (1) and (2), a model that needs every one of its features would reject most stress
   windows of these two subjects.
+
+**23 Nov 2026, decision: both rule-3 amendments APPLIED** (Dhruv approved both; recorded and committed
+before any classification metric was computed on WESAD, and before subjects S4–S17 were evaluated).
+- (1) The primary models use **ECG-time** (`hr`, `ln_rmssd`, `pnn50`, `ln_sdnn`, `ln_sd2`) in place of
+  ECG-full. ECG-full becomes secondary analysis **B3** (ECG-full in place of ECG-time, in the ECG and
+  All-four models), replacing the original B3.
+- (2) The primary models use BVP **`pr` and `ln_amp` only** (`bvp_primary` in `algorithms/config.json`).
+  `ln_rmssd_p` and `ln_sdnn_p` are still extracted and stay in A1.
+- (3) Nothing to change.
+- The section 6 model table therefore reads, as applied: ECG = ECG-time; BVP = `pr`, `ln_amp`; EDA and
+  TEMP unchanged; Wrist-only = BVP (`pr`, `ln_amp`) + EDA + TEMP; All four = ECG-time + BVP (`pr`,
+  `ln_amp`) + EDA + TEMP. The models as frozen on 16 Nov are kept in the config as
+  `arousal.models_as_frozen_16_nov`. No other setting changes.
+- Reporting, requested 23 Nov and added to the report without changing any model: pooled **accuracy and
+  class-averaged F1** are printed next to Se, Sp, P+, balanced accuracy, AUC and the rejection rates for
+  every model (section 6 named them for B2 only), with their per-subject median and range. Accuracy
+  is never printed without the rejection rates.

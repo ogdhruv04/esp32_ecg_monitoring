@@ -375,6 +375,7 @@
   "arousal": {
     "frozen": "2026-11-16",
     "plan": "docs/wesad_plan.md, frozen 16 Nov 2026 before any WESAD signal was read",
+    "amended": "2026-11-23: both rule-3 (availability) amendments of docs/wesad_plan.md applied, approved before any classification metric was computed: ECG-time replaces ECG-full and BVP keeps only pr and ln_amp in the primary models; ECG-full is secondary analysis B3",
     "what": "Arousal index (algorithms/arousal.py): features z-scored against the subject's own reference segment, logistic regression, leave-one-subject-out.",
     "min_reference_windows": 5,
     "sd_floor_share": 0.5,
@@ -408,6 +409,10 @@
         "ln_sdnn_p",
         "ln_amp"
       ],
+      "bvp_primary": [
+        "pr",
+        "ln_amp"
+      ],
       "eda": [
         "scl",
         "scl_slope",
@@ -419,6 +424,31 @@
       ]
     },
     "models": {
+      "ECG": [
+        "ecg_time"
+      ],
+      "BVP": [
+        "bvp_primary"
+      ],
+      "EDA": [
+        "eda_wrist"
+      ],
+      "TEMP": [
+        "temp_wrist"
+      ],
+      "Wrist-only": [
+        "bvp_primary",
+        "eda_wrist",
+        "temp_wrist"
+      ],
+      "All four": [
+        "ecg_time",
+        "bvp_primary",
+        "eda_wrist",
+        "temp_wrist"
+      ]
+    },
+    "models_as_frozen_16_nov": {
       "ECG": [
         "ecg_full"
       ],
