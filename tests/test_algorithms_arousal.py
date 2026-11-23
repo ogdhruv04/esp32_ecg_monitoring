@@ -127,6 +127,20 @@ def test_scores_arithmetic():
     assert s["se"] == 0.75 and s["sp"] == 0.8 and s["ppv"] == 0.75 and math.isclose(s["balanced_accuracy"], 0.775)
     assert s["rejected_positive"] == 0.2 and s["rejected_negative"] == 0.0
     assert math.isclose(s["auc"], 18 / 20)       # 20 pairs: 16 ordered right, 2 wrong, 2 ties counted as half
+    assert math.isclose(s["accuracy"], 7 / 9)                                 # the rejected window is not counted
+    assert math.isclose(s["f1_positive"], 6 / 8) and math.isclose(s["f1_macro"], (6 / 8 + 8 / 10) / 2)
+
+
+def test_common_windows_and_per_subject():
+    rows = pd.DataFrame(dict(subject=["S1"] * 4 + ["S2"] * 2, part=["stress", "stress", "baseline", "baseline", "stress", "stress"],
+                             t0=[0.0, 30.0, 0.0, 30.0, 0.0, 30.0], complete=[True, True, True, False, True, True],
+                             index=[1.0, 2.0, -1.0, np.nan, 1.0, -1.0], pred=[1, 1, 0, np.nan, 1, 0]))
+    other = rows.copy(); other["complete"] = [True, False, True, True, True, True]
+    c = arousal.common_windows({"a": rows, "b": other})
+    assert len(c["a"]) == 4 and set(c["a"]["t0"][c["a"]["subject"] == "S1"]) == {0.0}
+    ps = arousal.per_subject(rows)
+    assert ps.loc["S1", "balanced_accuracy"] == 1.0 and ps.loc["S1", "n_negative"] == 1
+    assert ps.loc["S2", "se"] == 0.5 and math.isnan(ps.loc["S2", "sp"]) and math.isnan(ps.loc["S2", "balanced_accuracy"])
 
 
 def test_one_class_in_training_is_an_error():

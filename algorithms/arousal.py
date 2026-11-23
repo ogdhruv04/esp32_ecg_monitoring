@@ -133,9 +133,36 @@ def scores(rows, positive=("stress",), negative=("baseline",)):
     if len(p) and len(n):
         from sklearn.metrics import roc_auc_score
         auc = float(roc_auc_score(np.r_[np.ones(len(p)), np.zeros(len(n))], np.r_[p["index"], n["index"]]))
+    # accuracy and class-averaged F1 (Schmidt et al. 2018's metrics) over the classified windows only;
+    # never quoted without the rejection rates beside them
+    f1_pos, f1_neg = div(2 * tp, 2 * tp + fp + fn), div(2 * tn, 2 * tn + fn + fp)
     return dict(se=se, sp=sp, ppv=div(tp, tp + fp), balanced_accuracy=(se + sp) / 2, auc=auc,
+                accuracy=div(tp + tn, tp + tn + fp + fn), f1_positive=f1_pos, f1_macro=(f1_pos + f1_neg) / 2,
                 rejected_positive=div(len(pos) - len(p), len(pos)), rejected_negative=div(len(neg) - len(n), len(neg)),
                 n_positive=len(p), n_negative=len(n), tp=tp, fn=fn, tn=tn, fp=fp)
+
+
+def common_windows(rows_by_model):
+    """The rows of each model restricted to the windows that EVERY given model
+    classified (plan section 6: comparisons on shared windows)."""
+    key = lambda r: pd.MultiIndex.from_frame(r[["subject", "part", "t0"]])
+    shared = None
+    for r in rows_by_model.values():
+        k = key(r[r["complete"]])
+        shared = k if shared is None else shared.intersection(k)
+    return {m: r[key(r).isin(shared)] for m, r in rows_by_model.items()}
+
+
+def per_subject(rows, keys=("se", "sp", "balanced_accuracy", "accuracy", "f1_macro", "auc"), **kw):
+    """Scores of each subject separately; a subject counts for a key only when
+    the key is defined (Se needs classified positives, Sp negatives, the rest both)."""
+    out = {}
+    for s, g in rows.groupby("subject"):
+        sc = scores(g, **kw)
+        both = sc["n_positive"] > 0 and sc["n_negative"] > 0
+        out[s] = {k: (sc[k] if (both or k in ("se", "sp")) else float("nan")) for k in keys}
+        out[s].update(n_positive=sc["n_positive"], n_negative=sc["n_negative"])
+    return pd.DataFrame(out).T
 
 
 def bootstrap(rows, keys=("se", "sp", "balanced_accuracy", "auc"), **kw):
