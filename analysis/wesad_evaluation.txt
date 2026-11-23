@@ -1,0 +1,377 @@
+WESAD evaluation (docs/wesad_plan.md sections 6-8), all 15 subjects, run once.
+code fb1fa5c; config alg1; wesad/arousal blocks frozen 2026-11-16
+amended 2026-11-23: both rule-3 (availability) amendments of docs/wesad_plan.md applied, approved before any classification metric was computed: ECG-time replaces ECG-full and BVP keeps only pr and ln_amp in the primary models; ECG-full is secondary analysis B3
+Data: WESAD (Schmidt et al., ICMI 2018). DEVELOPMENT data for the PPG, EDA, temperature and arousal code;
+leave-one-subject-out protects the classifier, not the feature code. The held-out test is our own protocol recordings.
+Windows 180 s every 30 s, overlapping by 150 s and not independent: the subject is the unit of inference.
+ECG causal monitoring filter, 50 Hz notch, tp3 detector at 256 Hz. Logistic regression, C 1, balanced class weights,
+threshold 0.5; z-scores against each subject's reference half of the baseline; bootstrap over subjects, 2000 resamples, seed 20261116.
+Stress is the positive class. Se = classified stress windows called stress; Sp = classified negative windows called
+negative; P+ = windows called stress that were stress. acc and F1 (class-averaged, as Schmidt et al.) are over
+CLASSIFIED windows only: read them with the rejection rates. A window is classified only when every feature of the
+model was reported. Pooled values: value [95% interval, bootstrap over subjects].
+
+Models (23 Nov amendment applied):
+  ECG         ecg_time                                 ecg.hr, ecg.ln_rmssd, ecg.pnn50, ecg.ln_sdnn, ecg.ln_sd2
+  BVP         bvp_primary                              bvp.pr, bvp.ln_amp
+  EDA         eda_wrist                                eda_wrist.scl, eda_wrist.scl_slope, eda_wrist.scr_rate, eda_wrist.phasic_mean
+  TEMP        temp_wrist                               temp_wrist.temp_slope
+  Wrist-only  bvp_primary + eda_wrist + temp_wrist     bvp.pr, bvp.ln_amp, eda_wrist.scl, eda_wrist.scl_slope, eda_wrist.scr_rate, eda_wrist.phasic_mean, temp_wrist.temp_slope
+  All four    ecg_time + bvp_primary + eda_wrist + temp_wrist ecg.hr, ecg.ln_rmssd, ecg.pnn50, ecg.ln_sdnn, ecg.ln_sd2, bvp.pr, bvp.ln_amp, eda_wrist.scl, eda_wrist.scl_slope, eda_wrist.scr_rate, eda_wrist.phasic_mean, temp_wrist.temp_slope
+
+== 1. Recordings
+S2: order stress_first; durations s: chest 6079.0, label 6079.0, bvp 6079.0, eda_wrist 6079.0, temp_wrist 6079.0
+    parts s: reference 307-879 (572), baseline 879-1451 (572), stress 2274-2889 (615), amusement 4764-5126 (362), meditation_1 4098-4489 (391), meditation_2 5497-5874 (377)
+    label runs: label 0: 8 run(s), 3061 s; label 1: 1 run(s), 1144 s; label 2: 1 run(s), 615 s; label 3: 1 run(s), 362 s; label 4: 2 run(s), 768 s; label 6: 1 run(s), 65 s; label 7: 1 run(s), 64 s
+    windows 65, ECG beats 7538 (292 flagged, 3.9%), pulses 6957; min EDA wrist 0.045 uS, chest 0.373 uS
+    run time 4.7 s (ECG detector 2.9 s), peak memory 324 MB
+S3: order stress_first; durations s: chest 6493.0, label 6493.0, bvp 6493.0, eda_wrist 6493.0, temp_wrist 6493.0
+    parts s: reference 353-923 (570), baseline 923-1493 (570), stress 2244-2884 (640), amusement 5004-5379 (375), meditation_1 4297-4699 (402), meditation_2 5818-6196 (378)
+    label runs: label 0: 9 run(s), 3351 s; label 1: 1 run(s), 1140 s; label 2: 1 run(s), 640 s; label 3: 1 run(s), 375 s; label 4: 2 run(s), 780 s; label 5: 1 run(s), 73 s; label 6: 1 run(s), 67 s; label 7: 1 run(s), 67 s
+    windows 66, ECG beats 6548 (11 flagged, 0.2%), pulses 6320; min EDA wrist 0.292 uS, chest 4.592 uS
+    run time 4.6 s (ECG detector 2.9 s), peak memory 332 MB
+S4: order amusement_first; durations s: chest 6423.0, label 6423.0, bvp 6423.0, eda_wrist 6423.0, temp_wrist 6423.0
+    parts s: reference 285-864 (579), baseline 864-1443 (579), stress 3613-4248 (635), amusement 1832-2204 (372), meditation_1 2685-3093 (408), meditation_2 5676-6073 (397)
+    label runs: label 0: 9 run(s), 3306 s; label 1: 1 run(s), 1158 s; label 2: 1 run(s), 635 s; label 3: 1 run(s), 372 s; label 4: 2 run(s), 805 s; label 5: 1 run(s), 51 s; label 6: 1 run(s), 44 s; label 7: 1 run(s), 52 s
+    windows 67, ECG beats 6955 (10 flagged, 0.1%), pulses 7084; min EDA wrist 0.099 uS, chest 1.099 uS
+    run time 9.7 s (ECG detector 7.1 s), peak memory 1061 MB
+S5: order amusement_first; durations s: chest 6258.0, label 6258.0, bvp 6258.0, eda_wrist 6258.0, temp_wrist 6258.0
+    parts s: reference 279-878 (599), baseline 878-1477 (599), stress 3602-4247 (645), amusement 1862-2236 (374), meditation_1 2685-3082 (397), meditation_2 5477-5874 (397)
+    label runs: label 0: 9 run(s), 3061 s; label 1: 1 run(s), 1198 s; label 2: 1 run(s), 645 s; label 3: 1 run(s), 374 s; label 4: 2 run(s), 794 s; label 5: 1 run(s), 72 s; label 6: 1 run(s), 44 s; label 7: 1 run(s), 70 s
+    windows 67, ECG beats 7293 (27 flagged, 0.4%), pulses 6208; min EDA wrist 0.352 uS, chest 3.681 uS
+    run time 8.5 s (ECG detector 6.6 s), peak memory 1030 MB
+S6: order stress_first; durations s: chest 7071.0, label 7071.0, bvp 7071.0, eda_wrist 7071.0, temp_wrist 7071.0
+    parts s: reference 643-1233 (590), baseline 1233-1823 (590), stress 2441-3091 (650), amusement 5551-5923 (372), meditation_1 4520-4917 (397), meditation_2 6506-6896 (390)
+    label runs: label 0: 9 run(s), 3905 s; label 1: 1 run(s), 1180 s; label 2: 1 run(s), 650 s; label 3: 1 run(s), 372 s; label 4: 2 run(s), 787 s; label 5: 1 run(s), 58 s; label 6: 1 run(s), 50 s; label 7: 1 run(s), 69 s
+    windows 67, ECG beats 8368 (9 flagged, 0.1%), pulses 7772; min EDA wrist 0.199 uS, chest 5.305 uS
+    run time 11.0 s (ECG detector 8.9 s), peak memory 1148 MB
+S7: order amusement_first; durations s: chest 5238.0, label 5238.0, bvp 5238.0, eda_wrist 5238.0, temp_wrist 5238.0
+    parts s: reference 101-694 (593), baseline 694-1287 (593), stress 3097-3737 (640), amusement 1551-1923 (372), meditation_1 2208-2605 (397), meditation_2 4654-5047 (393)
+    label runs: label 0: 9 run(s), 2103 s; label 1: 1 run(s), 1186 s; label 2: 1 run(s), 640 s; label 3: 1 run(s), 372 s; label 4: 2 run(s), 790 s; label 5: 1 run(s), 50 s; label 6: 1 run(s), 44 s; label 7: 1 run(s), 53 s
+    windows 67, ECG beats 6239 (8 flagged, 0.1%), pulses 5809; min EDA wrist 3.687 uS, chest 11.108 uS
+    run time 7.1 s (ECG detector 5.6 s), peak memory 892 MB
+S8: order amusement_first; durations s: chest 5466.0, label 5466.0, bvp 5466.0, eda_wrist 5466.0, temp_wrist 5466.0
+    parts s: reference 159-743 (584), baseline 743-1328 (584), stress 3293-3963 (670), amusement 1663-2033 (370), meditation_1 2315-2715 (400), meditation_2 4897-5293 (396)
+    label runs: label 0: 9 run(s), 2309 s; label 1: 1 run(s), 1169 s; label 2: 1 run(s), 670 s; label 3: 1 run(s), 370 s; label 4: 2 run(s), 796 s; label 5: 1 run(s), 49 s; label 6: 1 run(s), 51 s; label 7: 1 run(s), 52 s
+    windows 68, ECG beats 6889 (38 flagged, 0.6%), pulses 6301; min EDA wrist 0.205 uS, chest 3.454 uS
+    run time 8.1 s (ECG detector 6.3 s), peak memory 915 MB
+S9: order stress_first; durations s: chest 5223.0, label 5223.0, bvp 5223.0, eda_wrist 5223.0, temp_wrist 5223.0
+    parts s: reference 75-665 (590), baseline 665-1255 (590), stress 1872-2517 (645), amusement 4058-4430 (372), meditation_1 3509-3907 (398), meditation_2 4692-5087 (395)
+    label runs: label 0: 9 run(s), 2051 s; label 1: 1 run(s), 1180 s; label 2: 1 run(s), 645 s; label 3: 1 run(s), 372 s; label 4: 2 run(s), 793 s; label 5: 1 run(s), 60 s; label 6: 1 run(s), 62 s; label 7: 1 run(s), 60 s
+    windows 67, ECG beats 6867 (15 flagged, 0.2%), pulses 6552; min EDA wrist 0.055 uS, chest 1.633 uS
+    run time 7.8 s (ECG detector 6.0 s), peak memory 884 MB
+S10: order amusement_first; durations s: chest 5496.0, label 5496.0, bvp 5496.0, eda_wrist 5496.0, temp_wrist 5496.0
+    parts s: reference 93-683 (590), baseline 683-1273 (590), stress 3193-3918 (725), amusement 1596-1968 (372), meditation_1 2245-2643 (398), meditation_2 4920-5318 (398)
+    label runs: label 0: 9 run(s), 2270 s; label 1: 1 run(s), 1180 s; label 2: 1 run(s), 725 s; label 3: 1 run(s), 372 s; label 4: 2 run(s), 796 s; label 5: 1 run(s), 51 s; label 6: 1 run(s), 45 s; label 7: 1 run(s), 57 s
+    windows 70, ECG beats 8428 (216 flagged, 2.6%), pulses 7222; min EDA wrist 0.266 uS, chest 0.717 uS
+    run time 8.3 s (ECG detector 6.4 s), peak memory 914 MB
+S11: order stress_first; durations s: chest 5233.0, label 5233.0, bvp 5233.0, eda_wrist 5233.0, temp_wrist 5233.0
+    parts s: reference 86-676 (590), baseline 676-1266 (590), stress 1908-2588 (680), amusement 4110-4478 (368), meditation_1 3573-3968 (395), meditation_2 4692-5088 (396)
+    label runs: label 0: 9 run(s), 2062 s; label 1: 1 run(s), 1180 s; label 2: 1 run(s), 680 s; label 3: 1 run(s), 368 s; label 4: 2 run(s), 791 s; label 5: 1 run(s), 50 s; label 6: 1 run(s), 52 s; label 7: 1 run(s), 50 s
+    windows 68, ECG beats 7863 (130 flagged, 1.7%), pulses 5630; min EDA wrist 1.843 uS, chest 5.938 uS
+    run time 7.7 s (ECG detector 6.0 s), peak memory 875 MB
+S13: order amusement_first; durations s: chest 5537.0, label 5537.0, bvp 5537.0, eda_wrist 5537.0, temp_wrist 5537.0
+    parts s: reference 88-678 (590), baseline 678-1268 (590), stress 3261-3925 (664), amusement 1664-2046 (382), meditation_1 2347-2745 (398), meditation_2 4948-5345 (397)
+    label runs: label 0: 9 run(s), 2399 s; label 1: 1 run(s), 1180 s; label 2: 1 run(s), 664 s; label 3: 1 run(s), 382 s; label 4: 2 run(s), 795 s; label 5: 1 run(s), 49 s; label 6: 1 run(s), 48 s; label 7: 1 run(s), 20 s
+    windows 68, ECG beats 8026 (9 flagged, 0.1%), pulses 6873; min EDA wrist 2.841 uS, chest 2.309 uS
+    run time 8.2 s (ECG detector 6.2 s), peak memory 925 MB
+S14: order stress_first; durations s: chest 5548.0, label 5548.0, bvp 5548.0, eda_wrist 5548.0, temp_wrist 5548.0
+    parts s: reference 26-616 (590), baseline 616-1206 (590), stress 1904-2579 (675), amusement 4310-4682 (372), meditation_1 3648-4045 (397), meditation_2 4975-5372 (397)
+    label runs: label 0: 9 run(s), 2355 s; label 1: 1 run(s), 1180 s; label 2: 1 run(s), 675 s; label 3: 1 run(s), 372 s; label 4: 2 run(s), 794 s; label 5: 1 run(s), 63 s; label 6: 1 run(s), 55 s; label 7: 1 run(s), 54 s
+    windows 68, ECG beats 8178 (31 flagged, 0.4%), pulses 7445; min EDA wrist 0.060 uS, chest 2.736 uS
+    run time 8.8 s (ECG detector 6.8 s), peak memory 922 MB
+S15: order amusement_first; durations s: chest 5252.0, label 5252.0, bvp 5252.0, eda_wrist 5252.0, temp_wrist 5252.0
+    parts s: reference 110-698 (588), baseline 698-1285 (588), stress 3099-3785 (686), amusement 1611-1983 (372), meditation_1 2256-2653 (397), meditation_2 4683-5080 (397)
+    label runs: label 0: 9 run(s), 2082 s; label 1: 1 run(s), 1175 s; label 2: 1 run(s), 686 s; label 3: 1 run(s), 372 s; label 4: 2 run(s), 794 s; label 5: 1 run(s), 50 s; label 6: 1 run(s), 47 s; label 7: 1 run(s), 46 s
+    windows 68, ECG beats 6949 (12 flagged, 0.2%), pulses 4946; min EDA wrist 0.151 uS, chest 1.348 uS
+    run time 7.4 s (ECG detector 5.6 s), peak memory 869 MB
+S16: order stress_first; durations s: chest 5631.0, label 5631.0, bvp 5631.0, eda_wrist 5631.0, temp_wrist 5631.0
+    parts s: reference 98-688 (590), baseline 688-1278 (590), stress 1988-2661 (673), amusement 4320-4688 (368), meditation_1 3713-4108 (395), meditation_2 5014-5411 (397)
+    label runs: label 0: 9 run(s), 2453 s; label 1: 1 run(s), 1180 s; label 2: 1 run(s), 673 s; label 3: 1 run(s), 368 s; label 4: 2 run(s), 792 s; label 5: 1 run(s), 55 s; label 6: 1 run(s), 57 s; label 7: 1 run(s), 53 s
+    windows 68, ECG beats 8043 (11 flagged, 0.1%), pulses 6548; min EDA wrist 0.243 uS, chest 0.937 uS
+    run time 8.3 s (ECG detector 6.6 s), peak memory 940 MB
+S17: order amusement_first; durations s: chest 5920.0, label 5920.0, bvp 5920.0, eda_wrist 5920.0, temp_wrist 5920.0
+    parts s: reference 92-683 (590), baseline 683-1273 (590), stress 3512-4235 (723), amusement 1740-2112 (372), meditation_1 2543-2880 (337), meditation_2 5259-5653 (394)
+    label runs: label 0: 9 run(s), 2739 s; label 1: 1 run(s), 1181 s; label 2: 1 run(s), 723 s; label 3: 1 run(s), 372 s; label 4: 2 run(s), 731 s; label 5: 1 run(s), 58 s; label 6: 1 run(s), 59 s; label 7: 1 run(s), 57 s
+    windows 68, ECG beats 7590 (10 flagged, 0.1%), pulses 6554; min EDA wrist 0.643 uS, chest 5.283 uS
+    run time 8.6 s (ECG detector 6.9 s), peak memory 980 MB
+
+== 2. Feature availability over all 15 subjects: share of windows in which each feature was reported (%)
+  windows: reference 210, baseline 210, stress 251, amusement 105, meditation_1 118, meditation_2 118
+  feature                       reference   baseline     stress  amusement meditation meditation   subjects under 50% in baseline or stress
+  ecg.hr                              100        100        100        100        100        100    0 
+  ecg.ln_rmssd                        100        100        100        100        100        100    0 
+  ecg.pnn50                           100        100        100        100        100        100    0 
+  ecg.ln_sdnn                         100        100        100        100         92         81    0 
+  ecg.ln_sd2                          100        100        100        100         92         81    0 
+  ecg.ln_lf                            79         80         77         66         42         44    5 S3 S7 S8 S10 S17
+  ecg.ln_hf                            79         80         77         66         42         44    5 S3 S7 S8 S10 S17
+  ecg.dfa_alpha1                       55         56         87         49         28         22    6 S3 S4 S5 S7 S16 S17
+  bvp.pr                               97         95         87         79         93         75    2 S11 S15
+  bvp.ln_rmssd_p                       93         94         52         79         90         69    8 S2 S3 S5 S6 S11 S13 S15 S16
+  bvp.ln_sdnn_p                        25         26          2         20         42         23   15 S2 S3 S4 S5 S6 S7 S8 S9 S10 S11 S13 S14 S15 S16 S17
+  bvp.ln_amp                           97         95         87         79         93         75    2 S11 S15
+  eda_wrist.scl                       100        100        100        100        100        100    0 
+  eda_wrist.scl_slope                 100        100        100        100        100        100    0 
+  eda_wrist.scr_rate                  100        100        100        100        100        100    0 
+  eda_wrist.phasic_mean               100        100        100        100        100        100    0 
+  eda_chest.scl                       100        100        100        100        100        100    0 
+  eda_chest.scl_slope                 100        100        100        100        100        100    0 
+  eda_chest.scr_rate                  100        100        100        100        100        100    0 
+  eda_chest.phasic_mean               100        100        100        100        100        100    0 
+  temp_wrist.temp_slope               100        100        100        100        100        100    0 
+  temp_chest.temp_slope                87         87         84         87         88         87    2 S2 S17
+  eda_wrist.scr_rate_05               100        100        100        100        100        100    0 
+  (For the record. Rule 3 was applied from the pilot alone; nothing here changes a model.)
+
+== 3. PRIMARY: second half of the baseline against stress, leave-one-subject-out, pooled over windows
+  model                                          Se                 Sp    P+            bal.acc                AUC                acc                 F1 | rej: stress    neg | n: stress   neg
+  ECG                             82.5 [67.3- 95.6]  89.5 [75.2- 99.0]  90.4  86.0 [76.1- 94.7]  90.0 [80.5- 98.2]  85.7 [75.7- 94.6]  85.7 [75.6- 94.5] |         0.0    0.0 |       251   210
+  BVP                             74.8 [58.0- 88.8]  88.4 [77.7- 97.1]  87.6  81.6 [71.9- 90.3]  86.6 [77.9- 93.8]  81.3 [70.8- 90.4]  81.3 [70.8- 90.3] |        13.1    5.2 |       218   199
+  EDA                             80.1 [60.6- 96.5]  94.3 [87.1-100.0]  94.4  87.2 [78.0- 95.3]  88.3 [74.9- 98.5]  86.6 [76.5- 95.4]  86.6 [76.4- 95.4] |         0.0    0.0 |       251   210
+  TEMP                            54.2 [30.4- 76.5]  75.7 [57.6- 91.4]  72.7  64.9 [53.5- 76.8]  69.0 [55.4- 84.0]  64.0 [51.8- 76.4]  63.9 [50.6- 76.2] |         0.0    0.0 |       251   210
+  Wrist-only                      88.5 [70.5-100.0]  98.0 [94.5-100.0]  98.0  93.3 [84.2- 99.3]  94.2 [86.8-100.0]  93.0 [83.7- 99.3]  93.0 [83.5- 99.3] |        13.1    5.2 |       218   199
+  All four                        92.2 [83.6-100.0] 100.0 [100.0-100.0] 100.0  96.1 [91.8-100.0]  99.9 [99.7-100.0]  95.9 [91.2-100.0]  95.9 [91.2-100.0] |        13.1    5.2 |       218   199
+
+   per subject: median [min, max] over the n subjects where the score is defined (Se needs classified stress
+   windows, Sp classified baseline windows, the others both)
+  ECG                            Se 100.0 [ 26.7, 100.0] n=15 | Sp 100.0 [  0.0, 100.0] n=15 | bal.acc 100.0 [ 50.0, 100.0] n=15 | acc 100.0 [ 53.3, 100.0] n=15 | F1 100.0 [ 34.8, 100.0] n=15 | AUC 100.0 [ 42.9, 100.0] n=15
+  BVP                            Se  76.5 [  0.0, 100.0] n=15 | Sp 100.0 [ 35.7, 100.0] n=15 | bal.acc  84.7 [ 45.2, 100.0] n=15 | acc  87.1 [ 25.0, 100.0] n=15 | F1  85.2 [ 24.8, 100.0] n=15 | AUC  94.7 [  0.0, 100.0] n=15
+  EDA                            Se 100.0 [  0.0, 100.0] n=15 | Sp 100.0 [ 64.3, 100.0] n=15 | bal.acc 100.0 [ 50.0, 100.0] n=15 | acc 100.0 [ 42.4, 100.0] n=15 | F1 100.0 [ 29.8, 100.0] n=15 | AUC 100.0 [ 23.7, 100.0] n=15
+  TEMP                           Se  76.5 [  0.0, 100.0] n=15 | Sp 100.0 [  0.0, 100.0] n=15 | bal.acc  50.0 [ 39.3, 100.0] n=15 | acc  51.6 [ 35.5, 100.0] n=15 | F1  34.8 [ 26.2, 100.0] n=15 | AUC  98.1 [  0.0, 100.0] n=15
+  Wrist-only                     Se 100.0 [  0.0, 100.0] n=15 | Sp 100.0 [ 78.6, 100.0] n=15 | bal.acc 100.0 [ 50.0, 100.0] n=15 | acc 100.0 [ 42.4, 100.0] n=15 | F1 100.0 [ 29.8, 100.0] n=15 | AUC 100.0 [ 94.9, 100.0] n=15
+  All four                       Se 100.0 [ 57.9, 100.0] n=15 | Sp 100.0 [100.0, 100.0] n=15 | bal.acc 100.0 [ 78.9, 100.0] n=15 | acc 100.0 [ 75.0, 100.0] n=15 | F1 100.0 [ 68.7, 100.0] n=15 | AUC 100.0 [100.0, 100.0] n=15
+
+   per subject balanced accuracy (%), with (classified stress / classified baseline windows)
+  subject                  ECG                 BVP                 EDA                TEMP          Wrist-only            All four
+  S2              59.8 (15/14)        78.6 (14/14)        50.0 (15/14)        82.1 (15/14)        78.6 (14/14)        85.7 (14/14)
+  S3             100.0 (16/14)       100.0 ( 8/14)        78.1 (16/14)        82.1 (16/14)       100.0 ( 8/14)       100.0 ( 8/14)
+  S4             100.0 (16/14)       100.0 (16/14)       100.0 (16/14)       100.0 (16/14)       100.0 (16/14)       100.0 (16/14)
+  S5             100.0 (16/14)       100.0 (16/14)       100.0 (16/14)        42.9 (16/14)       100.0 (16/14)       100.0 (16/14)
+  S6              50.0 (16/14)        45.2 (15/14)       100.0 (16/14)        50.0 (16/14)       100.0 (15/14)       100.0 (15/14)
+  S7              93.8 (16/14)       100.0 (16/14)        82.1 (16/14)        50.0 (16/14)        89.3 (16/14)       100.0 (16/14)
+  S8             100.0 (17/14)        84.7 (17/14)       100.0 (17/14)        47.1 (17/14)       100.0 (17/14)       100.0 (17/14)
+  S9              63.8 (16/14)        61.6 (16/14)       100.0 (16/14)        50.0 (16/14)       100.0 (16/14)       100.0 (16/14)
+  S10             65.8 (19/14)        73.7 (19/14)       100.0 (19/14)       100.0 (19/14)       100.0 (19/14)       100.0 (19/14)
+  S11            100.0 (17/14)        50.0 ( 2/14)        92.9 (17/14)       100.0 (17/14)        96.4 ( 2/14)       100.0 ( 2/14)
+  S13            100.0 (17/14)        88.2 (17/14)       100.0 (17/14)        88.2 (17/14)       100.0 (17/14)       100.0 (17/14)
+  S14             89.3 (17/14)        85.7 (17/14)        73.5 (17/14)        39.3 (17/14)       100.0 (17/14)       100.0 (17/14)
+  S15             67.6 (17/14)        55.9 (17/ 3)        82.1 (17/14)        50.0 (17/14)       100.0 (17/ 3)        85.3 (17/ 3)
+  S16            100.0 (17/14)        83.3 ( 9/14)       100.0 (17/14)        50.0 (17/14)       100.0 ( 9/14)       100.0 ( 9/14)
+  S17            100.0 (19/14)        92.9 (19/14)        50.0 (19/14)        42.5 (19/14)        50.0 (19/14)        78.9 (19/14)
+
+   coefficient over the 15 folds, median [min, max] (z-score units; positive = higher in stress)
+  ECG: ecg.hr +0.75 [+0.70, +1.18]; ecg.ln_rmssd +0.02 [-0.19, +0.44]; ecg.pnn50 +0.22 [-0.34, +0.42]; ecg.ln_sdnn -0.24 [-0.87, +0.11]; ecg.ln_sd2 +0.13 [-0.28, +0.65]
+  BVP: bvp.pr +0.53 [+0.50, +0.60]; bvp.ln_amp +0.15 [+0.12, +0.21]
+  EDA: eda_wrist.scl +0.23 [+0.13, +1.34]; eda_wrist.scl_slope +0.19 [-0.02, +0.54]; eda_wrist.scr_rate +0.51 [+0.02, +0.87]; eda_wrist.phasic_mean +0.93 [+0.59, +1.19]
+  TEMP: temp_wrist.temp_slope -0.28 [-0.38, -0.24]
+  Wrist-only: bvp.pr +1.05 [+0.69, +1.26]; bvp.ln_amp -0.15 [-0.20, -0.01]; eda_wrist.scl +1.13 [+0.61, +1.82]; eda_wrist.scl_slope +0.81 [+0.05, +0.97]; eda_wrist.scr_rate +1.07 [+0.71, +2.03]; eda_wrist.phasic_mean +1.20 [+0.83, +1.79]; temp_wrist.temp_slope -0.49 [-0.61, -0.19]
+  All four: ecg.hr +0.33 [+0.29, +0.41]; ecg.ln_rmssd -0.58 [-0.61, -0.34]; ecg.pnn50 -0.27 [-0.39, -0.09]; ecg.ln_sdnn -0.22 [-0.24, -0.14]; ecg.ln_sd2 -0.15 [-0.18, -0.10]; bvp.pr +0.26 [+0.15, +0.59]; bvp.ln_amp -0.01 [-0.11, +0.14]; eda_wrist.scl +1.01 [+0.76, +1.06]; eda_wrist.scl_slope -0.15 [-0.27, -0.05]; eda_wrist.scr_rate +0.59 [+0.54, +0.73]; eda_wrist.phasic_mean +0.82 [+0.60, +0.88]; temp_wrist.temp_slope -0.19 [-0.22, -0.12]
+
+== 4. ABLATION (descriptive; with 15 subjects no difference between modalities is called significant)
+  (single modalities on their own windows: section 3, rows ECG, BVP, EDA, TEMP)
+
+  -- single modalities: on the windows every model of the group classified (nothing rejected by construction; no interval)
+  model                                          Se                 Sp    P+            bal.acc                AUC                acc                 F1 | rej: stress    neg | n: stress   neg
+  ECG                                          80.3               88.9  88.8               84.6               89.0               84.4               84.4 |         0.0    0.0 |       218   199
+  BVP                                          74.8               88.4  87.6               81.6               86.6               81.3               81.3 |         0.0    0.0 |       218   199
+  EDA                                          80.7               96.5  96.2               88.6               89.2               88.2               88.2 |         0.0    0.0 |       218   199
+  TEMP                                         50.9               74.4  68.5               62.6               65.5               62.1               61.8 |         0.0    0.0 |       218   199
+     per subject balanced accuracy on these windows, median [min, max]: ECG 100.0 [50.0, 100.0] n=15; BVP 84.7 [45.2, 100.0] n=15; EDA 100.0 [50.0, 100.0] n=15; TEMP 50.0 [39.3, 100.0] n=15
+
+  -- All four with each modality removed: on each model's own windows
+  model                                          Se                 Sp    P+            bal.acc                AUC                acc                 F1 | rej: stress    neg | n: stress   neg
+  All four                        92.2 [83.6-100.0] 100.0 [100.0-100.0] 100.0  96.1 [91.8-100.0]  99.9 [99.7-100.0]  95.9 [91.2-100.0]  95.9 [91.2-100.0] |        13.1    5.2 |       218   199
+  All four - ecg_time             88.5 [70.5-100.0]  98.0 [94.5-100.0]  98.0  93.3 [84.2- 99.3]  94.2 [86.8-100.0]  93.0 [83.7- 99.3]  93.0 [83.5- 99.3] |        13.1    5.2 |       218   199
+  All four - bvp_primary          97.2 [93.2-100.0] 100.0 [100.0-100.0] 100.0  98.6 [96.6-100.0] 100.0 [100.0-100.0]  98.5 [96.2-100.0]  98.5 [96.2-100.0] |         0.0    0.0 |       251   210
+  All four - eda_wrist            80.7 [66.3- 94.6]  86.9 [71.4- 97.6]  87.1  83.8 [74.1- 93.0]  87.3 [77.1- 96.7]  83.7 [74.0- 93.1]  83.7 [73.8- 93.1] |        13.1    5.2 |       218   199
+  All four - temp_wrist           92.2 [83.5-100.0] 100.0 [100.0-100.0] 100.0  96.1 [91.8-100.0]  99.9 [99.7-100.0]  95.9 [91.1-100.0]  95.9 [91.0-100.0] |        13.1    5.2 |       218   199
+
+  -- All four: on the windows every model of the group classified (nothing rejected by construction; no interval)
+  model                                          Se                 Sp    P+            bal.acc                AUC                acc                 F1 | rej: stress    neg | n: stress   neg
+  All four                                     92.2              100.0 100.0               96.1               99.9               95.9               95.9 |         0.0    0.0 |       218   199
+  All four - ecg_time                          88.5               98.0  98.0               93.3               94.2               93.0               93.0 |         0.0    0.0 |       218   199
+  All four - bvp_primary                       96.8              100.0 100.0               98.4              100.0               98.3               98.3 |         0.0    0.0 |       218   199
+  All four - eda_wrist                         80.7               86.9  87.1               83.8               87.3               83.7               83.7 |         0.0    0.0 |       218   199
+  All four - temp_wrist                        92.2              100.0 100.0               96.1               99.9               95.9               95.9 |         0.0    0.0 |       218   199
+     per subject balanced accuracy on these windows, median [min, max]: All four 100.0 [78.9, 100.0] n=15; All four - ecg_time 100.0 [50.0, 100.0] n=15; All four - bvp_primary 100.0 [89.5, 100.0] n=15; All four - eda_wrist 92.1 [50.0, 100.0] n=15; All four - temp_wrist 100.0 [79.4, 100.0] n=15
+
+  -- Wrist-only with each modality removed: on each model's own windows
+  model                                          Se                 Sp    P+            bal.acc                AUC                acc                 F1 | rej: stress    neg | n: stress   neg
+  Wrist-only                      88.5 [70.5-100.0]  98.0 [94.5-100.0]  98.0  93.3 [84.2- 99.3]  94.2 [86.8-100.0]  93.0 [83.7- 99.3]  93.0 [83.5- 99.3] |        13.1    5.2 |       218   199
+  Wrist-only - bvp_primary        83.3 [66.5- 97.3]  96.7 [92.9-100.0]  96.8  90.0 [81.7- 96.8]  87.8 [73.3- 99.4]  89.4 [80.4- 96.9]  89.4 [80.2- 96.9] |         0.0    0.0 |       251   210
+  Wrist-only - eda_wrist          80.3 [64.4- 92.8]  83.9 [68.1- 96.5]  84.5  82.1 [72.2- 90.6]  87.5 [78.7- 94.9]  82.0 [71.8- 90.6]  82.0 [71.7- 90.5] |        13.1    5.2 |       218   199
+  Wrist-only - temp_wrist         88.5 [70.5-100.0]  96.5 [92.0-100.0]  96.5  92.5 [83.6- 98.8]  92.2 [82.5-100.0]  92.3 [83.0- 98.8]  92.3 [82.9- 98.8] |        13.1    5.2 |       218   199
+
+  -- Wrist-only: on the windows every model of the group classified (nothing rejected by construction; no interval)
+  model                                          Se                 Sp    P+            bal.acc                AUC                acc                 F1 | rej: stress    neg | n: stress   neg
+  Wrist-only                                   88.5               98.0  98.0               93.3               94.2               93.0               93.0 |         0.0    0.0 |       218   199
+  Wrist-only - bvp_primary                     83.9               98.0  97.9               91.0               88.2               90.6               90.6 |         0.0    0.0 |       218   199
+  Wrist-only - eda_wrist                       80.3               83.9  84.5               82.1               87.5               82.0               82.0 |         0.0    0.0 |       218   199
+  Wrist-only - temp_wrist                      88.5               96.5  96.5               92.5               92.2               92.3               92.3 |         0.0    0.0 |       218   199
+     per subject balanced accuracy on these windows, median [min, max]: Wrist-only 100.0 [50.0, 100.0] n=15; Wrist-only - bvp_primary 100.0 [50.0, 100.0] n=15; Wrist-only - eda_wrist 83.3 [50.0, 100.0] n=15; Wrist-only - temp_wrist 100.0 [50.0, 100.0] n=15
+
+  -- the six primary models on the windows all six classified
+  model                                          Se                 Sp    P+            bal.acc                AUC                acc                 F1 | rej: stress    neg | n: stress   neg
+  ECG                                          80.3               88.9  88.8               84.6               89.0               84.4               84.4 |         0.0    0.0 |       218   199
+  BVP                                          74.8               88.4  87.6               81.6               86.6               81.3               81.3 |         0.0    0.0 |       218   199
+  EDA                                          80.7               96.5  96.2               88.6               89.2               88.2               88.2 |         0.0    0.0 |       218   199
+  TEMP                                         50.9               74.4  68.5               62.6               65.5               62.1               61.8 |         0.0    0.0 |       218   199
+  Wrist-only                                   88.5               98.0  98.0               93.3               94.2               93.0               93.0 |         0.0    0.0 |       218   199
+  All four                                     92.2              100.0 100.0               96.1               99.9               95.9               95.9 |         0.0    0.0 |       218   199
+
+== 5. B1: the primary models (each fold's model, unchanged) on the test subject's other conditions:
+   share called stress (%) [classified windows, share rejected %]. Baseline is always first; a model that only
+   learned 'later in the session' calls amusement and meditation stress. The baseline column is 1 - Sp.
+  model        order (subjects)                     amusement            meditation_1            meditation_2                baseline
+  ECG          all (15)                    20.0 [ 105,   0.0]      25.0 [ 108,   8.5]      24.2 [  95,  19.5]      10.5 [ 210,   0.0]
+  ECG          stress_first (7)            42.9 [  49,   0.0]      56.2 [  48,  14.3]      48.9 [  47,  13.0]      22.4 [  98,   0.0]
+  ECG          amusement_first (8)          0.0 [  56,   0.0]       0.0 [  60,   3.2]       0.0 [  48,  25.0]       0.0 [ 112,   0.0]
+  BVP          all (15)                    20.5 [  83,  21.0]      20.0 [ 110,   6.8]      13.6 [  88,  25.4]      11.6 [ 199,   5.2]
+  BVP          stress_first (7)            26.8 [  41,  16.3]      28.6 [  56,   0.0]      17.4 [  46,  14.8]      20.4 [  98,   0.0]
+  BVP          amusement_first (8)         14.3 [  42,  25.0]      11.1 [  54,  12.9]       9.5 [  42,  34.4]       3.0 [ 101,   9.8]
+  EDA          all (15)                    19.0 [ 105,   0.0]       1.7 [ 118,   0.0]      10.2 [ 118,   0.0]       5.7 [ 210,   0.0]
+  EDA          stress_first (7)            22.4 [  49,   0.0]       3.6 [  56,   0.0]      14.8 [  54,   0.0]       2.0 [  98,   0.0]
+  EDA          amusement_first (8)         16.1 [  56,   0.0]       0.0 [  62,   0.0]       6.2 [  64,   0.0]       8.9 [ 112,   0.0]
+  TEMP         all (15)                    26.7 [ 105,   0.0]      27.1 [ 118,   0.0]      39.0 [ 118,   0.0]      24.3 [ 210,   0.0]
+  TEMP         stress_first (7)            28.6 [  49,   0.0]      28.6 [  56,   0.0]      38.9 [  54,   0.0]      27.6 [  98,   0.0]
+  TEMP         amusement_first (8)         25.0 [  56,   0.0]      25.8 [  62,   0.0]      39.1 [  64,   0.0]      21.4 [ 112,   0.0]
+  Wrist-only   all (15)                    34.9 [  83,  21.0]       9.1 [ 110,   6.8]      17.0 [  88,  25.4]       2.0 [ 199,   5.2]
+  Wrist-only   stress_first (7)            48.8 [  41,  16.3]      16.1 [  56,   0.0]      32.6 [  46,  14.8]       1.0 [  98,   0.0]
+  Wrist-only   amusement_first (8)         21.4 [  42,  25.0]       1.9 [  54,  12.9]       0.0 [  42,  34.4]       3.0 [ 101,   9.8]
+  All four     all (15)                    27.7 [  83,  21.0]       8.0 [ 100,  15.3]      19.2 [  73,  38.1]       0.0 [ 199,   5.2]
+  All four     stress_first (7)            34.1 [  41,  16.3]      16.7 [  48,  14.3]      30.4 [  46,  14.8]       0.0 [  98,   0.0]
+  All four     amusement_first (8)         21.4 [  42,  25.0]       0.0 [  52,  16.1]       0.0 [  27,  57.8]       0.0 [ 101,   9.8]
+
+== 6. B2: stress against non-stress (second half of baseline + amusement), models retrained, leave-one-subject-out
+   The binary task of Schmidt et al. 2018; accuracy and class-averaged F1 are their metrics.
+  model                                          Se                 Sp    P+            bal.acc                AUC                acc                 F1 | rej: stress    neg | n: stress   neg
+  ECG                             82.1 [66.9- 94.8]  87.9 [76.8- 97.8]  84.4  85.0 [76.2- 93.1]  86.7 [78.6- 94.8]  85.3 [76.9- 93.1]  85.1 [76.4- 93.1] |         0.0    0.0 |       251   315
+  BVP                             73.9 [57.0- 88.2]  86.2 [73.6- 95.4]  80.5  80.0 [70.6- 88.3]  85.5 [77.5- 92.6]  80.8 [71.2- 89.0]  80.3 [70.5- 88.5] |        13.1   10.5 |       218   282
+  EDA                             81.7 [64.3- 96.1]  93.7 [87.3- 98.7]  91.1  87.7 [79.7- 94.8]  92.3 [88.4- 97.8]  88.3 [81.3- 94.9]  88.0 [80.3- 94.8] |         0.0    0.0 |       251   315
+  TEMP                            53.4 [29.6- 75.7]  75.2 [57.5- 91.1]  63.2  64.3 [53.1- 75.5]  67.8 [54.3- 82.2]  65.5 [54.9- 76.5]  64.4 [51.9- 75.7] |         0.0    0.0 |       251   315
+  Wrist-only                      86.7 [70.3-100.0]  93.3 [85.6- 99.3]  90.9  90.0 [82.5- 96.3]  95.7 [90.3- 99.8]  90.4 [83.7- 96.3]  90.2 [82.8- 96.2] |        13.1   10.5 |       218   282
+  All four                        83.0 [66.5- 97.1]  93.6 [87.4- 98.9]  91.0  88.3 [80.4- 95.3]  97.1 [93.9- 99.6]  89.0 [81.2- 95.1]  88.7 [80.5- 95.0] |        13.1   10.5 |       218   282
+   per subject:
+  ECG                            Se 100.0 [ 17.6, 100.0] n=15 | Sp 100.0 [ 33.3, 100.0] n=15 | bal.acc  90.6 [ 54.3, 100.0] n=15 | acc  91.9 [ 54.1, 100.0] n=15 | F1  91.5 [ 52.5, 100.0] n=15 | AUC 100.0 [ 56.2, 100.0] n=15
+  BVP                            Se  76.5 [  0.0, 100.0] n=15 | Sp 100.0 [ 23.8, 100.0] n=15 | bal.acc  83.3 [ 50.0, 100.0] n=15 | acc  89.5 [ 25.0, 100.0] n=15 | F1  81.0 [ 24.8, 100.0] n=15 | AUC  96.2 [ 33.3, 100.0] n=15
+  EDA                            Se 100.0 [  0.0, 100.0] n=15 | Sp 100.0 [ 66.7, 100.0] n=15 | bal.acc  95.2 [ 50.0, 100.0] n=15 | acc  94.7 [ 58.3, 100.0] n=15 | F1  94.7 [ 36.8, 100.0] n=15 | AUC 100.0 [ 83.5, 100.0] n=15
+  TEMP                           Se  76.5 [  0.0, 100.0] n=15 | Sp  90.5 [  0.0, 100.0] n=15 | bal.acc  50.0 [ 38.1, 100.0] n=15 | acc  56.8 [ 39.5, 100.0] n=15 | F1  36.2 [ 28.3, 100.0] n=15 | AUC  86.9 [  0.0, 100.0] n=15
+  Wrist-only                     Se 100.0 [  0.0, 100.0] n=15 | Sp 100.0 [ 57.1, 100.0] n=15 | bal.acc 100.0 [ 50.0, 100.0] n=15 | acc 100.0 [ 60.0, 100.0] n=15 | F1 100.0 [ 37.5, 100.0] n=15 | AUC 100.0 [ 95.6, 100.0] n=15
+  All four                       Se 100.0 [ 11.8, 100.0] n=15 | Sp 100.0 [ 66.7, 100.0] n=15 | bal.acc  97.4 [ 55.9, 100.0] n=15 | acc  95.7 [ 25.0, 100.0] n=15 | F1  92.4 [ 24.8, 100.0] n=15 | AUC 100.0 [ 99.0, 100.0] n=15
+   majority-class accuracy ('non-stress' always) on each model's classified windows: ECG 55.7%; BVP 56.4%; EDA 55.7%; TEMP 55.7%; Wrist-only 56.4%; All four 56.4%
+
+== 7. Comparison with Schmidt et al. 2018 (plan section 8), and why it is loose
+   Theirs (paper, Table 4; stress against baseline + amusement): best 93.12% accuracy, F1 91.47, LDA on all chest
+   physiological signals (ECG, EDA, EMG, RESP, TEMP); wrist physiological signals at best 88.33% (random forest),
+   86.46% with LDA; majority class 69.94%.
+   Ours, B2, ECG       : accuracy 85.3%, F1 85.1, balanced accuracy 85.0%, on classified windows; rejected 0.0% of stress and 0.0% of non-stress windows
+   Ours, B2, BVP       : accuracy 80.8%, F1 80.3, balanced accuracy 80.0%, on classified windows; rejected 13.1% of stress and 10.5% of non-stress windows
+   Ours, B2, EDA       : accuracy 88.3%, F1 88.0, balanced accuracy 87.7%, on classified windows; rejected 0.0% of stress and 0.0% of non-stress windows
+   Ours, B2, TEMP      : accuracy 65.5%, F1 64.4, balanced accuracy 64.3%, on classified windows; rejected 0.0% of stress and 0.0% of non-stress windows
+   Ours, B2, Wrist-only: accuracy 90.4%, F1 90.2, balanced accuracy 90.0%, on classified windows; rejected 13.1% of stress and 10.5% of non-stress windows
+   Ours, B2, All four  : accuracy 89.0%, F1 88.7, balanced accuracy 88.3%, on classified windows; rejected 13.1% of stress and 10.5% of non-stress windows
+   Differences: their windows are 60 s shifted by 0.25 s, ours 180 s every 30 s; their baseline is all 20 min, ours
+   only its second half (the first half is the reference and is never classified); we z-score against that
+   reference, they describe no normalisation; we use no EMG or RESP; logistic regression, not LDA; we reject
+   windows with a withheld feature, they reject none. Our 'All four' is chest ECG with wrist BVP, EDA and TEMP,
+   neither of their sensor sets; our Wrist-only is the closest to their wrist result. A figure above or below
+   theirs is not described as beating or missing their result.
+
+== 8. Secondary models (primary task: second half of the baseline against stress)
+  model                                          Se                 Sp    P+            bal.acc                AUC                acc                 F1 | rej: stress    neg | n: stress   neg
+  B3 ECG (ECG-full)               68.4 [41.0- 93.0]  85.3 [60.3-100.0]  83.9  76.9 [63.2- 90.7]  81.5 [63.2- 98.9]  76.4 [61.8- 90.8]  76.3 [60.8- 90.7] |        54.6   51.4 |       114   102
+  B3 All four (ECG-full)          88.8 [67.5-100.0] 100.0 [100.0-100.0] 100.0  94.4 [83.7-100.0]  99.8 [99.2-100.0]  94.2 [84.0-100.0]  94.2 [83.3-100.0] |        61.0   56.7 |        98    91
+  B4 EDA chest                    88.8 [78.0- 98.4]  94.3 [88.1- 99.0]  94.9  91.6 [86.4- 96.5]  96.9 [93.2- 99.7]  91.3 [85.7- 96.5]  91.3 [85.7- 96.5] |         0.0    0.0 |       251   210
+  B4 TEMP chest                   49.8 [30.0- 69.7]  39.6 [25.0- 56.0]  48.8  44.7 [38.1- 52.1]  42.5 [36.2- 49.1]  45.0 [38.1- 52.9]  44.6 [37.5- 51.5] |        15.9   13.3 |       211   182
+  B5 EDA (SCR 0.05 uS)            78.9 [59.8- 95.2]  96.7 [91.0-100.0]  96.6  87.8 [78.1- 96.1]  88.2 [75.2- 98.0]  87.0 [76.4- 95.9]  87.0 [76.1- 95.9] |         0.0    0.0 |       251   210
+  B5 Wrist-only (SCR 0.05 uS)     86.7 [68.5-100.0]  99.0 [96.8-100.0]  99.0  92.8 [84.0- 99.5]  95.0 [90.0-100.0]  92.6 [83.2- 99.5]  92.6 [82.9- 99.5] |        13.1    5.2 |       218   199
+  B5 All four (SCR 0.05 uS)       95.0 [90.3- 99.5] 100.0 [100.0-100.0] 100.0  97.5 [95.1- 99.7] 100.0 [99.9-100.0]  97.4 [94.9- 99.7]  97.4 [94.9- 99.7] |        13.1    5.2 |       218   199
+   per subject:
+  B3 ECG (ECG-full)              Se  88.2 [  0.0, 100.0] n= 8 | Sp 100.0 [ 14.3, 100.0] n= 9 | bal.acc  83.0 [ 42.9, 100.0] n= 8 | acc  76.2 [ 37.5, 100.0] n= 8 | F1  75.3 [ 27.3, 100.0] n= 8 | AUC 100.0 [  9.5, 100.0] n= 8
+  B3 All four (ECG-full)         Se 100.0 [  0.0, 100.0] n= 8 | Sp 100.0 [100.0, 100.0] n= 9 | bal.acc 100.0 [ 50.0, 100.0] n= 8 | acc 100.0 [ 46.7, 100.0] n= 8 | F1 100.0 [ 31.8, 100.0] n= 8 | AUC 100.0 [100.0, 100.0] n= 8
+  B4 EDA chest                   Se 100.0 [ 33.3, 100.0] n=15 | Sp 100.0 [ 57.1, 100.0] n=15 | bal.acc  96.4 [ 66.7, 100.0] n=15 | acc  96.8 [ 65.5, 100.0] n=15 | F1  96.7 [ 61.8, 100.0] n=15 | AUC 100.0 [ 99.2, 100.0] n=15
+  B4 TEMP chest                  Se  50.0 [  0.0, 100.0] n=13 | Sp  35.7 [  0.0,  92.9] n=13 | bal.acc  46.4 [ 27.2,  71.4] n=13 | acc  43.3 [ 26.7,  74.2] n=13 | F1  33.8 [ 25.0,  70.5] n=13 | AUC  38.7 [  7.1,  56.3] n=13
+  B5 EDA (SCR 0.05 uS)           Se 100.0 [  0.0, 100.0] n=15 | Sp 100.0 [ 64.3, 100.0] n=15 | bal.acc 100.0 [ 50.0, 100.0] n=15 | acc 100.0 [ 42.4, 100.0] n=15 | F1 100.0 [ 29.8, 100.0] n=15 | AUC 100.0 [ 27.1, 100.0] n=15
+  B5 Wrist-only (SCR 0.05 uS)    Se 100.0 [  0.0, 100.0] n=15 | Sp 100.0 [ 85.7, 100.0] n=15 | bal.acc 100.0 [ 50.0, 100.0] n=15 | acc 100.0 [ 42.4, 100.0] n=15 | F1 100.0 [ 29.8, 100.0] n=15 | AUC 100.0 [ 88.3, 100.0] n=15
+  B5 All four (SCR 0.05 uS)      Se 100.0 [ 78.6, 100.0] n=15 | Sp 100.0 [100.0, 100.0] n=15 | bal.acc 100.0 [ 89.3, 100.0] n=15 | acc 100.0 [ 87.9, 100.0] n=15 | F1 100.0 [ 87.9, 100.0] n=15 | AUC 100.0 [100.0, 100.0] n=15
+   B4 chest TEMP is withheld for S2 and S17 by design (the authors' note), so all their windows are rejected.
+   ECG against B3 ECG (ECG-full), on the windows both classified:
+  model                                          Se                 Sp    P+            bal.acc                AUC                acc                 F1 | rej: stress    neg | n: stress   neg
+  ECG                                          67.5               92.2  90.6               79.9               80.8               79.2               79.0 |         0.0    0.0 |       114   102
+  B3 ECG (ECG-full)                            68.4               85.3  83.9               76.9               81.5               76.4               76.3 |         0.0    0.0 |       114   102
+   All four against B3 All four (ECG-full), on the windows both classified:
+  model                                          Se                 Sp    P+            bal.acc                AUC                acc                 F1 | rej: stress    neg | n: stress   neg
+  All four                                     90.8              100.0 100.0               95.4               99.8               95.2               95.2 |         0.0    0.0 |        98    91
+  B3 All four (ECG-full)                       88.8              100.0 100.0               94.4               99.8               94.2               94.2 |         0.0    0.0 |        98    91
+   EDA against B4 EDA chest, on the windows both classified:
+  model                                          Se                 Sp    P+            bal.acc                AUC                acc                 F1 | rej: stress    neg | n: stress   neg
+  EDA                                          80.1               94.3  94.4               87.2               88.3               86.6               86.6 |         0.0    0.0 |       251   210
+  B4 EDA chest                                 88.8               94.3  94.9               91.6               96.9               91.3               91.3 |         0.0    0.0 |       251   210
+   TEMP against B4 TEMP chest, on the windows both classified:
+  model                                          Se                 Sp    P+            bal.acc                AUC                acc                 F1 | rej: stress    neg | n: stress   neg
+  TEMP                                         50.7               79.1  73.8               64.9               69.8               63.9               63.5 |         0.0    0.0 |       211   182
+  B4 TEMP chest                                49.8               39.6  48.8               44.7               42.5               45.0               44.6 |         0.0    0.0 |       211   182
+
+== 9. A1: wrist pulses against chest ECG beats (development result for the PPG code; windows overlap; descriptive)
+   Matching: pulses shifted back by the window's median beat-to-pulse delay, +-150 ms, one to one.
+   Se = matched / ECG beats, P+ = matched / pulses; counted once per window, so overlapping windows repeat beats.
+   all 15 subjects pooled, by part:
+  reference     Se  54.9%  P+  57.3%  | rate (pulse - ECG) over 203/210 windows: bias +0.06/min, LoA -4.24..+4.35 | RMSSD pulse vs ECG over 195/210 windows: median 63.5 vs 42.3 ms, median difference +17.1 ms | coverage median ECG 99%, pulse 59%
+  baseline      Se  55.0%  P+  57.9%  | rate (pulse - ECG) over 199/210 windows: bias -0.04/min, LoA -3.49..+3.40 | RMSSD pulse vs ECG over 197/210 windows: median 67.5 vs 45.6 ms, median difference +17.9 ms | coverage median ECG 99%, pulse 61%
+  stress        Se  44.2%  P+  59.2%  | rate (pulse - ECG) over 218/251 windows: bias -8.19/min, LoA -32.65..+16.26 | RMSSD pulse vs ECG over 131/251 windows: median 70.8 vs 33.0 ms, median difference +34.8 ms | coverage median ECG 98%, pulse 38%
+  amusement     Se  47.4%  P+  57.0%  | rate (pulse - ECG) over 83/105 windows: bias -0.57/min, LoA -5.38..+4.24 | RMSSD pulse vs ECG over 83/105 windows: median 77.0 vs 42.3 ms, median difference +22.1 ms | coverage median ECG 98%, pulse 55%
+  meditation_1  Se  58.1%  P+  62.9%  | rate (pulse - ECG) over 110/118 windows: bias +0.45/min, LoA -3.08..+3.98 | RMSSD pulse vs ECG over 106/118 windows: median 58.3 vs 47.0 ms, median difference +5.9 ms | coverage median ECG 92%, pulse 66%
+  meditation_2  Se  56.0%  P+  70.3%  | rate (pulse - ECG) over 88/118 windows: bias -1.72/min, LoA -7.23..+3.79 | RMSSD pulse vs ECG over 82/118 windows: median 68.3 vs 48.9 ms, median difference +21.0 ms | coverage median ECG 93%, pulse 52%
+   per subject, Se / P+ (%) by part:
+  subject      reference      baseline        stress     amusement  meditation_1  meditation_2
+  S2          53.7/ 53.8    68.2/ 68.7    31.1/ 37.2    58.3/ 59.0    76.2/ 78.7    82.7/ 88.4
+  S3          16.7/ 14.4    49.1/ 45.0    28.2/ 45.1    19.5/ 16.9    19.1/ 19.0    13.7/ 43.8
+  S4          46.4/ 43.9    25.2/ 23.8    42.5/ 44.6    80.6/ 76.1    25.5/ 24.6    58.7/ 59.4
+  S5          21.5/ 22.8    41.0/ 45.3    42.5/ 46.0    10.7/ 10.1    22.8/ 64.2     6.4/ 30.5
+  S6          61.6/ 59.8    54.6/ 54.3    40.2/ 50.0    49.1/ 59.6    42.0/ 42.9    40.8/ 46.6
+  S7          54.7/ 53.4    51.9/ 52.1    38.2/ 41.9    25.8/ 27.2    36.5/ 35.6    38.1/ 40.3
+  S8          73.0/ 72.3    69.0/ 71.1    39.3/ 51.5    39.6/ 40.3    85.7/ 84.9    83.3/ 84.5
+  S9          60.8/ 63.1    53.2/ 53.6    44.3/ 46.5    89.4/ 91.9    69.7/ 68.6    95.6/ 93.9
+  S10         72.6/ 88.3    72.5/ 83.1    72.6/ 85.7    43.9/ 44.2    89.5/ 89.4    25.5/ 61.3
+  S11         73.5/ 74.4    66.2/ 66.6    23.7/ 69.6    82.4/ 87.0    51.7/ 82.0    50.5/ 80.4
+  S13         63.3/ 71.6    71.0/ 76.5    50.2/ 70.7    62.1/ 71.6    55.2/ 55.2    97.6/ 97.4
+  S14         80.4/ 80.6    76.5/ 77.1    65.8/ 82.6    75.3/ 85.4    98.0/ 97.9    93.4/ 93.5
+  S15         25.9/ 37.7    27.4/ 45.5    42.9/ 49.0     3.2/ 43.7    66.6/ 73.2    36.4/ 56.8
+  S16         51.4/ 51.4    41.8/ 41.8    37.5/ 77.3    31.1/ 68.8    64.0/ 65.8    49.6/ 50.5
+  S17         47.3/ 47.4    41.4/ 41.9    47.4/ 64.8    22.6/ 42.7    39.4/ 40.1    44.2/ 49.4
+
+== 10. A2: apparent ECG-beat-to-wrist-pulse delay along the recording (NOT pulse arrival time;
+   the devices were aligned by hand from a double-tap). Per part: median of the windows' medians, ms.
+S2: reference (from 307 s) 134 ms, IQR within windows 213; baseline (from 879 s) 101 ms, IQR within windows 139; stress (from 2274 s) 310 ms, IQR within windows 309; meditation_1 (from 4098 s) 36 ms, IQR within windows 49; amusement (from 4764 s) 190 ms, IQR within windows 200; meditation_2 (from 5497 s) 303 ms, IQR within windows 78
+    least-squares slope over all windows: +57.6 ms per hour (65 windows; posture and heart rate also move this delay)
+S3: reference (from 353 s) 363 ms, IQR within windows 402; baseline (from 923 s) 190 ms, IQR within windows 187; stress (from 2244 s) 290 ms, IQR within windows 286; meditation_1 (from 4297 s) 304 ms, IQR within windows 311; amusement (from 5004 s) 315 ms, IQR within windows 332; meditation_2 (from 5818 s) 259 ms, IQR within windows 203
+    least-squares slope over all windows: +10.4 ms per hour (66 windows; posture and heart rate also move this delay)
+S4: reference (from 285 s) 125 ms, IQR within windows 167; baseline (from 864 s) 410 ms, IQR within windows 391; amusement (from 1832 s) 509 ms, IQR within windows 82; meditation_1 (from 2685 s) 225 ms, IQR within windows 279; stress (from 3613 s) 349 ms, IQR within windows 284; meditation_2 (from 5676 s) 283 ms, IQR within windows 214
+    least-squares slope over all windows: +42.1 ms per hour (67 windows; posture and heart rate also move this delay)
+S5: reference (from 279 s) 195 ms, IQR within windows 270; baseline (from 878 s) 491 ms, IQR within windows 344; amusement (from 1862 s) 259 ms, IQR within windows 437; meditation_1 (from 2685 s) 186 ms, IQR within windows 176; stress (from 3602 s) 272 ms, IQR within windows 266; meditation_2 (from 5477 s) 295 ms, IQR within windows 232
+    least-squares slope over all windows: +15.0 ms per hour (67 windows; posture and heart rate also move this delay)
+S6: reference (from 643 s) 167 ms, IQR within windows 161; baseline (from 1233 s) 373 ms, IQR within windows 219; stress (from 2441 s) 385 ms, IQR within windows 277; meditation_1 (from 4520 s) 459 ms, IQR within windows 253; amusement (from 5551 s) 272 ms, IQR within windows 182; meditation_2 (from 6506 s) 128 ms, IQR within windows 138
+    least-squares slope over all windows: -9.0 ms per hour (67 windows; posture and heart rate also move this delay)
+S7: reference (from 101 s) 184 ms, IQR within windows 186; baseline (from 694 s) 212 ms, IQR within windows 179; amusement (from 1551 s) 65 ms, IQR within windows 110; meditation_1 (from 2208 s) 219 ms, IQR within windows 243; stress (from 3097 s) 274 ms, IQR within windows 291; meditation_2 (from 4654 s) 327 ms, IQR within windows 247
+    least-squares slope over all windows: +120.7 ms per hour (67 windows; posture and heart rate also move this delay)
+S8: reference (from 159 s) 203 ms, IQR within windows 131; baseline (from 743 s) 424 ms, IQR within windows 154; amusement (from 1663 s) 143 ms, IQR within windows 185; meditation_1 (from 2315 s) 391 ms, IQR within windows 141; stress (from 3293 s) 343 ms, IQR within windows 262; meditation_2 (from 4897 s) 197 ms, IQR within windows 149
+    least-squares slope over all windows: -17.2 ms per hour (68 windows; posture and heart rate also move this delay)
+S9: reference (from 75 s) 154 ms, IQR within windows 200; baseline (from 665 s) 404 ms, IQR within windows 207; stress (from 1872 s) 239 ms, IQR within windows 246; meditation_1 (from 3509 s) 182 ms, IQR within windows 156; amusement (from 4058 s) 179 ms, IQR within windows 95; meditation_2 (from 4692 s) 447 ms, IQR within windows 97
+    least-squares slope over all windows: +44.1 ms per hour (67 windows; posture and heart rate also move this delay)
+S10: reference (from 93 s) 317 ms, IQR within windows 103; baseline (from 683 s) 432 ms, IQR within windows 180; amusement (from 1596 s) 128 ms, IQR within windows 463; meditation_1 (from 2245 s) 417 ms, IQR within windows 103; stress (from 3193 s) 251 ms, IQR within windows 104; meditation_2 (from 4920 s) 297 ms, IQR within windows 541
+    least-squares slope over all windows: -85.9 ms per hour (70 windows; posture and heart rate also move this delay)
+S11: reference (from 86 s) 136 ms, IQR within windows 140; baseline (from 676 s) 205 ms, IQR within windows 157; stress (from 1908 s) 351 ms, IQR within windows 285; meditation_1 (from 3573 s) 249 ms, IQR within windows 132; amusement (from 4110 s) 329 ms, IQR within windows 119; meditation_2 (from 4692 s) 359 ms, IQR within windows 165
+    least-squares slope over all windows: +143.9 ms per hour (68 windows; posture and heart rate also move this delay)
+S13: reference (from 88 s) 205 ms, IQR within windows 154; baseline (from 678 s) 319 ms, IQR within windows 143; amusement (from 1664 s) 443 ms, IQR within windows 204; meditation_1 (from 2347 s) 127 ms, IQR within windows 102; stress (from 3261 s) 360 ms, IQR within windows 322; meditation_2 (from 4948 s) 363 ms, IQR within windows 50
+    least-squares slope over all windows: +70.6 ms per hour (68 windows; posture and heart rate also move this delay)
+S14: reference (from 26 s) 149 ms, IQR within windows 130; baseline (from 616 s) 439 ms, IQR within windows 154; stress (from 1904 s) 295 ms, IQR within windows 334; meditation_1 (from 3648 s) 219 ms, IQR within windows 116; amusement (from 4310 s) 190 ms, IQR within windows 103; meditation_2 (from 4975 s) 163 ms, IQR within windows 91
+    least-squares slope over all windows: -56.2 ms per hour (68 windows; posture and heart rate also move this delay)
+S15: reference (from 110 s) 182 ms, IQR within windows 305; baseline (from 698 s) 501 ms, IQR within windows 401; amusement (from 1611 s) 271 ms, IQR within windows 233; meditation_1 (from 2256 s) 376 ms, IQR within windows 185; stress (from 3099 s) 226 ms, IQR within windows 252; meditation_2 (from 4683 s) 75 ms, IQR within windows 116
+    least-squares slope over all windows: -158.2 ms per hour (68 windows; posture and heart rate also move this delay)
+S16: reference (from 98 s) 153 ms, IQR within windows 173; baseline (from 688 s) 151 ms, IQR within windows 274; stress (from 1988 s) 210 ms, IQR within windows 389; meditation_1 (from 3713 s) 367 ms, IQR within windows 197; amusement (from 4320 s) 146 ms, IQR within windows 209; meditation_2 (from 5014 s) 102 ms, IQR within windows 481
+    least-squares slope over all windows: +17.0 ms per hour (68 windows; posture and heart rate also move this delay)
+S17: reference (from 92 s) 118 ms, IQR within windows 154; baseline (from 683 s) 163 ms, IQR within windows 219; amusement (from 1740 s) 431 ms, IQR within windows 277; meditation_1 (from 2543 s) 398 ms, IQR within windows 269; stress (from 3512 s) 278 ms, IQR within windows 250; meditation_2 (from 5259 s) 464 ms, IQR within windows 219
+    least-squares slope over all windows: +204.9 ms per hour (68 windows; posture and heart rate also move this delay)
+
+run time 158 s
