@@ -1,0 +1,66 @@
+# ./validate_af.py freeze --cinc /home/dhruv/esp32_ecg_monitoring/data/cinc2017
+# commit 8a15c13 + uncommitted changes; detector tp3; af settings {"warmup_s": 2.0, "min_rr": 10, "cosen_r_s": 0.03, "cosen_r_step_s": 0.01, "cosen_r_max_s": 0.3, "cosen_min_a": 5, "window_s": 30.0, "frozen": null}
+# features: mean_rr ln_nrmssd ln_cv ln_nmasd ln_sd1_sd2 tpr cosen v_share s_share ect_und flag_share
+# PhysioNet/CinC 2017 training set, REFERENCE-v3 labels; first 30 s of each recording; causal filter, 60 Hz notch.
+# Cross-validation BY RECORDING (no patient identifiers are published): figures may be optimistic.
+# 5 folds x 3 repeats (seeds 0 1 2). F1 = mean over the 15 folds; +- = sd over the 15 folds.
+
+recordings 8528: N 5076, A 758, O 2415, ~ 279
+judged by the gate 8452 (99.1%); not judged, scored as predicted '~': N 34, A 10, O 17, ~ 15
+recording length: median 30 s, 18.4% longer than 30 s (cut to their first 30 s)
+beat-to-beat intervals per recording after the warm-up: median 32, 5th-95th pct 17-52
+share of beats the ectopic step could not judge (cold start): median 42%
+
+feature medians by class (judged recordings):
+                    N        A        O        ~
+mean_rr         0.824    0.681    0.816    0.589
+ln_nrmssd      -3.080   -1.210   -1.659   -0.613
+ln_cv          -2.877   -1.552   -1.957   -0.885
+ln_nmasd       -3.923   -1.716   -3.703   -1.265
+ln_sd1_sd2     -0.492    0.013   -0.035   -0.139
+tpr             0.518    0.661    0.591    0.657
+cosen          -2.169   -0.640   -2.038   -0.538
+v_share         0.000    0.000    0.000    0.063
+s_share         0.000    0.114    0.000    0.000
+ect_und         0.424    0.355    0.425    0.763
+flag_share      0.188    0.154    0.194    0.573
+
+model                                        F1 N   F1 A   F1 O   F1 ~ | mean N,A,O   A +-
+logistic C=0.1 weights=none                 0.825  0.685  0.493  0.531 |      0.667  0.022
+logistic C=0.1 weights=balanced             0.750  0.670  0.524  0.428 |      0.648  0.024
+logistic C=1 weights=none                   0.824  0.693  0.492  0.541 |      0.670  0.023
+logistic C=1 weights=balanced               0.748  0.676  0.522  0.428 |      0.648  0.023
+logistic C=10 weights=none                  0.824  0.696  0.493  0.547 |      0.671  0.020
+logistic C=10 weights=balanced              0.747  0.677  0.520  0.430 |      0.648  0.021
+trees n=50 depth=3 weights=none             0.870  0.732  0.640  0.525 |      0.747  0.028
+trees n=50 depth=3 weights=balanced         0.840  0.701  0.621  0.461 |      0.721  0.017
+trees n=100 depth=3 weights=none            0.871  0.735  0.644  0.531 |      0.750  0.027
+trees n=100 depth=3 weights=balanced        0.844  0.711  0.627  0.483 |      0.727  0.019
+trees n=200 depth=3 weights=none            0.871  0.730  0.645  0.523 |      0.749  0.028
+trees n=200 depth=3 weights=balanced        0.850  0.721  0.636  0.508 |      0.736  0.021
+
+best logistic: logistic C=10 weights=none (class-A F1 0.696); best trees: trees n=100 depth=3 weights=none (class-A F1 0.735); difference +0.039, margin for choosing trees 0.02
+CHOSEN: trees n=100 depth=3 weights=none
+
+=== the chosen model, cross-validated on CinC 2017 by recording ===
+F1 per class: N 0.871 +- 0.005, A 0.735 +- 0.027, O 0.644 +- 0.014, ~ 0.531 +- 0.048
+mean of N, A, O (the challenge's score): 0.750. For context only: the challenge's top entries scored 0.83, on a hidden
+test set of other recordings, whole recordings, with waveform features. That set is not public; the two numbers are not comparable.
+
+out-of-fold confusion, first repeat (rows = reference, columns = predicted; '~' includes recordings the gate did not judge):
+            N      A      O      ~   total
+N        4656     30    319     71    5076
+A          39    537    150     32     758
+O         848    116   1389     62    2415
+~          69     16     37    157     279
+class A as a screen, same out-of-fold labels: Se 74.0% and Sp 97.8% on the 96.2% of recordings labelled N, A or O; P+ 76.8%; end-to-end Se 70.8%
+recordings labelled A that are not AF: 30 of 5076 normal, 116 of 2415 other rhythm, 16 of 279 noisy
+
+=== what the feature groups add (the chosen setting, same folds) ===
+features                                                     F1 N   F1 A   F1 O   F1 ~ | mean N,A,O
+all features                                                0.871  0.735  0.644  0.531 |      0.750
+without the ectopic features (v_share, s_share, ect_und)    0.871  0.727  0.641  0.519 |      0.746
+without v_share only                                        0.872  0.730  0.647  0.532 |      0.750
+timing features only (no ectopic, no flag_share)            0.872  0.712  0.639  0.466 |      0.741
+
+FROZEN 2026-11-13: trees n=100 depth=3 weights=none fitted on 8452 recordings -> algorithms/af_model.json; exported numbers reproduce the fitted model's probabilities to 0.0e+00 on all of them.

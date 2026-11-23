@@ -1,0 +1,103 @@
+# ./develop_sqi_artifact.py   commit def9c69; gate sqi2
+# 8 own recordings, 48 MIT-BIH Arrhythmia records, 12 MIT-BIH Noise Stress Test records. All development data.
+# A block = 1 s of the display signal. Only blocks the old gate (kurtosis and band share) called GOOD are counted.
+
+old gate, share of blocks by verdict (5 s window ending at each block):
+  tb02 <=42s      38 blocks: GOOD  52.6%  FAIR  28.9%  POOR  18.4%
+  tb02 >45s      254 blocks: GOOD  94.5%  FAIR   3.1%  POOR   2.4%
+  dual03         222 blocks: GOOD  79.7%  FAIR  12.2%  POOR   8.1%
+  MIT-BIH      86448 blocks: GOOD  79.9%  FAIR  12.7%  POOR   7.4%
+  NST clean    11832 blocks: GOOD  96.7%  FAIR   3.1%  POOR   0.2%
+  tb01           224 blocks: GOOD  83.5%  FAIR  15.6%  POOR   0.9%
+  dual01+02      792 blocks: GOOD  15.2%  FAIR  14.9%  POOR  69.9%
+  NST noisy     9000 blocks: GOOD  39.1%  FAIR  24.2%  POOR  36.7%
+  NST noisy, SNR  24 dB  1500 blocks: GOOD  96.1%  FAIR   3.9%  POOR   0.0%
+  NST noisy, SNR  18 dB  1500 blocks: GOOD  85.5%  FAIR  14.1%  POOR   0.5%
+  NST noisy, SNR  12 dB  1500 blocks: GOOD  41.3%  FAIR  45.7%  POOR  13.0%
+  NST noisy, SNR  06 dB  1500 blocks: GOOD   9.0%  FAIR  40.5%  POOR  50.5%
+  NST noisy, SNR  00 dB  1500 blocks: GOOD   1.6%  FAIR  23.1%  POOR  75.3%
+  NST noisy, SNR  -6 dB  1500 blocks: GOOD   1.0%  FAIR  17.9%  POOR  81.1%
+
+=== grid: share of old-GOOD blocks the check turns to POOR (blocks in brackets on the first row) ===
+memory M blocks, reference = that percentile of their swings, artifact = swing > A x reference, POOR for `hold` blocks
+  M pct   A hold |  tb02 <=42s   tb02 >45s      dual03     MIT-BIH   NST clean        tb01   dual01+02   NST noisy
+                 |        (20)       (240)       (177)     (69088)     (11440)       (187)       (120)      (3517)
+ 30  25   3    5 |      95.00%       0.00%       0.00%       1.74%       0.00%       5.35%       7.50%       0.11%
+ 30  25   3   10 |     100.00%       0.00%       0.00%       2.09%       0.00%       6.95%       8.33%       0.14%
+ 30  25   3   15 |     100.00%       0.83%       0.00%       2.41%       0.00%       9.63%       8.33%       0.14%
+ 30  25   4    5 |      80.00%       0.00%       0.00%       0.75%       0.00%       5.35%       5.83%       0.09%
+ 30  25   4   10 |      95.00%       0.00%       0.00%       0.99%       0.00%       6.95%       6.67%       0.11%
+ 30  25   4   15 |      95.00%       0.83%       0.00%       1.19%       0.00%       9.63%       6.67%       0.11%
+ 30  25   5    5 |      80.00%       0.00%       0.00%       0.25%       0.00%       5.35%       1.67%       0.03%
+ 30  25   5   10 |      95.00%       0.00%       0.00%       0.35%       0.00%       6.95%       1.67%       0.03%
+ 30  25   5   15 |      95.00%       0.83%       0.00%       0.44%       0.00%       9.63%       1.67%       0.03%
+ 30  25   6    5 |      80.00%       0.00%       0.00%       0.17%       0.00%       5.35%       1.67%       0.00%
+ 30  25   6   10 |      95.00%       0.00%       0.00%       0.24%       0.00%       6.95%       1.67%       0.00%
+ 30  25   6   15 |      95.00%       0.83%       0.00%       0.31%       0.00%       9.63%       1.67%       0.00%
+ 30  50   3    5 |      80.00%       0.00%       0.00%       0.01%       0.00%       5.35%       6.67%       0.09%
+ 30  50   3   10 |      95.00%       0.00%       0.00%       0.02%       0.00%       5.88%       7.50%       0.09%
+ 30  50   3   15 |      95.00%       0.83%       0.00%       0.04%       0.00%       8.56%       7.50%       0.11%
+ 30  50   4    5 |      80.00%       0.00%       0.00%       0.00%       0.00%       5.35%       1.67%       0.09%
+ 30  50   4   10 |      95.00%       0.00%       0.00%       0.00%       0.00%       5.88%       1.67%       0.09%  <- sqi_config.json
+ 30  50   4   15 |      95.00%       0.83%       0.00%       0.00%       0.00%       8.56%       1.67%       0.09%
+ 30  50   5    5 |      70.00%       0.00%       0.00%       0.00%       0.00%       5.35%       1.67%       0.03%
+ 30  50   5   10 |      95.00%       0.00%       0.00%       0.00%       0.00%       5.35%       1.67%       0.03%
+ 30  50   5   15 |      95.00%       0.83%       0.00%       0.00%       0.00%       8.02%       1.67%       0.03%
+ 30  50   6    5 |      55.00%       0.00%       0.00%       0.00%       0.00%       5.35%       1.67%       0.00%
+ 30  50   6   10 |      85.00%       0.00%       0.00%       0.00%       0.00%       5.35%       1.67%       0.00%
+ 30  50   6   15 |      95.00%       0.83%       0.00%       0.00%       0.00%       8.02%       1.67%       0.00%
+ 60  25   3    5 |      95.00%       0.00%       0.00%       1.66%       0.00%       5.35%       6.67%       0.26%
+ 60  25   3   10 |     100.00%       0.83%       0.00%       1.96%       0.00%       6.95%       7.50%       0.26%
+ 60  25   3   15 |     100.00%       3.75%       0.00%       2.18%       0.00%       9.63%       7.50%       0.28%
+ 60  25   4    5 |      85.00%       0.00%       0.00%       0.57%       0.00%       5.35%       1.67%       0.23%
+ 60  25   4   10 |      95.00%       0.00%       0.00%       0.71%       0.00%       6.95%       1.67%       0.23%
+ 60  25   4   15 |      95.00%       0.83%       0.00%       0.84%       0.00%       9.63%       1.67%       0.26%
+ 60  25   5    5 |      80.00%       0.00%       0.00%       0.11%       0.00%       5.35%       1.67%       0.14%
+ 60  25   5   10 |      95.00%       0.00%       0.00%       0.16%       0.00%       6.95%       1.67%       0.17%
+ 60  25   5   15 |      95.00%       0.83%       0.00%       0.20%       0.00%       9.63%       1.67%       0.20%
+ 60  25   6    5 |      80.00%       0.00%       0.00%       0.06%       0.00%       5.35%       1.67%       0.03%
+ 60  25   6   10 |      95.00%       0.00%       0.00%       0.09%       0.00%       6.95%       1.67%       0.03%
+ 60  25   6   15 |      95.00%       0.83%       0.00%       0.12%       0.00%       9.63%       1.67%       0.06%
+ 60  50   3    5 |      80.00%       0.00%       0.00%       0.01%       0.00%       5.35%       6.67%       0.14%
+ 60  50   3   10 |      95.00%       0.00%       0.00%       0.02%       0.00%       6.95%       7.50%       0.14%
+ 60  50   3   15 |      95.00%       0.83%       0.00%       0.04%       0.00%       9.63%       7.50%       0.14%
+ 60  50   4    5 |      80.00%       0.00%       0.00%       0.01%       0.00%       5.35%       1.67%       0.11%
+ 60  50   4   10 |      95.00%       0.00%       0.00%       0.01%       0.00%       6.95%       1.67%       0.11%
+ 60  50   4   15 |      95.00%       0.83%       0.00%       0.02%       0.00%       9.63%       1.67%       0.11%
+ 60  50   5    5 |      70.00%       0.00%       0.00%       0.00%       0.00%       5.35%       1.67%       0.06%
+ 60  50   5   10 |      95.00%       0.00%       0.00%       0.00%       0.00%       6.95%       1.67%       0.06%
+ 60  50   5   15 |      95.00%       0.83%       0.00%       0.00%       0.00%       9.63%       1.67%       0.06%
+ 60  50   6    5 |      55.00%       0.00%       0.00%       0.00%       0.00%       5.35%       1.67%       0.00%
+ 60  50   6   10 |      85.00%       0.00%       0.00%       0.00%       0.00%       6.95%       1.67%       0.00%
+ 60  50   6   15 |      95.00%       0.83%       0.00%       0.00%       0.00%       9.63%       1.67%       0.00%
+
+=== the setting in sqi_config.json: memory 30, median, A 4, hold 10 ===
+  tb02 <=42s     19 of     20 old-GOOD blocks turned to POOR (95.00%)
+  tb02 >45s       0 of    240 old-GOOD blocks turned to POOR (0.00%)
+  dual03          0 of    177 old-GOOD blocks turned to POOR (0.00%)
+  MIT-BIH         0 of  69088 old-GOOD blocks turned to POOR (0.00%)
+  NST clean       0 of  11440 old-GOOD blocks turned to POOR (0.00%)
+  tb01           11 of    187 old-GOOD blocks turned to POOR (5.88%)
+  dual01+02       2 of    120 old-GOOD blocks turned to POOR (1.67%)
+  NST noisy       3 of   3517 old-GOOD blocks turned to POOR (0.09%)
+  NST noisy, SNR  24 dB: 0 of 1442 old-GOOD blocks turned to POOR
+  NST noisy, SNR  18 dB: 0 of 1282 old-GOOD blocks turned to POOR
+  NST noisy, SNR  12 dB: 0 of 619 old-GOOD blocks turned to POOR
+  NST noisy, SNR  06 dB: 0 of 135 old-GOOD blocks turned to POOR
+  NST noisy, SNR  00 dB: 0 of 24 old-GOOD blocks turned to POOR
+  NST noisy, SNR  -6 dB: 3 of 15 old-GOOD blocks turned to POOR
+  MIT-BIH records with any old-GOOD block turned to POOR: none
+
+  tb02, per second: swing/reference, old verdict (G F P, w = before 5 s), x = turned to POOR (first 50 s)
+    1:418/418w  2:65/65w  3:55/65w  4:25/55w  5:32/55F  6:27/32P  7:108/55G  8:1651/55Px  9:1862/65Px  10:112/65Px
+    11:100/100Px  12:2207/100Px  13:3366/108Fx  14:93/100Fx  15:49/100Fx  16:1992/100Fx  17:114/108Fx  18:192/108Fx  19:105/108Fx  20:499/108Fx
+    21:379/112Fx  22:26/108Fx  23:66/108Px  24:444/108Gx  25:93/108Gx  26:581/108Gx  27:280/112Gx  28:3315/112Gx  29:786/114Gx  30:619/114Gx
+    31:264/114Gx  32:405/192Gx  33:827/264Gx  34:806/280Gx  35:2470/379Gx  36:412/405Gx  37:338/405Gx  38:175/379Gx  39:71/338Gx  40:62/338Gx
+    41:53/338Gx  42:60/280Gx  43:81/264Gx  44:93/264Fx  45:93/264F  46:63/192F  47:53/192F  48:139/175G  49:111/175G  50:157/157F
+
+  tb01, per second: swing/reference, old verdict (G F P, w = before 5 s), x = turned to POOR (seconds with x or a swing over twice the reference)
+    81:871/165Px  82:1651/166Gx  83:173/166Gx  84:1433/166Gx  85:683/166Gx  86:2176/166Gx  87:715/166Gx  88:3292/166Gx  89:1534/166Fx  90:6047/166Fx
+    91:5688/166Fx  92:3318/166Fx  93:1741/169Fx  94:695/173Fx  95:1520/175Fx  96:922/185Px  97:1217/683Gx  98:1397/695Gx  99:441/695Gx  100:328/695Fx
+    101:342/695Fx  102:364/695Fx  103:343/695Fx  104:329/695Fx  105:335/695Gx
+
+signal_quality.SignalQuality fed blocks with these swings disagrees with the block rule above on 0 blocks of the own recordings.

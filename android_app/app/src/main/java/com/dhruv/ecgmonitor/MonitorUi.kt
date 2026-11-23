@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -95,6 +97,7 @@ fun headline(
     level: SignalQuality.Level,
     heartRate: Double?,
     mainsShare: Double,
+    artifact: Boolean = false,
 ): Headline = when (link) {
     Link.SCANNING -> Headline.NoData("Scanning for ring…", RING_FIX)
     Link.NOT_CONNECTED -> Headline.NoData("Ring not connected", linkFix ?: RING_FIX, alert = dropped)
@@ -106,6 +109,9 @@ fun headline(
         // the finger's 186, so FAIR lets wrong rates through.
         level == SignalQuality.Level.GOOD ->
             if (heartRate != null) Headline.Rate(heartRate.roundToInt()) else Headline.Hidden("Measuring")
+        // A swing far larger than a beat (SignalQuality's size check): the
+        // contact is there and something moved, so not the electrode advice.
+        artifact -> Headline.Hidden("Hold still")
         // Mains on the raw input points at the reference electrode before motion.
         mainsShare >= MAINS_REFERENCE_SUSPECT -> Headline.Hidden("Check the reference electrode")
         level == SignalQuality.Level.FAIR -> Headline.Hidden("Hold still")
@@ -127,10 +133,15 @@ class MonitorUiState(
     val showFiltered: Boolean,
     val researchMode: Boolean,
     val sampleRate: Double?,
+    // The main screen's Session link; shows the time left while one records.
+    val sessionLabel: String = "Session",
 ) {
     val headline: Headline
         get() = pipeline.let {
-            headline(link, linkFix, dropped, it.qualityReady, it.signalQuality.level, it.heartRate, it.mainsShare)
+            headline(
+                link, linkFix, dropped, it.qualityReady, it.signalQuality.level, it.heartRate, it.mainsShare,
+                it.signalQuality.artifact,
+            )
         }
 }
 
@@ -139,6 +150,7 @@ class MonitorActions(
     val onShowFiltered: (Boolean) -> Unit = {},
     val onResearchMode: (Boolean) -> Unit = {},
     val onOpenDiagnostics: () -> Unit = {},
+    val onOpenSession: () -> Unit = {},
     val onBack: () -> Unit = {},
 )
 
@@ -146,12 +158,12 @@ class MonitorActions(
 // content clear of.
 class ScreenGeometry(val xdpi: Float, val ydpi: Float, val insets: PaddingValues)
 
-private val NumberStyle = TextStyle(
+internal val NumberStyle = TextStyle(
     fontFamily = PlexSansCondensed, fontWeight = FontWeight.Medium, fontSize = 80.sp,
     lineHeight = 80.sp, fontFeatureSettings = TABULAR,
     lineHeightStyle = LineHeightStyle(LineHeightStyle.Alignment.Bottom, LineHeightStyle.Trim.Both),
 )
-private val NoDataStyle = NumberStyle.copy(fontSize = 30.sp, lineHeight = 34.sp)
+internal val NoDataStyle = NumberStyle.copy(fontSize = 30.sp, lineHeight = 34.sp)
 
 // ---------------------------------------------------------------- main screen
 
@@ -176,19 +188,25 @@ private fun MainPortrait(state: MonitorUiState, actions: MonitorActions, geometr
         // Air between the header and the paper, so the grid doesn't crowd the cause line.
         Spacer(Modifier.height(12.dp))
         Trace(state, geometry, Modifier.fillMaxWidth().weight(1f))
-        Row(
+        // Caption, then the two links pushed right. When they don't fit on one
+        // line (a large system font) the links wrap below the caption whole,
+        // rather than squeezing it into a column one letter wide.
+        @OptIn(ExperimentalLayoutApi::class)
+        FlowRow(
             Modifier.fillMaxWidth()
                 .padding(bottom = insets.calculateBottomPadding())
                 .padding(horizontal = 20.dp),
-            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            // The caption wraps by phrase; the link keeps its width, so at a
-            // large font it can't be squeezed into a column one letter wide.
+            // The gap lives on the caption, so wrapped links start flush left.
             TraceCaption(
                 state.gainMmPerMv, raw = !state.showFiltered, onCycleGain = actions.onCycleGain,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.align(Alignment.CenterVertically).padding(end = 16.dp),
             )
-            DiagnosticsLink(actions.onOpenDiagnostics)
+            Row(Modifier.align(Alignment.CenterVertically)) {
+                QuietLink("${state.sessionLabel} ›", actions.onOpenSession)
+                DiagnosticsLink(actions.onOpenDiagnostics)
+            }
         }
     }
 }
@@ -217,7 +235,8 @@ private fun MainLandscape(state: MonitorUiState, actions: MonitorActions, geomet
                     state.gainMmPerMv, raw = !state.showFiltered, onCycleGain = actions.onCycleGain,
                     modifier = Modifier.weight(1f),
                 )
-                DiagnosticsLink(actions.onOpenDiagnostics)
+                QuietLink("${state.sessionLabel} ›", actions.onOpenSession, Modifier.padding(start = 16.dp))
+            DiagnosticsLink(actions.onOpenDiagnostics)
             }
         }
     }
@@ -318,7 +337,7 @@ private fun Number(text: String, color: androidx.compose.ui.graphics.Color) {
 // leave it frozen on its first state (seen on the phone: "98 bpm" beside
 // "Checking signal"). Pinned by MonitorRecompositionTest.
 @Composable
-private fun QualityRow(ready: Boolean, level: SignalQuality.Level) {
+internal fun QualityRow(ready: Boolean, level: SignalQuality.Level) {
     val (word, bars) = if (!ready) "Checking signal" to 0 else when (level) {
         SignalQuality.Level.GOOD -> "Good signal" to 3
         SignalQuality.Level.FAIR -> "Fair signal" to 2
@@ -375,7 +394,7 @@ private const val PING_MS = 1800
 
 // Permanent in replay, so a recording is never mistaken for live data.
 @Composable
-private fun ReplayTag(file: String) {
+internal fun ReplayTag(file: String) {
     Text(
         // ".csv" says nothing; dropping it keeps the name whole in landscape.
         "REPLAY · ${file.removeSuffix(".csv")}",
@@ -388,12 +407,16 @@ private fun ReplayTag(file: String) {
 }
 
 @Composable
-private fun DiagnosticsLink(onClick: () -> Unit) {
+private fun DiagnosticsLink(onClick: () -> Unit) = QuietLink("Diagnostics ›", onClick, Modifier.padding(start = 16.dp))
+
+// The main screen's entry points: small, muted, never competing with the trace.
+@Composable
+internal fun QuietLink(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Text(
-        "Diagnostics ›",
+        text,
         style = MaterialTheme.typography.bodySmall, color = MonitorColors.TextMuted,
         maxLines = 1, softWrap = false,
-        modifier = Modifier
+        modifier = modifier
             .minimumInteractiveComponentSize()
             .clickable(role = Role.Button, onClick = onClick),
     )
@@ -452,6 +475,7 @@ fun DiagnosticsScreen(state: MonitorUiState, actions: MonitorActions, geometry: 
             Field("Verdict", sq.level.name.lowercase().replaceFirstChar { it.uppercase() })
             Field("kSQI, kurtosis", "%.1f".format(sq.kSqi))
             Field("pSQI, 5–15 Hz share", "%.2f".format(sq.pSqi))
+            Field("Largest swing", "%.1f× a usual second, last 10 s%s".format(sq.artifactRatio, if (sq.artifact) " (artifact)" else ""))
             Field("Mains share, raw", "%.1f%%".format(100 * p.mainsShare))
         } else {
             Field("Verdict", "waiting for 1 s of data")
@@ -501,7 +525,7 @@ fun DiagnosticsScreen(state: MonitorUiState, actions: MonitorActions, geometry: 
 const val DIAGNOSTICS_END = "diagnostics_end"
 
 @Composable
-private fun Section(title: String, note: String? = null) {
+internal fun Section(title: String, note: String? = null) {
     Spacer(Modifier.height(20.dp))
     HorizontalDivider(color = MonitorColors.GridMajor, thickness = 1.dp)
     Spacer(Modifier.height(12.dp))
@@ -511,7 +535,7 @@ private fun Section(title: String, note: String? = null) {
 }
 
 @Composable
-private fun Field(label: String, value: String) {
+internal fun Field(label: String, value: String) {
     Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.Top) {
         Text(label, style = MaterialTheme.typography.bodyMedium, color = MonitorColors.TextMuted, modifier = Modifier.weight(0.45f))
         Text(value, style = MaterialTheme.typography.bodyMedium, color = MonitorColors.Text, modifier = Modifier.weight(0.55f))

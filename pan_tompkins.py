@@ -6,11 +6,18 @@ algorithm ported to BeatDetector.kt for on-device use, and a streaming
 reference is the only way to be sure the port matches. Validated by
 benchmark_mitdb.py --method ours before anything it produces reaches a screen.
 
-Beat positions are timing point 2 (tp2, from 23 Oct 2026): the peak of the
-dominant QRS deflection in the input, with parabolic sub-sample interpolation
-and an artifact guard, validated in fiducial.py v2. Results produced before
-that used tp1 (the sample of max |5-15 Hz bandpassed|); those files are kept
-and carry no tp label.
+Beat positions are timing point 3 (tp3, from 13 Nov 2026): the lag at which
+the beat's window correlates best with the median of the previous beats, with
+parabolic sub-sample interpolation, referred to one followed peak of that
+median beat. No polarity decision is made, so a QRS whose two lobes are of
+similar size is timed like any other (under tp2.1 it was flagged throughout).
+Developed in tp3_candidate.py, validated by evaluate_tp3.py.
+
+Earlier results: tp1 (the sample of max |5-15 Hz bandpassed|, no label in the
+file names) up to 23 Oct 2026; tp2 and tp2.1 (the peak of the dominant QRS
+deflection, polarity from the median beat) from 23 and 31 Oct. tp2.1 is still
+here as PanTompkins(fs, timing="tp2.1") so those results can be reproduced;
+BeatDetector.kt carries tp3 only.
 """
 import json, math, os
 import numpy as np
@@ -56,22 +63,31 @@ def _median(v):
     return s[m] if len(s) % 2 else (s[m-1] + s[m]) / 2.0
 
 class PanTompkins:
-    # tp2 parameters, from tp2_config.json:
-    #   R_BEFORE_S, R_AFTER_S  R search window around the 5-15 Hz peak
-    #   POL_KEEP, POL_MIN, POL_RATIO  rolling median beat for polarity
+    # Parameters, from tp2_config.json:
+    #   R_BEFORE_S, R_AFTER_S  the beat's window around its 5-15 Hz peak
+    #   POL_KEEP, POL_MIN      depth of the rolling median beat; beats before it is ready
+    #   HIST_S    history kept for locating (covers search-back)
+    #   CORR_LAG  +-samples searched for the best alignment with the median beat
+    #   R_MIN     tp3: a beat whose best correlation is below this is flagged
+    #   TRACK     tp3: how far (samples) the followed peak may move per beat
+    # tp2.1 only (config block "tp2.1"):
+    #   POL_RATIO lobe ratio at which the median beat's polarity is decided
     #   EDGE      a maximum this close to the window edge is no peak
-    #   HIST_S    history kept for refining (covers search-back)
     #   CORR_MIN  per-beat check: flag a beat whose best-aligned correlation with
     #             the median beat is below this (set None on an instance for "off")
-    #   CORR_LAG  +-samples searched for that best alignment
     _c = CONFIG["detector"]
     R_BEFORE_S, R_AFTER_S = _c["R_BEFORE_S"], _c["R_AFTER_S"]
-    POL_KEEP, POL_MIN, POL_RATIO = _c["POL_KEEP"], _c["POL_MIN"], _c["POL_RATIO"]
-    EDGE, HIST_S = _c["EDGE"], _c["HIST_S"]
-    CORR_MIN, CORR_LAG = _c["CORR_MIN"], _c["CORR_LAG"]
+    POL_KEEP, POL_MIN = _c["POL_KEEP"], _c["POL_MIN"]
+    HIST_S, CORR_LAG = _c["HIST_S"], _c["CORR_LAG"]
+    R_MIN, TRACK = _c["R_MIN"], _c["TRACK"]
+    _l = CONFIG["tp2.1"]
+    POL_RATIO, EDGE, CORR_MIN = _l["POL_RATIO"], _l["EDGE"], _l["CORR_MIN"]
 
-    def __init__(self, fs):
+    def __init__(self, fs, timing=None):
         self.fs = fs
+        self.timing = timing or TIMING_POINT
+        if self.timing not in ("tp3", "tp2.1"):
+            raise ValueError(f"unknown timing point {self.timing!r}")
         # Stage 1: bandpass 5-15 Hz. Narrower than the monitoring band on
         # purpose - centred on QRS energy, and it actively suppresses P and T
         # waves so they cannot be mistaken for R-peaks.
@@ -110,12 +126,17 @@ class PanTompkins:
         # Set by skip(): samples were lost since the last beat, so the next RR
         # interval spans a hole and may hide a beat. It is not recorded.
         self.gap_pending = False
-        # tp2 state
+        # locating state
         self.lo = int(self.R_BEFORE_S*fs); self.hi = int(self.R_AFTER_S*fs)
-        self.segs = []             # previous beats' input windows, for polarity
+        self.segs = []             # previous beats' input windows: the median beat
+        # A beat is located once every sample it needs has arrived: its window
+        # (tp2.1), or its window shifted by up to CORR_LAG either way (tp3).
+        self.wait = self.hi + (self.CORR_LAG if self.timing == "tp3" else 0)
+        self.ref_k = -1; self.ref_sign = 0.0   # tp3: the followed peak of the median beat
+        self.repicked = 0          # tp3: times the followed peak was lost and picked again
         # Outputs. Every accepted beat, warm-up included (process() returns
         # only those after the warm-up, as the phone shows).
-        self.peaks = []            # tp2 positions, fractional sample index
+        self.peaks = []            # beat positions (tp3), fractional sample index
         self.bp_peaks = []         # 5-15 Hz peak index (tp1), for fiducial.py
         self.beats = []            # dicts: pos, bp, kind, flagged, gap - for HRV
         self.clamped = 0           # beats located before their R window had arrived (should stay 0)
@@ -152,7 +173,7 @@ class PanTompkins:
         self.gap_pending = True
 
     def process(self, x):
-        """Feed one sample. Returns the tp2 position (fractional sample index)
+        """Feed one sample. Returns the position (fractional sample index)
         of a confirmed beat, or None."""
         x = float(x)
         y = self.lp(self.hp(x))
@@ -168,7 +189,7 @@ class PanTompkins:
 
         self.n += 1
         out = None
-        if self.unfinished is not None and self.unfinished["d"] + self.hi <= self.n - 1:
+        if self.unfinished is not None and self.unfinished["d"] + self.wait <= self.n - 1:
             out = self._finish()
 
         # Track local maxima of the integrated signal.
@@ -324,7 +345,7 @@ class PanTompkins:
         return best
 
     def _tp2(self, d, sign):
-        """R peak + parabolic + guard around the 5-15 Hz peak d.
+        """tp2.1 only. R peak + parabolic + guard around the 5-15 Hz peak d.
         Returns (position, flagged)."""
         a, b, c = self._bp(d - 1), self._bp(d), self._bp(d + 1)
         fallback = d + (_parabolic(a, b, c) if a == a and b == b and c == c else 0.0)
@@ -355,13 +376,106 @@ class PanTompkins:
         d, ok = self._bp_refine(mwi_idx)
         self.unfinished = dict(mwi=mwi_idx, d=d, ok=ok, kind=kind, gap=gap,
                                warm=self.n < self.warmup)
-        if not ok or d + self.hi <= self.n - 1:
+        if not ok or d + self.wait <= self.n - 1:
             return self._finish()
         return None
+
+    def _locate_tp3(self, d):
+        """tp3: (position, flagged, the beat's window for the median beat or None).
+
+        The window is slid +-CORR_LAG samples against the median beat; the
+        position is the lag of best correlation (parabolic), referred to the
+        followed peak of the median beat. Flagged when the median beat is not
+        ready, the stretch holds a gap, the best correlation is under R_MIN or
+        sits at the end of the range, or the followed peak had to be picked
+        again. A flagged beat keeps the 5-15 Hz peak as its position."""
+        lo, hi, M = self.lo, self.hi, self.CORR_LAG
+        L = lo + hi + 1
+        a, b, c = self._bp(d - 1), self._bp(d), self._bp(d + 1)
+        pos = d + (_parabolic(a, b, c) if a == a and b == b and c == c else 0.0)
+        full = [self._x(i) for i in range(d - lo - M, d + hi + M + 1)]
+        if any(v != v for v in full):
+            # A gap somewhere in the stretch: not timed. Its own window still
+            # joins the median beat when that window is whole, unless the
+            # stretch runs off the start of the recording.
+            seg = full[M:M + L]
+            return pos, True, (None if d - lo - M < 0 or any(v != v for v in seg) else seg)
+        flagged, lag = True, 0
+        if len(self.segs) >= self.POL_MIN:
+            t = _detrend([_median([s[i] for s in self.segs]) for i in range(L)])
+            # The peak the time refers to: followed from median beat to median
+            # beat, never chosen per beat.
+            k = -1
+            if self.ref_k >= 0:
+                a0 = max(1, self.ref_k - self.TRACK); a1 = min(L - 2, self.ref_k + self.TRACK)
+                kk = a0
+                for i in range(a0 + 1, a1 + 1):
+                    if self.ref_sign * t[i] > self.ref_sign * t[kk]:
+                        kk = i
+                v = self.ref_sign * t[kk]
+                if v > 0.0 and v >= self.ref_sign * t[kk - 1] and v >= self.ref_sign * t[kk + 1]:
+                    k = kk
+            repicked = False
+            if k < 0:
+                repicked = self.ref_k >= 0
+                k = 0
+                for i in range(1, L):
+                    if abs(t[i]) > abs(t[k]):
+                        k = i
+                self.ref_sign = 1.0 if t[k] >= 0.0 else -1.0
+                if repicked:
+                    self.repicked += 1
+            self.ref_k = k
+            ref = float(k)
+            if 0 < k < L - 1:
+                ref += _parabolic(self.ref_sign * t[k - 1], self.ref_sign * t[k], self.ref_sign * t[k + 1])
+            mt = 0.0
+            for v in t:
+                mt += v
+            mt /= L
+            tc = [v - mt for v in t]
+            stt = 0.0
+            for v in tc:
+                stt += v * v
+            r = []
+            for j in range(2 * M + 1):
+                w = _detrend(full[j:j + L])
+                mw = 0.0
+                for v in w:
+                    mw += v
+                mw /= L
+                sab = saa = 0.0
+                for i in range(L):
+                    q = w[i] - mw
+                    sab += q * tc[i]; saa += q * q
+                den = math.sqrt(saa * stt)
+                r.append(sab / den if den > 0.0 else math.nan)
+            if not any(v != v for v in r):
+                kb = 0
+                for j in range(1, 2 * M + 1):
+                    if r[j] > r[kb]:
+                        kb = j
+                if r[kb] >= self.R_MIN and 0 < kb < 2 * M:
+                    lag = kb - M
+                    flagged = repicked
+                    if not flagged:
+                        pos = d + lag + _parabolic(r[kb - 1], r[kb], r[kb + 1]) + (ref - lo)
+        return pos, flagged, full[M + lag:M + lag + L]
 
     def _finish(self):
         u = self.unfinished; self.unfinished = None
         d, ok, mwi_idx, kind, gap = u["d"], u["ok"], u["mwi"], u["kind"], u["gap"]
+        if self.timing == "tp3":
+            pos, flagged, seg = self._locate_tp3(d) if ok else (float(mwi_idx), True, None)
+            # The window joins the median beat after the beat has been timed, at
+            # its own best lag, so the median beat stays sharp.
+            if seg is not None:
+                self.segs.append(seg)
+                if len(self.segs) > self.POL_KEEP: self.segs.pop(0)
+            self.peaks.append(pos); self.bp_peaks.append(d)
+            self.beats.append(dict(pos=pos, bp=d, kind=kind, flagged=flagged, gap=gap))
+            return None if u["warm"] else pos
+        # ---- tp2.1, kept for reproducing earlier results ----
         sign, tmpl = self._polarity()
         pos, flagged, fallback = self._tp2(d, sign) if ok else (float(mwi_idx), True, float(mwi_idx))
         # Per-beat CHECK against the median beat (not a per-beat decision): a beat
@@ -447,7 +561,7 @@ def rmssd_nn(rr_ms):
     return math.sqrt(s / k), n_acc, dropped, cov
 
 def detect(sig, fs, with_flags=False):
-    """tp2 positions (fractional sample index) of every accepted beat, warm-up
+    """Beat positions (fractional sample index) of every accepted beat, warm-up
     included; with_flags=True also returns the per-beat flagged mask. A beat
     still waiting for its R window when the signal ends is dropped."""
     pt = PanTompkins(fs)

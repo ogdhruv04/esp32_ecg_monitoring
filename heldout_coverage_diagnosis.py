@@ -21,7 +21,7 @@ for rec in sys.argv[2:]:
     c = names.index("MLII") if "MLII" in names else 0
     x = sps.resample(r.p_signal[:, c], int(round(r.p_signal.shape[0] * FS / 360)))
     for causal in (False, True):
-        d = P.PanTompkins(FS)
+        d = P.PanTompkins(FS, timing="tp2.1")     # this diagnosis is of tp2.1; the shipped timing is tp3
         signs, ratios = [], []
         orig = d._polarity
         def pol(orig=orig):

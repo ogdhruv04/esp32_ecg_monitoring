@@ -45,6 +45,8 @@ class ReplayPipelineTest {
 
     private fun direct(packets: List<CaptureReplay.Packet>): Trace {
         val filter = EcgFilter(); val detector = BeatDetector(); val baseline = BaselineRemover()
+        // The shown rate comes from the located beats (LiveHeartRate.kt).
+        val rate = LiveHeartRate(); detector.onLocated = { rate.onBeat(it) }
         val filtered = EcgRingBuffer(); val qrs = EcgRingBuffer()
         val beats = ArrayList<Long>()
         val hr = ArrayList<Double?>(); val rm = ArrayList<Double?>()
@@ -58,12 +60,12 @@ class ReplayPipelineTest {
                 filtered.push(baseline.process(f)); qrs.push(detector.lastBandpassed)
             }
             next = pk.sampleOffset + pk.packet.samples.size
-            hr += detector.heartRate; rm += detector.rmssdMs
+            hr += rate.bpm(detector.sampleCount); rm += detector.rmssdMs
         }
         return Trace(beats, hr, rm, filtered.snapshot(), qrs.snapshot(), skipped)
     }
 
-    private fun check(name: String, expectLoss: Boolean) {
+    private fun check(name: String, expectLoss: Boolean, expectRate: Boolean = true) {
         val packets = replay(name)
         val lost = packets.zipWithNext().sumOf { (a, b) ->
             (b.sampleOffset - a.sampleOffset) / CaptureReplay.PACKET_SAMPLES - 1
@@ -76,7 +78,7 @@ class ReplayPipelineTest {
             "last HR ${ref.heartRates.last()}, last RMSSD ${ref.rmssd.last()}")
 
         assertTrue("$name: detector found no beats, test would be vacuous", ref.beats.isNotEmpty())
-        assertTrue("$name: no heart rate ever reported", ref.heartRates.any { it != null })
+        assertEquals("$name: a heart rate reported at some point", expectRate, ref.heartRates.any { it != null })
         assertEquals("$name: skipped samples", ref.skipped, app.skipped)
         assertEquals("$name: beats", ref.beats, app.beats)
         assertEquals("$name: heart rate after each packet", ref.heartRates, app.heartRates)
@@ -94,8 +96,10 @@ class ReplayPipelineTest {
         check("20260929_163314_dual03_both3wire_c3chest_wroomfinger_ref.csv", expectLoss = true)
 
     // Many gaps on a POOR recording, where search-back and stall decay fire.
+    // No interval run there passes LiveHeartRate's tests, so no rate is ever
+    // reported (the old 8-interval display did report one).
     @Test fun dual01FingerManyGaps() =
-        check("20260929_153252_dual01_c3chest_wroomfinger_ref.csv", expectLoss = true)
+        check("20260929_153252_dual01_c3chest_wroomfinger_ref.csv", expectLoss = true, expectRate = false)
 
     // The replay itself must not drop or reorder samples on a clean capture.
     @Test fun replayKeepsEverySampleOfCleanCapture() {

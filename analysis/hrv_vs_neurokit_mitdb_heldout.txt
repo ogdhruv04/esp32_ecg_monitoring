@@ -1,0 +1,228 @@
+# ./validate_hrv_neurokit.py --set heldout --dir /home/dhruv/esp32_ecg_monitoring/data/mitdb_heldout
+# commit 467881d; algorithms alg1, frozen: 2026-11-11; detector tp2.1 (tp2_config.json)
+# neurokit2 0.2.13, astropy 8.0.2, scipy 1.17.0, numpy 2.4.2
+# hrv settings: {"bands_hz": {"lf": [0.04, 0.15], "hf": [0.15, 0.4]}, "lomb_oversample": 8, "dfa": {"scale_min": 4, "scale_max": 16}, "sampen": {"m": 2, "r_sd": 0.2}}
+# minimum windows: {"rmssd": {"valid_s": 60, "nn": 30, "pairs": 5}, "sdnn": {"valid_s": 120, "nn": 30}, "pnn50": {"valid_s": 60, "nn": 30, "pairs": 30}, "hf": {"valid_s": 60, "nn": 30, "coverage": 0.95}, "lf": {"valid_s": 120, "nn": 30, "coverage": 0.95}, "sd1": {"valid_s": 60, "nn": 30, "pairs": 5}, "sd2": {"valid_s": 120, "nn": 30, "pairs": 30}, "dfa_alpha1": {"valid_s": 120, "nn_in_runs": 200}, "sampen": {"valid_s": 180, "templates": 200}}
+# MIT-BIH heldout set, 36 records from /home/dhruv/esp32_ecg_monitoring/data/mitdb_heldout: 102 104 107 111 112 113 114 115 116 117 118 121 122 123 124 200 201 202 205 207 209 210 212 213 214 215 217 219 220 221 223 230 231 232 233 234
+# front end: MLII (channel 0 where absent), resampled to 256 Hz, zero-phase 0.5-40 Hz, 60 Hz notch;
+# beats: tp2.1; windows: non-overlapping 300 s, 150 s
+
+per record: NN coverage = accepted intervals / all inter-beat intervals; then the number of 300 s windows in which each measure is reported
+ rec  lead  beats  flagged srch-back  NN cov  windows |  RMSSD   SDNN  pNN50     LF     HF  LF/HF    SD1    SD2    DFA SampEn
+ 102    V5   2200    33.3%      0.0%   47.3%        6 |      6      4      6      0      0      0      6      4      0      0
+ 104    V5   2251    15.6%      1.5%   70.2%        6 |      6      6      6      0      0      0      6      6      0      2
+ 107  MLII   2131    13.2%      0.7%   76.2%        6 |      6      6      6      0      0      0      6      6      1      3
+ 111  MLII   2126    27.5%      0.1%   69.4%        6 |      6      6      6      1      1      1      6      6      3      4
+ 112  MLII   2540     0.4%      0.0%   99.4%        6 |      6      6      6      6      6      6      6      6      6      6
+ 113  MLII   1796     0.5%      0.0%   92.2%        6 |      6      6      6      0      0      0      6      6      6      6
+ 114  MLII   1879     2.9%      0.1%   93.7%        6 |      6      6      6      3      3      3      6      6      4      5
+ 115  MLII   1954     0.5%      0.0%   97.6%        6 |      6      6      6      6      6      6      6      6      6      6
+ 116  MLII   2397     0.5%      0.0%   90.4%        6 |      6      6      6      1      1      1      6      6      6      6
+ 117  MLII   1537    50.0%      0.1%   44.8%        6 |      4      4      4      0      0      0      4      4      1      1
+ 118  MLII   2280    98.5%      0.1%    1.0%        6 |      0      0      0      0      0      0      0      0      0      0
+ 121  MLII   1863     0.5%      0.1%   99.2%        6 |      6      6      6      6      6      6      6      6      6      6
+ 122  MLII   2477     0.3%      0.0%   99.7%        6 |      6      6      6      6      6      6      6      6      6      6
+ 123  MLII   1515     0.6%      0.0%   92.5%        6 |      6      6      6      2      2      2      6      6      5      5
+ 124  MLII   1618     2.4%      0.9%   95.5%        6 |      6      6      6      4      4      4      6      6      6      6
+ 200  MLII   2601    25.4%      0.2%   39.9%        6 |      5      3      5      0      0      0      5      3      0      0
+ 201  MLII   1921     0.7%      1.2%   49.4%        6 |      6      5      6      0      0      0      6      5      0      0
+ 202  MLII   2133     0.5%      0.8%   75.3%        6 |      6      6      6      1      1      1      6      6      3      4
+ 205  MLII   2654     2.8%      0.1%   95.4%        6 |      6      6      6      4      4      4      6      6      6      6
+ 207  MLII   2296    15.9%      5.7%   70.2%        6 |      5      5      5      4      4      4      5      5      4      4
+ 209  MLII   3007     0.3%      0.0%   89.5%        6 |      6      6      6      0      0      0      6      6      5      6
+ 210  MLII   2598     4.9%      1.8%   65.9%        6 |      6      6      6      0      0      0      6      6      0      1
+ 212  MLII   2750     0.4%      0.0%   99.2%        6 |      6      6      6      6      6      6      6      6      6      6
+ 213  MLII   3248     0.5%      0.3%   97.0%        6 |      6      6      6      6      6      6      6      6      6      6
+ 214  MLII   2264     1.3%      0.4%   76.4%        6 |      6      6      6      0      0      0      6      6      0      6
+ 215  MLII   3362    15.6%      0.2%   73.7%        6 |      6      6      6      0      0      0      6      6      6      6
+ 217  MLII   2207    56.8%      0.3%   29.1%        6 |      4      0      4      0      0      0      4      0      0      0
+ 219  MLII   2155     0.4%      0.1%   57.9%        6 |      6      6      6      0      0      0      6      6      0      0
+ 220  MLII   2048     0.4%      0.0%   94.0%        6 |      6      6      6      2      2      2      6      6      6      6
+ 221  MLII   2422     0.6%      0.9%   48.5%        6 |      6      6      6      0      0      0      6      6      0      0
+ 223  MLII   2605     2.8%      0.9%   75.5%        6 |      6      6      6      0      0      0      6      6      4      4
+ 230  MLII   2257    30.8%      0.0%   67.6%        6 |      6      5      6      0      0      0      6      5      4      4
+ 231  MLII   1572     0.5%      0.1%   95.7%        6 |      6      6      6      3      3      3      6      6      5      5
+ 232  MLII   1792     1.1%      0.6%   76.1%        6 |      6      6      6      0      0      0      6      6      0      0
+ 233  MLII   3078     2.9%      0.2%   47.4%        6 |      6      6      6      0      0      0      6      6      0      0
+ 234  MLII   2753     0.5%      0.1%   98.8%        6 |      6      6      6      6      6      6      6      6      6      6
+
+################ held-out, non-paced: 32 records ################
+
+=== 300 s windows: 192 windows, 15 without holes, 177 with ===
+how many windows each measure is reported in (the minimum window decides):
+  RMSSD 182  SDNN 178  pNN50 182  LF 67  HF 67  LF/HF 67  SD1 182  SD2 178  DFA 116  SampEn 127
+
+  table A (as shipped: our minimum windows applied); difference = ours - reference
+  measure     reference                    reported | no holes: n      median     max |d|  med rel%  max rel% | holes: n      median     max |d|  med rel%  max rel%
+  RMSSD ms    nk                      182/192   95% |          15          +0           0         0         0 |      167          +0           0         0         0
+  SDNN ms     nk                      178/192   93% |          15          +0           0         0         0 |      163          +0           0         0         0
+  pNN50 %     nk                      182/192   95% |          15    +0.00236      0.0388      0.25      0.34 |      167     +0.0803        1.66       0.4       2.4
+  pNN50 %     nk, same denominator    182/192   95% |          15          +0    1.78e-15   1.2e-14   2.5e-14 |      167          +0    1.42e-14         0   2.8e-14
+  LF ms^2     nk x 2T/N                67/192   35% |          15      +0.584        4.09      0.95       3.4 |       52      +0.606        36.3      0.72         5
+  HF ms^2     nk x 2T/N                67/192   35% |          15     +0.0565        1.46     0.088      0.39 |       52       +0.16        9.51     0.088      0.92
+  LF/HF       nk                       67/192   35% |          15    +0.00603      0.0327      0.82       3.2 |       52    +0.00257      0.0479      0.62       4.7
+  LF ms^2     nk x 2T/N, nk's grid     67/192   35% |          15     -0.0116      0.0412     0.016     0.027 |       52     -0.0342        3.46     0.024      0.16
+  HF ms^2     nk x 2T/N, nk's grid     67/192   35% |          15    -0.00158       0.245     0.002      0.04 |       52      -0.025        1.05      0.01     0.071
+  LF/HF       nk, nk's grid            67/192   35% |          15   -0.000182    0.000341     0.018      0.03 |       52   -6.24e-05     0.00267     0.022      0.15
+  SD1 ms      nk                      182/192   95% |          15          +0           0         0         0 |      167          +0           0         0         0
+  SD2 ms      nk                      178/192   93% |          15          +0           0         0         0 |      163          +0           0         0         0
+  DFA alpha1  nk matched              116/192   60% |          15   -7.77e-16    1.78e-15   8.1e-14   1.6e-13 |      101     -0.0183        1.13       7.4        66
+  DFA alpha1  nk default 4-11         116/192   60% |          15     +0.0911       0.239        16        37 |      101     -0.0887       0.848        15        67
+  SampEn      nk                      127/192   66% |          15          +0    4.44e-16         0   3.5e-14 |      112     -0.0146       0.148         1        13
+
+  table B (gates off: arithmetic only, not reported values); difference = ours - reference
+  measure     reference                    reported | no holes: n      median     max |d|  med rel%  max rel% | holes: n      median     max |d|  med rel%  max rel%
+  RMSSD ms    nk                      185/192   96% |          15          +0           0         0         0 |      170          +0           0         0         0
+  SDNN ms     nk                      187/192   97% |          15          +0           0         0         0 |      170          +0           0         0         0
+  pNN50 %     nk                      185/192   96% |          15    +0.00236      0.0388      0.25      0.34 |      170     +0.0805        2.14       0.4         5
+  pNN50 %     nk, same denominator    185/192   96% |          15          +0    1.78e-15   1.2e-14   2.5e-14 |      170          +0    1.42e-14         0   2.8e-14
+  LF ms^2     nk x 2T/N               187/192   97% |          15      +0.584        4.09      0.95       3.4 |      169       +1.27    2.26e+04      0.51        88
+  HF ms^2     nk x 2T/N               185/192   96% |          15     +0.0565        1.46     0.088      0.39 |      168      +0.155    1.97e+03      0.11        40
+  LF/HF       nk                      185/192   96% |          15    +0.00603      0.0327      0.82       3.2 |      167    +0.00188       0.416      0.53        88
+  LF ms^2     nk x 2T/N, nk's grid    184/192   96% |          15     -0.0116      0.0412     0.016     0.027 |      169       -0.62         377       0.1       3.4
+  HF ms^2     nk x 2T/N, nk's grid    183/192   95% |          15    -0.00158       0.245     0.002      0.04 |      168      -0.377    1.09e+03      0.05       3.4
+  LF/HF       nk, nk's grid           182/192   95% |          15   -0.000182    0.000341     0.018      0.03 |      167   -0.000107      0.0489     0.044       3.3
+  SD1 ms      nk                      185/192   96% |          15          +0           0         0         0 |      170          +0           0         0         0
+  SD2 ms      nk                      185/192   96% |          15          +0           0         0         0 |      170          +0           0         0         0
+  DFA alpha1  nk matched              152/192   79% |          15   -7.77e-16    1.78e-15   8.1e-14   1.6e-13 |      137     -0.0328        1.13       9.8        68
+  DFA alpha1  nk default 4-11         152/192   79% |          15     +0.0911       0.239        16        37 |      137      -0.124       0.848        16        67
+  SampEn      nk                      185/192   96% |          15          +0    4.44e-16         0   3.5e-14 |      170     -0.0193        1.02       2.3   1.2e+02
+
+=== 150 s windows: 384 windows, 59 without holes, 325 with ===
+how many windows each measure is reported in (the minimum window decides):
+  RMSSD 346  SDNN 227  pNN50 345  LF 142  HF 141  LF/HF 141  SD1 346  SD2 227  DFA 71  SampEn 0
+
+  table A (as shipped: our minimum windows applied); difference = ours - reference
+  measure     reference                    reported | no holes: n      median     max |d|  med rel%  max rel% | holes: n      median     max |d|  med rel%  max rel%
+  RMSSD ms    nk                      346/384   90% |          59          +0           0         0         0 |      287          +0           0         0         0
+  SDNN ms     nk                      227/384   59% |          59          +0           0         0         0 |      168          +0           0         0         0
+  pNN50 %     nk                      345/384   90% |          59     +0.0072       0.525      0.58      0.81 |      286      +0.146        2.04      0.79       3.3
+  pNN50 %     nk, same denominator    345/384   90% |          59          +0    1.42e-14         0     3e-14 |      286          +0    1.42e-14         0   3.7e-14
+  LF ms^2     nk x 2T/N               142/384   37% |          59       +1.19        25.7       1.4        15 |       83       +1.13    2.93e+03       1.1   1.5e+02
+  HF ms^2     nk x 2T/N               141/384   37% |          59      +0.308        2.59      0.16       2.5 |       82      +0.519        15.9      0.18       5.8
+  LF/HF       nk                      141/384   37% |          59    +0.00447       0.228         1        15 |       82    +0.00314       0.106      0.98       8.6
+  LF ms^2     nk x 2T/N, nk's grid    142/384   37% |          59     -0.0526        1.19     0.054      0.16 |       83      -0.114        13.6     0.074      0.47
+  HF ms^2     nk x 2T/N, nk's grid    141/384   37% |          59    -0.00743        1.15    0.0068     0.059 |       82     -0.0524        2.94      0.02      0.12
+  LF/HF       nk, nk's grid           141/384   37% |          59   -0.000361     0.00614      0.04      0.16 |       82    -0.00017     0.00591     0.049      0.43
+  SD1 ms      nk                      346/384   90% |          59          +0           0         0         0 |      287          +0           0         0         0
+  SD2 ms      nk                      227/384   59% |          59          +0           0         0         0 |      168          +0           0         0         0
+  DFA alpha1  nk matched               71/384   18% |          29   -4.44e-16    1.55e-15     6e-14   1.6e-13 |       42    -0.00168       0.588       5.1        43
+  DFA alpha1  nk default 4-11          71/384   18% |          29     +0.0734       0.261        16        28 |       42     -0.0863       0.528        17        53
+  SampEn      nk                        0/384    0% |           0           -           -         -         - |        0           -           -         -         -
+
+  table B (gates off: arithmetic only, not reported values); difference = ours - reference
+  measure     reference                    reported | no holes: n      median     max |d|  med rel%  max rel% | holes: n      median     max |d|  med rel%  max rel%
+  RMSSD ms    nk                      369/384   96% |          59          +0           0         0         0 |      310          +0           0         0         0
+  SDNN ms     nk                      371/384   97% |          59          +0           0         0         0 |      310          +0           0         0         0
+  pNN50 %     nk                      369/384   96% |          59     +0.0072       0.525      0.58      0.81 |      310      +0.162        33.3      0.82        50
+  pNN50 %     nk, same denominator    369/384   96% |          59          +0    1.42e-14         0     3e-14 |      310          +0    1.42e-14         0   3.7e-14
+  LF ms^2     nk x 2T/N               371/384   97% |          59       +1.19        25.7       1.4        15 |      303        +4.1    4.63e+04       1.4   4.3e+03
+  HF ms^2     nk x 2T/N               366/384   95% |          59      +0.308        2.59      0.16       2.5 |      305      +0.424     4.5e+04      0.21   4.8e+03
+  LF/HF       nk                      366/384   95% |          59    +0.00447       0.228         1        15 |      298    +0.00481       0.546       1.3   4.3e+03
+  LF ms^2     nk x 2T/N, nk's grid    362/384   94% |          59     -0.0526        1.19     0.054      0.16 |      303       -1.49    1.82e+03      0.23         5
+  HF ms^2     nk x 2T/N, nk's grid    364/384   95% |          59    -0.00743        1.15    0.0068     0.059 |      305      -0.906    3.87e+03       0.1        20
+  LF/HF       nk, nk's grid           357/384   93% |          59   -0.000361     0.00614      0.04      0.16 |      298   -0.000276      0.0924      0.11       4.8
+  SD1 ms      nk                      369/384   96% |          59          +0           0         0         0 |      310          +0           0         0         0
+  SD2 ms      nk                      369/384   96% |          59          +0           0         0         0 |      310          +0           0         0         0
+  DFA alpha1  nk matched              290/384   76% |          59   -6.66e-16    2.22e-15   6.9e-14   2.9e-13 |      231     -0.0217        1.12        10        76
+  DFA alpha1  nk default 4-11         290/384   76% |          59     +0.0673       0.261        15        38 |      231     -0.0988        1.14        17        78
+  SampEn      nk                      355/384   92% |          59          +0    4.44e-16   1.2e-14   3.8e-14 |      296     -0.0233        1.76       3.1     1e+02
+
+################ held-out, paced (102 104 107 217), reported separately: 4 records ################
+
+=== 300 s windows: 24 windows, 0 without holes, 24 with ===
+how many windows each measure is reported in (the minimum window decides):
+  RMSSD 22  SDNN 16  pNN50 22  LF 0  HF 0  LF/HF 0  SD1 22  SD2 16  DFA 1  SampEn 5
+
+  table A (as shipped: our minimum windows applied); difference = ours - reference
+  measure     reference                    reported | no holes: n      median     max |d|  med rel%  max rel% | holes: n      median     max |d|  med rel%  max rel%
+  RMSSD ms    nk                       22/24    92% |           0           -           -         -         - |       22          +0      0.0241         0     0.049
+  SDNN ms     nk                       16/24    67% |           0           -           -         -         - |       16          +0           0         0         0
+  pNN50 %     nk                       22/24    92% |           0           -           -         -         - |       22     +0.0651       0.561      0.52       1.3
+  pNN50 %     nk, same denominator     22/24    92% |           0           -           -         -         - |       22          +0       0.121   1.2e-14      0.52
+  LF ms^2     nk x 2T/N                 0/24     0% |           0           -           -         -         - |        0           -           -         -         -
+  HF ms^2     nk x 2T/N                 0/24     0% |           0           -           -         -         - |        0           -           -         -         -
+  LF/HF       nk                        0/24     0% |           0           -           -         -         - |        0           -           -         -         -
+  LF ms^2     nk x 2T/N, nk's grid      0/24     0% |           0           -           -         -         - |        0           -           -         -         -
+  HF ms^2     nk x 2T/N, nk's grid      0/24     0% |           0           -           -         -         - |        0           -           -         -         -
+  LF/HF       nk, nk's grid             0/24     0% |           0           -           -         -         - |        0           -           -         -         -
+  SD1 ms      nk                       22/24    92% |           0           -           -         -         - |       22          +0      0.0152         0     0.044
+  SD2 ms      nk                       16/24    67% |           0           -           -         -         - |       16          +0       0.043         0      0.13
+  DFA alpha1  nk matched                1/24     4% |           0           -           -         -         - |        1     -0.0413      0.0413       7.1       7.1
+  DFA alpha1  nk default 4-11           1/24     4% |           0           -           -         -         - |        1      -0.266       0.266        33        33
+  SampEn      nk                        5/24    21% |           0           -           -         -         - |        5     -0.0981       0.144       4.9       8.3
+
+  table B (gates off: arithmetic only, not reported values); difference = ours - reference
+  measure     reference                    reported | no holes: n      median     max |d|  med rel%  max rel% | holes: n      median     max |d|  med rel%  max rel%
+  RMSSD ms    nk                       24/24   100% |           0           -           -         -         - |       24          +0      0.0241         0     0.049
+  SDNN ms     nk                       24/24   100% |           0           -           -         -         - |       24          +0           0         0         0
+  pNN50 %     nk                       24/24   100% |           0           -           -         -         - |       24     +0.0854       0.756      0.58       2.9
+  pNN50 %     nk, same denominator     24/24   100% |           0           -           -         -         - |       24          +0       0.121   1.2e-14      0.52
+  LF ms^2     nk x 2T/N                24/24   100% |           0           -           -         -         - |       24      +0.429    2.01e+03      0.47        48
+  HF ms^2     nk x 2T/N                24/24   100% |           0           -           -         -         - |       24        -2.3         130      0.25       5.9
+  LF/HF       nk                       24/24   100% |           0           -           -         -         - |       24     +0.0009       0.168      0.65        50
+  LF ms^2     nk x 2T/N, nk's grid     24/24   100% |           0           -           -         -         - |       24       -0.46        93.8      0.35       2.2
+  HF ms^2     nk x 2T/N, nk's grid     24/24   100% |           0           -           -         -         - |       24       -3.51         209       0.3       5.9
+  LF/HF       nk, nk's grid            24/24   100% |           0           -           -         -         - |       24   -1.99e-05      0.0156      0.23       5.2
+  SD1 ms      nk                       24/24   100% |           0           -           -         -         - |       24          +0      0.0152         0     0.044
+  SD2 ms      nk                       24/24   100% |           0           -           -         -         - |       24          +0       0.043         0      0.13
+  DFA alpha1  nk matched               18/24    75% |           0           -           -         -         - |       18    -0.00686       0.213       9.1        35
+  DFA alpha1  nk default 4-11          18/24    75% |           0           -           -         -         - |       18      -0.158       0.354        23        38
+  SampEn      nk                       24/24   100% |           0           -           -         -         - |       24      -0.165       0.875        11        35
+
+=== 150 s windows: 48 windows, 0 without holes, 48 with ===
+how many windows each measure is reported in (the minimum window decides):
+  RMSSD 35  SDNN 4  pNN50 35  LF 0  HF 0  LF/HF 0  SD1 35  SD2 4  DFA 0  SampEn 0
+
+  table A (as shipped: our minimum windows applied); difference = ours - reference
+  measure     reference                    reported | no holes: n      median     max |d|  med rel%  max rel% | holes: n      median     max |d|  med rel%  max rel%
+  RMSSD ms    nk                       35/48    73% |           0           -           -         -         - |       35          +0       0.112         0       0.2
+  SDNN ms     nk                        4/48     8% |           0           -           -         -         - |        4          +0           0         0         0
+  pNN50 %     nk                       35/48    73% |           0           -           -         -         - |       35     +0.0855       0.721      0.97       2.3
+  pNN50 %     nk, same denominator     35/48    73% |           0           -           -         -         - |       35          +0       0.316         0       1.1
+  LF ms^2     nk x 2T/N                 0/48     0% |           0           -           -         -         - |        0           -           -         -         -
+  HF ms^2     nk x 2T/N                 0/48     0% |           0           -           -         -         - |        0           -           -         -         -
+  LF/HF       nk                        0/48     0% |           0           -           -         -         - |        0           -           -         -         -
+  LF ms^2     nk x 2T/N, nk's grid      0/48     0% |           0           -           -         -         - |        0           -           -         -         -
+  HF ms^2     nk x 2T/N, nk's grid      0/48     0% |           0           -           -         -         - |        0           -           -         -         -
+  LF/HF       nk, nk's grid             0/48     0% |           0           -           -         -         - |        0           -           -         -         -
+  SD1 ms      nk                       35/48    73% |           0           -           -         -         - |       35          +0      0.0759         0      0.19
+  SD2 ms      nk                        4/48     8% |           0           -           -         -         - |        4          +0           0         0         0
+  DFA alpha1  nk matched                0/48     0% |           0           -           -         -         - |        0           -           -         -         -
+  DFA alpha1  nk default 4-11           0/48     0% |           0           -           -         -         - |        0           -           -         -         -
+  SampEn      nk                        0/48     0% |           0           -           -         -         - |        0           -           -         -         -
+
+  table B (gates off: arithmetic only, not reported values); difference = ours - reference
+  measure     reference                    reported | no holes: n      median     max |d|  med rel%  max rel% | holes: n      median     max |d|  med rel%  max rel%
+  RMSSD ms    nk                       48/48   100% |           0           -           -         -         - |       48          +0       0.112         0       0.2
+  SDNN ms     nk                       48/48   100% |           0           -           -         -         - |       48          +0           0         0         0
+  pNN50 %     nk                       48/48   100% |           0           -           -         -         - |       48      +0.184        6.67       1.1        20
+  pNN50 %     nk, same denominator     48/48   100% |           0           -           -         -         - |       48          +0       0.316         0       1.1
+  LF ms^2     nk x 2T/N                48/48   100% |           0           -           -         -         - |       47        +1.9    4.47e+03       2.3   3.8e+03
+  HF ms^2     nk x 2T/N                48/48   100% |           0           -           -         -         - |       47       -1.01         164      0.35       7.3
+  LF/HF       nk                       48/48   100% |           0           -           -         -         - |       47    +0.00377       0.533       3.2   3.9e+03
+  LF ms^2     nk x 2T/N, nk's grid     47/48    98% |           0           -           -         -         - |       47      -0.994         128      0.54       6.4
+  HF ms^2     nk x 2T/N, nk's grid     47/48    98% |           0           -           -         -         - |       47       -4.13         278      0.41       7.4
+  LF/HF       nk, nk's grid            47/48    98% |           0           -           -         -         - |       47   -4.72e-05      0.0191      0.33       6.8
+  SD1 ms      nk                       48/48   100% |           0           -           -         -         - |       48          +0      0.0759         0      0.19
+  SD2 ms      nk                       48/48   100% |           0           -           -         -         - |       48          +0        0.15         0      0.46
+  DFA alpha1  nk matched               30/48    62% |           0           -           -         -         - |       30    -0.00669       0.241        13        46
+  DFA alpha1  nk default 4-11          30/48    62% |           0           -           -         -         - |       30      -0.215       0.328        28        51
+  SampEn      nk                       40/48    83% |           0           -           -         -         - |       40      -0.121       0.944       9.3     1e+02
+
+why values were withheld, 300 s windows (digits removed to group the reasons):
+  RMSSD ms      12  needs  s
+  SDNN ms       22  needs  s
+  pNN50 %       12  needs  s
+  LF ms^2      127  needs %
+  LF ms^2       22  needs  s
+  HF ms^2      137  needs %
+  HF ms^2       12  needs  s
+  LF/HF        127  needs %
+  LF/HF         22  needs  s
+  SD1 ms        12  needs  s
+  SD2 ms        22  needs  s
+  DFA alpha1    77  needs
+  DFA alpha1    22  needs  s
+  SampEn        64  needs  s
+  SampEn        20  needs

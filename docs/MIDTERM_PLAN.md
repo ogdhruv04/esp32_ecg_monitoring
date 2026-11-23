@@ -36,9 +36,15 @@ against the wearer's own baseline. Each one is validated, and each one is shown 
 - [x] Amplitude investigation at the desk (16 Nov): `docs/amplitude_investigation.md`, `amplitude_check.py`, and a build option that boots in `e` (`INPUT_DEFAULT=e`, not the default until the bench A/B says so)
 
 ### Algorithms (`algo` branch)
-- [ ] `algorithms/` package: HRV time-domain, Lomb–Scargle LF/HF, Poincaré SD1/SD2, DFA α1, sample entropy, each with an enforced minimum window
-- [ ] HRV functions checked against neurokit2 on MIT-BIH (saved result)
-- [ ] ECG-derived breathing rate (RSA and R-amplitude) validated on BIDMC against annotated breaths (saved result, coverage reported)
+- [x] `algorithms/` package: HRV time-domain, Lomb–Scargle LF/HF, Poincaré SD1/SD2, DFA α1, sample entropy, each with an enforced minimum window (`docs/hrv_minimum_windows.md`; 50 unit tests in `tests/`)
+- [x] HRV functions checked against neurokit2 on MIT-BIH (`analysis/hrv_vs_neurokit_mitdb_dev.txt`, `..._heldout.txt`)
+- [x] ECG-derived breathing rate (RSA and R-amplitude) validated on BIDMC against annotated breaths (`analysis/breathing_bidmc_dev.txt`, `..._heldout.txt`; split by subject, parameters frozen in commit `467881d` before the held-out run)
+- Found on the way, for the app plan: a 2-minute session cannot hold the 120 s of valid NN time that SDNN, SD2, LF/HF and DFA α1 need (`docs/hrv_minimum_windows.md`, last section). Session length is a decision for week 3.
+- 13 Nov, **for App:** `algorithms/config.json` now has the `session` block (`hr_min_intervals` 60, `breathing_min_windows` 5, `breathing_max_range_bpm` 6; `analysis/session_rules_dev.txt`, development data only). `AlgorithmsConfigTest` will fail until `SessionRules` takes them. 30 intervals would do for heart rate in sinus rhythm; 60 is what arrhythmic sessions need.
+- 13 Nov: biphasic-QRS coverage. Candidate timing point **tp3** (`tp3_candidate.py`, frozen in `tp3_candidate.json`, **not ported**): development on all 48 MIT-BIH records, now all development data; held-out on INCART, run once (`analysis/tp3_incart_heldout.txt`): median coverage 56% → 68%, patients under 50% pipeline coverage 11 → 2, mean absolute RMSSD error 2.08 → 1.22 ms. Worse on one patient. **Waiting for review before any port.** `docs/explained/algo.md`
+- 13 Nov, after review: **tp3 ported** into `pan_tompkins.py` and `BeatDetector.kt` (`tp2_config.json` version tp3). Shipped detector identical to the evaluated candidate on 100 of 100 runs (`analysis/tp3_port_check.txt`); EC57 Se/P+ unchanged (`analysis/ec57_benchmark_tp3.txt`); 147 Android unit tests pass on regenerated fixtures. The patient-24 regression is diagnosed and recorded as a known limitation (`analysis/tp3_diagnosis_incart_patient24.txt`). `algo` contains `app` as of this port. **For App:** merge `algo` before continuing; `SessionRules` now take 60 / 5 / 6 from the config, and `docs/explained/app.md` carries a dated note. Next held-out data for beat timing: our recordings after the clip swap.
+- 13 Nov, A1 housekeeping done: `requirements.txt` (with astropy), WESAD marked usable for scientific, non-commercial use with credit (`docs/datasets.md`), Billman 2013 cited for LF/HF and Peng et al. 1995 confirmed for the DFA α1 box range 4–16 (`docs/hrv_minimum_windows.md`), push rule in CLAUDE.md.
+- 13 Nov: AF screening (week 2 item below) done early, after the ectopic count existed. CinC 2017 publishes no patient identifiers, so development is by recording, and the published 0.83 is on a hidden test set; the external test is the MIT-BIH AF Database.
 
 ### You
 - [ ] Answer: sensor wiring, midterm date, whether Phase 2 (SoC) is assessed, ethics status
@@ -49,11 +55,17 @@ against the wearer's own baseline. Each one is validated, and each one is shown 
 
 ### Algorithms
 - [ ] Bench session 1 analysed: amplitude (calibration test), 10-min HRV finger vs chest, oscillator drift, upright polarity
-- [ ] Ectopic beats: template correlation plus prematurity, MIT-BIH inter-patient split (de Chazal DS1/DS2), Se/P+ for V beats
-- [ ] AF screening: RR-irregularity features plus a classical model on CinC 2017, patient-wise split, frozen and then held-out; F1 per class
+- [x] Ectopic beats: template correlation plus prematurity, MIT-BIH inter-patient split (de Chazal DS1/DS2), Se/P+ for V beats
+  - 13 Nov: `algorithms/ectopic.py`, settings frozen in `algorithms/config.json` (`ectopic`) after tuning on DS1. Class V, causal filter: DS1 Se 89.1% / P+ 80.3% at 97.0% coverage; DS2 (run once) Se 88.4% / P+ 82.7% at 98.6% (`analysis/ectopic_mitdb_ds1.txt`, `..._ds2.txt`). **DS2 is not truly held out**: all 48 MIT-BIH records are development data for the detector. The S (early, normal shape) label has P+ 23% and is not usable. Python only; not ported.
+- [x] AF screening: RR-irregularity features plus a classical model on CinC 2017, by recording (no patient identifiers exist), frozen and then tested once on the MIT-BIH AF Database by patient; F1 per class
+  - 13 Nov: `algorithms/af.py`, model `algorithms/af_model.json` (af1: depth-3 gradient-boosted trees on 11 features of one cold-started 30 s window). CinC 2017 cross-validated by recording, may be optimistic: F1 N 0.871, A 0.735, O 0.644, noisy 0.531 (`analysis/af_cinc_cv.txt`). **External, run once:** AF Se 92.2% / Sp 96.8% at 97.2% coverage on 23 patients, end-to-end Se 86.7%; worst patients Se 76.8%, Sp 73.1% (`analysis/af_afdb_external.txt`). The ectopic count adds nothing measurable. Own recordings: 0 of 9 judged windows labelled A, with no rhythm reference (`analysis/af_own_recordings.txt`).
+  - **For App:** not ready to show. Missing: a session-level rule (how many A windows), handling of lost samples (a window with any lost sample is left out: all of tb01), a Kotlin port with a parity test. Show "A or not A" only; the "other rhythm" label fires on our own presumed-healthy recording.
 - [ ] Motion-artifact detection from the IMU, feeding the quality gate, evaluated on the protocol's motion segment
+  - 14 Nov, ECG-only part done early: the quality gate (sqi2) now rejects swings far larger than a beat. `signal_quality.py` is the Python reference of `SignalQuality.kt`, parity-tested. tb02's settling transients go from GOOD 47.8% to 2.5% of verdicts in the app's pipeline; clean stretches unchanged (`analysis/app_quality_gate_replay.txt`, `sqi_artifact_dev.txt`). Development data only. The IMU part still needs the sensor stream.
+  - **For App:** `SignalQuality.Result` has `artifact` and `artifactRatio`; `EcgPipeline` calls `quality.track()` per display sample; `headline()` takes `artifact` and says "Hold still"; Diagnostics shows the swing ratio. dual03's finger channel is GOOD only 57% of the time in the pipeline (kurtosis near its threshold), which the earlier replay report missed.
 - [ ] PPG: beat detection, pulse-rate variability vs ECG HRV (agreement), pulse arrival time, perfusion index; SpO2 only as an uncalibrated ratio
 - [ ] GSR: tonic/phasic decomposition, skin-response count; temperature slope
+  - 16 Nov, **WESAD instead of bench data, not finished**: plan frozen in `docs/wesad_plan.md` (commit `300b751`) before any signal was read. Done and pushed: loader (`algorithms/wesad.py`), `ppg.py`, `eda.py`, `temp.py`, `arousal.py`, settings in `algorithms/config.json`, 36 unit tests on synthetic data. WESAD.zip is in `<main>/data/wesad_download` (SHA-256 `5e15d260…38fd71c`), S2 and S3 extracted to `<main>/data/wesad_cache`. **Not done: `wesad_features.py`, `wesad_evaluate.py`, the 2-subject pilot.** No WESAD signal has been processed and there is no result. The session ended after four WSL crashes; the full Python test suite was not re-run after the last one.
 
 ### Firmware
 - [ ] Fixes from bench session 1; the new sensor streams over BLE, if they're on the BLE board
@@ -65,9 +77,13 @@ against the wearer's own baseline. Each one is validated, and each one is shown 
 
 ### App (`app` branch)
 - [ ] "Session" mode: 2-min recording → report (HR, HRV, breathing rate, rhythm check, ectopic count, quality and motion, arousal vs baseline)
-- [ ] Guided-breathing screen with live HRV (breathing at 6/min)
+  - 12 Nov, started early: **3-min** session (a 2-min one cannot hold SDNN/LF, `docs/hrv_minimum_windows.md`) plus a 5-min extended one for DFA α1 and sample entropy. Two-layer report (HR, RMSSD, breathing with "usual" after 3 live sessions; all other measures collapsible; tap for a one-line explanation), each measure "—" with its reason below its minimum. Rhythm, ectopic count, motion and arousal are hidden slots. Run end to end on the phone (SM-A566E) from a tb02 replay; the report matches the JVM pipeline exactly (`analysis/app_phone_replay_tb02.txt`, `android_app/screenshots/phone/`). Not yet run with a live ring. `docs/explained/app.md`
+  - 13 Nov: merged tp3 and the `session` rules from `algorithms/config.json` (60 intervals, 5 windows, 6 breaths/min; no longer provisional); tb02's report now at 81.8% NN coverage with SDNN and SD2. Live heart rate fixed: the screens showed the detector's 8-interval threshold window (27 and 101 bpm on a GOOD tb02 replay); now `LiveHeartRate.kt`, 0 moments more than 5 bpm off an independent reference on tb02 and dual03 (`LiveHeartRateTest`, `analysis/app_live_hr.txt`)
+- [x] Guided-breathing screen with live HRV (breathing at 6/min)
+  - 12 Nov: pacer 6/min, live RMSSD (90 s), live breathing rate (32 s) and beat-to-beat HR curve with in-breaths shaded; parity-tested (`LiveHrvParityTest`). Rendered from replay only; not yet run on the phone, and whether the RSA swing shows on the ring is for bench session 2
 - [ ] Session history stored on the phone (Room), with trends against a personal baseline
-- [ ] Every ported algorithm has a parity test against its Python reference
+  - 12 Nov: Room storage and a History screen with per-measure trends by date done; the baseline is the median and range of earlier live sessions (arousal-vs-baseline is the Algorithms item)
+- [x] Every ported algorithm has a parity test against its Python reference (12 Nov: `HrvParityTest`, `SessionParityTest` (incl. breathing), `AlgorithmsConfigTest`; fixtures `make_session_fixtures.py`)
 
 ### Algorithms
 - [ ] Arousal index: HRV, GSR, temperature and PPG features z-scored against the wearer's baseline; leave-one-day-out evaluation on the protocol data; per-feature ablation

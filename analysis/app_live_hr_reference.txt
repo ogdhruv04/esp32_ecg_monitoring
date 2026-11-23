@@ -1,0 +1,5 @@
+# Live heart-rate reference (make_live_hr_fixtures.py): zero-phase filter, NeuroKit2 0.2.13 ecg_peaks(method='neurokit'); window 10 s, >= 5 intervals, all 300-2000 ms and each within 20% of the one before.
+tb02         captures/20261027_174352_testboard02.csv: 299.5 s, 68 samples lost, 375 reference peaks; reference defined at 595/1198 moments (49.7%), 72.8-94.8 bpm, median 76.8; loose reference only at 453 more
+             highest 94.8 bpm at 156.75 s, lowest 72.8 bpm at 76.75 s; first defined at 64.25 s
+dual03_ring  captures/20260929_163314_dual03_both3wire_c3chest_wroomfinger_ring.csv: 115.6 s, 0 samples lost, 196 reference peaks; reference defined at 374/463 moments (80.8%), 94.8-108.9 bpm, median 103.1; loose reference only at 73 more
+             highest 108.9 bpm at 55.25 s, lowest 94.8 bpm at 32.50 s; first defined at 11.00 s

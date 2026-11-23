@@ -1,0 +1,40 @@
+# ./evaluate_tp3.py own --captures /home/dhruv/esp32_ecg_monitoring/captures
+# commit 9406be0 + uncommitted changes; detector tp2.1 (tp2_config.json, unchanged)
+# tp3 candidate: {"LAG": 10, "R_MIN": 0.8, "ALIGN": true, "REF": "peak", "TRACK": 2}, frozen: 2026-11-13
+# tp3 uses tp2.1's window (0.1 s before to 0.06 s after the 5-15 Hz peak) and template depth (POL_KEEP 16, POL_MIN 8)
+
+Our own recordings. 50 Hz notch with its 2nd harmonic, as agreement.py.
+
+=== dual03, finger against chest at the same time ===
+chest  /home/dhruv/esp32_ecg_monitoring/captures/20260929_163314_dual03_both3wire_c3chest_wroomfinger_ring.csv
+finger /home/dhruv/esp32_ecg_monitoring/captures/20260929_163314_dual03_both3wire_c3chest_wroomfinger_ref.csv
+skip 10 s, longest unbroken run of each (as fiducial.py dual). RR LoA = finger - chest RR on consecutive matched beats with
+neither beat flagged at either site; RMSSD per site on its own cleaned NN series, cov = coverage.
+
+causal filter: chest 180 beats, finger 180, matched 180
+  timing dt sd ms flag pairs |      RR LoA ms    n | RMSSD chest  cov  finger  cov
+  tp2.1      0.69          9 |   -1.7.. +1.7  170 |      18.0ms  94%  17.9ms  94%
+  tp3        0.88         11 |   -1.8.. +1.8  166 |      18.3ms  92%  17.9ms  94%
+zero-phase filter: chest 180 beats, finger 180, matched 180
+  timing dt sd ms flag pairs |      RR LoA ms    n | RMSSD chest  cov  finger  cov
+  tp2.1      0.67          9 |   -1.6.. +1.6  170 |      18.0ms  94%  17.9ms  94%
+  tp3        0.77          9 |   -1.8.. +1.8  170 |      18.0ms  94%  17.9ms  94%
+
+=== tb01: /home/dhruv/esp32_ecg_monitoring/captures/20261027_173714_testboard01.csv ===
+58368 samples (228.0 s), 232 lost in 30 gaps, 149 duplicate rows dropped
+causal: 365 beats; tp2.1 flagged 82 = 68 polarity undecided + 4 correlation check + 10 other (window edge or gap)
+  tp2.1  flagged  22.5%  NN coverage  65.9%  valid  147.3 s | rmssd 17.8  sdnn 37.4  pnn50 0.9  sd1 12.6  sd2 50.5  lf -  hf -  lf_hf -  dfa_alpha1 -
+  tp3    flagged  13.4%  NN coverage  78.6%  valid  174.7 s | rmssd 18.5  sdnn 38.9  pnn50 1.1  sd1 13.1  sd2 53.1  lf -  hf -  lf_hf -  dfa_alpha1 -
+zero-phase: 367 beats; tp2.1 flagged 33 = 17 polarity undecided + 6 correlation check + 10 other (window edge or gap)
+  tp2.1  flagged   9.0%  NN coverage  80.9%  valid  180.0 s | rmssd 18.2  sdnn 41.9  pnn50 1.1  sd1 12.9  sd2 58.0  lf -  hf -  lf_hf -  dfa_alpha1 -
+  tp3    flagged  12.5%  NN coverage  80.1%  valid  178.2 s | rmssd 18.3  sdnn 41.8  pnn50 1.1  sd1 13.0  sd2 57.6  lf -  hf -  lf_hf -  dfa_alpha1 -
+
+=== tb02: /home/dhruv/esp32_ecg_monitoring/captures/20261027_174352_testboard02.csv ===
+76593 samples (299.2 s), 68 lost in 9 gaps, 40 duplicate rows dropped
+causal: 368 beats; tp2.1 flagged 102 = 87 polarity undecided + 12 correlation check + 3 other (window edge or gap)
+  tp2.1  flagged  27.7%  NN coverage  62.1%  valid  175.3 s | rmssd 34.9  sdnn 56.5  pnn50 14.0  sd1 24.7  sd2 77.8  lf -  hf -  lf_hf -  dfa_alpha1 -
+  tp3    flagged  14.1%  NN coverage  82.3%  valid  233.4 s | rmssd 34.3  sdnn 53.0  pnn50 11.4  sd1 24.3  sd2 71.5  lf -  hf -  lf_hf -  dfa_alpha1 1.1
+zero-phase: 363 beats; tp2.1 flagged 41 = 28 polarity undecided + 9 correlation check + 4 other (window edge or gap)
+  tp2.1  flagged  11.3%  NN coverage  82.0%  valid  229.7 s | rmssd 34.3  sdnn 54.1  pnn50 11.6  sd1 24.3  sd2 72.3  lf -  hf -  lf_hf -  dfa_alpha1 1.1
+  tp3    flagged  11.6%  NN coverage  83.4%  valid  233.6 s | rmssd 34.1  sdnn 53.3  pnn50 11.3  sd1 24.2  sd2 71.8  lf -  hf -  lf_hf -  dfa_alpha1 1.2
+

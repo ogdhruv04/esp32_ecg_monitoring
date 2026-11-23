@@ -1,31 +1,35 @@
 {
-  "version": "tp2.1",
-  "frozen": "2026-10-31",
-  "description": "Timing point 2 (R peak + parabolic + guard) with the per-beat correlation check, and the HRV cleaning rules. Read by pan_tompkins.py; BeatDetector.kt hard-codes the same values and BeatDetectorConfigTest asserts they match this file.",
-  "tuned_on": "Development data only: the 12-record MIT-BIH subset in data/mitdb (100 101 103 105 106 108 109 119 203 208 222 228) and the dual capture 20260929_163314_dual03. The Pan-Tompkins core (thresholds, search-back, refractory, T-wave rule, stall decay) is fixed in code and was also developed on that subset.",
+  "version": "tp3",
+  "frozen": "2026-11-13",
+  "description": "Timing point 3: each beat is timed at its best-alignment lag against the median of the previous beats, referred to one followed peak of that median beat (no polarity decision), with the HRV cleaning rules. Read by pan_tompkins.py; BeatDetector.kt hard-codes the same values and BeatDetectorConfigTest asserts they match this file. The file keeps its name because the build and the tests refer to it.",
+  "tuned_on": "Development data: all 48 MIT-BIH Arrhythmia records (all development data from 13 Nov 2026), our recordings dual03, tb01 and tb02, and the BIDMC ECGs for coverage. Settings were frozen as tp3_candidate.json (commit 17128f3) before the held-out run and ported unchanged. The Pan-Tompkins core (thresholds, search-back, refractory, T-wave rule, stall decay) is fixed in code and was not touched.",
   "detector": {
-    "R_BEFORE_S": 0.100,
-    "R_AFTER_S": 0.060,
+    "R_BEFORE_S": 0.1,
+    "R_AFTER_S": 0.06,
     "POL_KEEP": 16,
     "POL_MIN": 8,
-    "POL_RATIO": 1.5,
-    "EDGE": 2,
     "HIST_S": 4.0,
-    "CORR_MIN": 0.0,
-    "CORR_LAG": 10
+    "CORR_LAG": 10,
+    "R_MIN": 0.8,
+    "TRACK": 2
   },
   "hrv": {
-    "NN_STEP": 0.20,
+    "NN_STEP": 0.2,
     "NN_SEED": 5,
     "HRV_DEPTH": 256,
     "MIN_BEATS_FOR_HRV": 30
   },
-  "heldout_protocol": {
-    "records": "the 36 MIT-BIH Arrhythmia records not in the development subset, downloaded once, evaluated once",
-    "lead": "MLII wherever the record has it (record 114 has it on channel 1); otherwise channel 0. The other channel is lead 1 for the three-cornered hat.",
-    "paced_records": "102 104 107 217 are reported separately, as ANSI/AAMI EC57 excludes paced records from the main figures",
-    "variants": "both reported from the same single run: tp2 (CORR_MIN off) and tp2.1 (CORR_MIN as above)",
-    "metrics": "EC57 Se and P+ ungated and with the bSQI 0.9 gate plus its rejection rate; timing spread against annotations; RMSSD error against annotations, each with its coverage",
+  "tp2.1": {
+    "POL_RATIO": 1.5,
+    "EDGE": 2,
+    "CORR_MIN": 0.0,
+    "note": "The previous timing point (frozen 2026-10-31, commit da603e2), kept in pan_tompkins.py only, as PanTompkins(fs, timing='tp2.1'), so that results published with it can be reproduced and compared. It uses the detector block's window and template depth and CORR_LAG. The phone no longer runs it."
+  },
+  "heldout": {
+    "tp3": "St Petersburg INCART 12-lead Arrhythmia Database, 75 records from 32 patients, run once on 13 Nov 2026 with these settings (analysis/tp3_incart_heldout.txt). INCART is spent for beat timing.",
+    "tp2.1": "The 36 MIT-BIH Arrhythmia records outside the original development subset, run once on 31 Oct 2026 (analysis/heldout_ec57_tp2.1.txt, fiducial_mitdb_heldout32_v3.txt). All 48 MIT-BIH records are development data from 13 Nov 2026.",
+    "next": "Our own recordings made after the electrode clips are swapped at bench session 1.",
+    "known_limitation": "A beat whose 5-15 Hz peak lands more than CORR_LAG samples (39 ms) from where it usually sits has no correlation maximum inside the search range and is flagged. On INCART patient 24 the peak alternates between two places 41 ms apart, and coverage fell there (analysis/tp3_diagnosis_incart_patient24.txt). Not changed: the cause was found on held-out data.",
     "rule": "no parameter in this file is changed in response to held-out results"
   }
 }

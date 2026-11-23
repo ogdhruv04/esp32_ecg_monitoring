@@ -1,0 +1,57 @@
+# On-phone replay session, 12 Nov 2026 (app branch, debug APK built from d1eee62)
+# Phone: SM-A566E, Android 17. Replay: tb02 = captures/20261027_174352_testboard02.csv (am start --es replay tb02).
+# Standard session started from the Session screen; Start waited for the first GOOD headline.
+# SystemUI demo mode was requested (sysui_demo_allowed=1, enter/clock/battery/network/notifications)
+# but One UI ignored it: the screencaps show the real status bar.
+
+== logcat -s EcgMonitor:I ==
+11-12 21:14:29.762 25130 25130 I EcgMonitor: replay tb02.csv
+11-12 21:14:31.059 25130 25130 I EcgMonitor: link SCANNING -> RECEIVING
+11-12 21:14:31.194 25130 25130 I EcgMonitor: stats packets=5 lost=0 skipped=0 breaks=0 rate=- quality=pending kSQI=0.0 pSQI=0.00 mains=0.0% headline=Hidden(cause=Hold still for a few seconds)
+11-12 21:14:41.219 25130 25130 I EcgMonitor: stats packets=434 lost=0 skipped=0 breaks=0 rate=255.8 quality=POOR kSQI=29.1 pSQI=0.03 mains=60.9% headline=Hidden(cause=Check the reference electrode)
+11-12 21:14:51.267 25130 25130 I EcgMonitor: stats packets=861 lost=2 skipped=12 breaks=0 rate=253.7 quality=FAIR kSQI=97.9 pSQI=0.07 mains=72.1% headline=Hidden(cause=Check the reference electrode)
+11-12 21:14:54.558 25130 25130 I EcgMonitor: session started at sample 6018
+11-12 21:15:01.364 25130 25130 I EcgMonitor: stats packets=1292 lost=2 skipped=12 breaks=0 rate=255.9 quality=GOOD kSQI=80.4 pSQI=0.15 mains=92.0% headline=Rate(bpm=27)
+11-12 21:15:11.469 25130 25130 I EcgMonitor: stats packets=1723 lost=2 skipped=12 breaks=0 rate=256.0 quality=GOOD kSQI=7.9 pSQI=0.21 mains=74.2% headline=Rate(bpm=101)
+11-12 21:15:21.532 25130 25130 I EcgMonitor: stats packets=2152 lost=2 skipped=12 breaks=0 rate=256.1 quality=FAIR kSQI=5.1 pSQI=0.08 mains=80.7% headline=Hidden(cause=Check the reference electrode)
+11-12 21:15:31.591 25130 25130 I EcgMonitor: stats packets=2581 lost=2 skipped=12 breaks=0 rate=256.0 quality=FAIR kSQI=4.8 pSQI=0.20 mains=96.1% headline=Hidden(cause=Check the reference electrode)
+11-12 21:15:41.651 25130 25130 I EcgMonitor: stats packets=3011 lost=2 skipped=12 breaks=0 rate=256.1 quality=GOOD kSQI=11.9 pSQI=0.33 mains=96.5% headline=Rate(bpm=73)
+11-12 21:15:51.714 25130 25130 I EcgMonitor: stats packets=3440 lost=2 skipped=12 breaks=0 rate=256.0 quality=GOOD kSQI=6.4 pSQI=0.21 mains=92.0% headline=Rate(bpm=72)
+11-12 21:16:01.757 25130 25130 I EcgMonitor: stats packets=3868 lost=2 skipped=12 breaks=0 rate=256.0 quality=GOOD kSQI=8.3 pSQI=0.30 mains=94.4% headline=Rate(bpm=75)
+11-12 21:16:11.822 25130 25130 I EcgMonitor: stats packets=4295 lost=5 skipped=30 breaks=0 rate=256.0 quality=GOOD kSQI=7.0 pSQI=0.31 mains=94.7% headline=Rate(bpm=79)
+11-12 21:16:21.892 25130 25130 I EcgMonitor: stats packets=4725 lost=5 skipped=30 breaks=0 rate=256.0 quality=GOOD kSQI=9.5 pSQI=0.29 mains=95.1% headline=Rate(bpm=75)
+11-12 21:16:31.941 25130 25130 I EcgMonitor: stats packets=5153 lost=5 skipped=30 breaks=0 rate=256.0 quality=GOOD kSQI=8.0 pSQI=0.33 mains=95.1% headline=Rate(bpm=78)
+11-12 21:16:42.016 25130 25130 I EcgMonitor: stats packets=5576 lost=12 skipped=72 breaks=0 rate=247.6 quality=GOOD kSQI=10.0 pSQI=0.23 mains=86.8% headline=Rate(bpm=78)
+11-12 21:16:52.076 25130 25130 I EcgMonitor: stats packets=6005 lost=12 skipped=72 breaks=0 rate=256.0 quality=GOOD kSQI=8.8 pSQI=0.30 mains=96.0% headline=Rate(bpm=75)
+11-12 21:17:02.121 25130 25130 I EcgMonitor: stats packets=6434 lost=12 skipped=72 breaks=0 rate=256.0 quality=GOOD kSQI=11.0 pSQI=0.37 mains=88.9% headline=Rate(bpm=97)
+11-12 21:17:12.170 25130 25130 I EcgMonitor: stats packets=6863 lost=12 skipped=72 breaks=0 rate=256.0 quality=GOOD kSQI=10.7 pSQI=0.33 mains=89.7% headline=Rate(bpm=81)
+11-12 21:17:22.208 25130 25130 I EcgMonitor: stats packets=7291 lost=12 skipped=72 breaks=0 rate=256.0 quality=GOOD kSQI=10.8 pSQI=0.32 mains=94.3% headline=Rate(bpm=72)
+11-12 21:17:32.269 25130 25130 I EcgMonitor: stats packets=7720 lost=12 skipped=72 breaks=0 rate=256.1 quality=GOOD kSQI=9.5 pSQI=0.30 mains=93.1% headline=Rate(bpm=82)
+11-12 21:17:42.305 25130 25130 I EcgMonitor: stats packets=8148 lost=12 skipped=72 breaks=0 rate=256.0 quality=GOOD kSQI=10.4 pSQI=0.30 mains=95.2% headline=Rate(bpm=79)
+11-12 21:17:52.350 25130 25130 I EcgMonitor: stats packets=8577 lost=12 skipped=72 breaks=0 rate=256.0 quality=GOOD kSQI=10.0 pSQI=0.30 mains=96.6% headline=Rate(bpm=75)
+11-12 21:17:58.728 25130 25130 I EcgMonitor: session done: 223 beats, lost 60 samples, hr=77.09 br=- rmssd=35.35 sdnn=- pnn50=14.88 sd1=25.04 sd2=- lf=- hf=- lf_hf=-
+11-12 21:18:02.569 25130 25130 I EcgMonitor: stats packets=9013 lost=12 skipped=72 breaks=0 rate=256.0 quality=GOOD kSQI=9.9 pSQI=0.33 mains=94.8% headline=Rate(bpm=79)
+11-12 21:18:12.653 25130 25130 I EcgMonitor: stats packets=9440 lost=15 skipped=90 breaks=0 rate=256.0 quality=GOOD kSQI=9.2 pSQI=0.33 mains=96.2% headline=Rate(bpm=80)
+11-12 21:18:22.703 25130 25130 I EcgMonitor: stats packets=9867 lost=17 skipped=102 breaks=0 rate=256.0 quality=GOOD kSQI=8.5 pSQI=0.32 mains=96.9% headline=Rate(bpm=80)
+11-12 21:18:32.750 25130 25130 I EcgMonitor: stats packets=10296 lost=17 skipped=102 breaks=0 rate=256.1 quality=GOOD kSQI=9.1 pSQI=0.31 mains=97.4% headline=Rate(bpm=78)
+11-12 21:18:42.800 25130 25130 I EcgMonitor: stats packets=10719 lost=23 skipped=138 breaks=0 rate=248.7 quality=GOOD kSQI=6.6 pSQI=0.23 mains=92.9% headline=Rate(bpm=78)
+11-12 21:18:52.862 25130 25130 I EcgMonitor: stats packets=11148 lost=23 skipped=138 breaks=0 rate=256.0 quality=GOOD kSQI=9.6 pSQI=0.30 mains=97.3% headline=Rate(bpm=75)
+11-12 21:19:02.911 25130 25130 I EcgMonitor: stats packets=11577 lost=23 skipped=138 breaks=0 rate=255.9 quality=GOOD kSQI=8.6 pSQI=0.30 mains=97.6% headline=Rate(bpm=80)
+11-12 21:19:12.974 25130 25130 I EcgMonitor: stats packets=12005 lost=24 skipped=144 breaks=0 rate=254.8 quality=GOOD kSQI=7.9 pSQI=0.29 mains=89.8% headline=Rate(bpm=83)
+11-12 21:19:23.017 25130 25130 I EcgMonitor: stats packets=12433 lost=24 skipped=144 breaks=0 rate=256.0 quality=GOOD kSQI=7.6 pSQI=0.30 mains=95.3% headline=Rate(bpm=79)
+11-12 21:19:31.559 25130 25130 I EcgMonitor: link RECEIVING -> REPLAY_FINISHED
+
+== JVM check: EcgPipeline fed the same packets (SessionReplay.capturePackets), session started at detector sample 6018 ==
+s0=6018 beats=223 lost=60 hr=77.08739927952136 (n 220, cov 0.991) rmssd=35.35327333827799 pnn50=14.87603305785124 sd1=25.044232522811516 (n 121, cov 0.6126) sdnn/sd2/lf/hf/lf_hf withheld; br withheld
+-> identical to the phone's 'session done' line and report (HR 77, RMSSD 35, pNN50 14.9, SD1 25, 60 lost, 223 beats).
+
+== Python fixture input (session/tb02_input.csv) over samples 6018..52098 (session_reference.py) ==
+hr 77.037 (220), rmssd 35.90 (126, cov 0.631), pnn50 15.87, sd1 25.48, breathing withheld (span 4.5-19.9); 30 samples lost.
+Not the same stream: the phone's sample count starts after the capture's leading hole and loses whole 6-sample
+packets, so its sample 6018 and its gaps differ from the fixture's. SessionPipelineTest pins the packet path to
+direct detector calls; SessionParityTest pins those to the Python reference.
+
+== Noted, not changed (existing monitor logic, outside the Session work) ==
+The headline heart rate showed 27 bpm on GOOD at 21:15:01 and 101 bpm at 21:15:11, about 30-40 s into the replay
+(stats lines above), before settling at 72-82 bpm. The session's own HR (median of 220 intervals) is unaffected.
+The recording screen showed 33 and then 59 bpm in its first seconds (screencap phone_session_recording_early.png).

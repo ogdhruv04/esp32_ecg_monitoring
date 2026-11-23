@@ -1,0 +1,6 @@
+# ./make_sqi_fixtures.py   gate sqi2
+
+tb02_settling: 0-60 s, 15360 samples, 237 verdicts; kurtosis and band share alone: GOOD 38.0% FAIR 40.1% POOR 21.9%; with the artifact check: GOOD 4.6% FAIR 20.7% POOR 74.7%; artifact at 148 verdicts
+tb01_burst: 55-110 s, 14080 samples, 217 verdicts; kurtosis and band share alone: GOOD 72.4% FAIR 24.9% POOR 2.8%; with the artifact check: GOOD 50.2% FAIR 3.7% POOR 46.1%; artifact at 100 verdicts
+dual03_finger: 0-30 s, 7680 samples, 117 verdicts; kurtosis and band share alone: GOOD 45.3% FAIR 50.4% POOR 4.3%; with the artifact check: GOOD 45.3% FAIR 50.4% POOR 4.3%; artifact at 0 verdicts
+nst_118e00: 280-320 s, 10240 samples, 157 verdicts; kurtosis and band share alone: GOOD 58.0% FAIR 14.6% POOR 27.4%; with the artifact check: GOOD 58.0% FAIR 14.6% POOR 27.4%; artifact at 0 verdicts
