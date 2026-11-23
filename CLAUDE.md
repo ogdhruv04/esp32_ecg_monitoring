@@ -90,6 +90,8 @@ python3 -m pytest tests -q                         # algorithms/ and tp3 candida
 ./evaluate_tp3.py mitdb --dir <main>/data/mitdb <main>/data/mitdb_heldout [--grid]   # tp2.1 against tp3; also: own, bidmc, port (shipped == evaluated?). incart is spent: do not re-run to tune
 ./validate_ectopic_mitdb.py --set ds1 --dir <main>/data/mitdb <main>/data/mitdb_heldout [--tune]   # ectopic beats, de Chazal split; ds2 was run once
 ./validate_af.py cv --cinc <main>/data/cinc2017    # AF screening, cross-validation by recording; `afdb --afdb <main>/data/afdb` was run once (use --rerender), `own --captures <main>/captures`
+./wesad_features.py --zip <main>/data/wesad_download/WESAD.zip --cache <main>/data/wesad_cache --out <main>/data/wesad_features --subjects S2   # one subject per call (6 GB cap)
+./wesad_evaluate.py --pilot --features <main>/data/wesad_features --subjects S2 S3   # pilot report only; the full evaluation is not written (docs/wesad_plan.md)
 ./sqi_replay.py --captures <main>/captures          # the app's quality gate on our recordings, before and after the artifact check
 ./make_sqi_fixtures.py --captures <main>/captures --nst <main>/data/nstdb   # then SignalQualityParityTest: SignalQuality.kt == signal_quality.py?
 ./develop_sqi_artifact.py --captures .. --mitdb .. --nst .. --jobs 2        # how the artifact check was chosen (slow)

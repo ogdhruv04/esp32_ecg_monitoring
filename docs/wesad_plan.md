@@ -279,4 +279,29 @@ Not for the size or direction of any pilot z-score, and never for a classificati
 
 ## Amendment log
 
-*(none)*
+**23 Nov 2026, pilot findings (S2, S3; `analysis/wesad_pilot.txt`, `analysis/wesad_pilot_pulse_shape.txt`).
+Nothing below has been applied: the primary models are still as in section 6.** No classification
+metric was computed.
+
+- *Rule 1 (format), checked, no change.* The beat-locked average of the wrist BVP in S2's
+  meditation 1 (lock 0.95) is a normal pulse: minimum, then a rise of about 220 ms to the maximum,
+  then a slower fall. So the systolic peak is the maximum, as `ppg.detect` assumes. That average
+  puts the steepest rise 711 ms after the R wave, far later than any pulse transit time. This
+  shows a constant offset between the two devices of several hundred ms, which supports section 2:
+  pulse arrival time cannot be measured here.
+- *Not a bug, a property of the data.* Outside still periods, wrist pulses are not locked to the
+  beats: lock 0.09–0.14 in stress for both subjects and 0.13–0.24 in S3's meditations, and the
+  apparent delay spreads by 200–400 ms (IQR) within single windows. Pulse-to-beat Se is 14–83% by
+  part. Pulse RMSSD reads above ECG RMSSD at rest (median +8.5 to +22 ms) and matches only in S2's
+  meditations (−1.0, +0.4 ms). Consequence for A2: the delay trend (+57.6 and +10.4 ms per hour) is
+  not interpretable as clock drift, because the delay is not stable within a window.
+- *Rule 3 (availability): triggered. Proposed, waiting for a decision:*
+  1. ECG in the primary models: use **ECG-time** instead of ECG-full. LF, HF and DFA α1 are
+     reported in 0% of S3's baseline windows (coverage under 95%, or under 120 s of valid NN time,
+     at heart rate 54 with a large RSA). ECG-full becomes the secondary analysis in place of B3.
+  2. BVP in the primary models: **`pr` and `ln_amp` only**. `ln_rmssd_p` is reported in 7% (S2) and
+     31% (S3) of stress windows, and `ln_sdnn_p` almost never. Pulse-rate variability stays in A1,
+     where it is compared with ECG.
+  3. Chest TEMP for S2 is withheld by design (the authors' note), so no change.
+  Without (1) and (2), a model that needs every one of its features would reject most stress
+  windows of these two subjects.
