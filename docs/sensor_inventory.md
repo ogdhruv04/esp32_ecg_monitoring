@@ -12,9 +12,29 @@ What else is on the boards besides the MAX30003, where, and how sure we are. Wri
 prints what it found (`# sens ...` lines); that print is the confirmation, and step 1a of
 `docs/bench_session_1.md` is where it gets read.
 
+## The board as built (photo, 24 Nov 2026)
+
+A photo of one reference board (`docs/report/figs/ref_board.jpg`, from the full-resolution original
+`esp32_ref_board.png`) was compared with the schematic. Read from part markings; nothing was measured.
+
+- **U7 (MPU6050) is not fitted**: bare QFN pads, no chip. On this board the IMU probe at boot will
+  fail and the firmware will switch the IMU off; there will be no `M` lines. Its 4.7 kΩ pull-ups
+  (R20/R21) are fitted, so with a jumper on **GYRO1** they still pull the bus to 3.3 V (question 3
+  below).
+- **U3 is an AMS1117-1.8** (marked `AMS1117-1.8`), where the schematic has an LD1117AS18TR. U2's
+  marking is not readable in the photo.
+- **ESP32-WROOM-32E**, not the 32D the schematic names. Pin-compatible; the firmware's FQBN
+  (`esp32:esp32:esp32`, 8 MB) covers both.
+- **R6, the GSR trimmer, is a 3006-series multi-turn marked `204`: 200 kΩ** (question 5 below).
+- Confirmed against the schematic: MAX30003 at U6 (marked `30003C`), the two 49.9 kΩ input
+  resistors (EIA-96 code `68C`), MAX30205 at U5, MAX30102 at U8, LM324 at U4, 4.7 kΩ I2C pull-ups
+  (`472`), a 32.768 kHz oscillator package beside U6 (marking not readable), the 3.5 mm ECG jack,
+  IO0 and EN buttons, jumpers on TEMP, GYRO, AD and HR.
+
 ## Where each sensor is
 
-All four are on the **reference board** (ESP32-WROOM-32D, custom PCB). The C3 test board's
+All four are on the **reference board** (custom PCB; the schematic names an ESP32-WROOM-32D, the boards
+we tested carry a WROOM-32E with 8 MB flash, marked `MGN8`). The C3 test board's
 schematic (`docs/ESP32C3_custom_schematic.pdf`) shows no sensor. There is no schematic of the
 ring (ESP32-C3 SuperMini) in the repo; you confirmed on 10 Nov that only the reference board
 has the sensors.
@@ -117,7 +137,7 @@ changes what the bench session should expect:
    are both on that rail and the MAX30102's absolute maximum is 2.2 V. Measure the rail with a
    multimeter in step 1b of the bench session.
 4. **What is connected to GSR1?** You were not sure. The check needs two skin electrodes there.
-5. **R6's value and setting**, and the LM324's highest output on a 3.3 V supply. Together they
+5. **R6's setting** (its value is 200 kΩ, from the photo), and the LM324's highest output on a 3.3 V supply. Together they
    decide whether the GSR output sits in range or pinned at a limit with electrodes on.
 6. **Can GSR electrodes be worn together with the ECG electrodes of the same board?** GSR1
    pin 2 ties the skin to board ground through the electrode, while the MAX30003 holds the body

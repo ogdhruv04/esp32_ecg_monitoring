@@ -20,7 +20,7 @@ ECG acquisition for a finger-electrode ECG ring: ESP32 + MAX30003 firmware, an A
 | Extra sensors | none (pins set to -1) | I2C on IO21 (SDA) / IO22 (SCL): MAX30102, MAX30205, MPU6050; GSR on IO27 (ADC) |
 | Build dir | `build/` | `build_ref/` |
 
-The reference board's schematic is `docs/ESP32_health_schematic.pdf`; read pins from it by module pin number, not by where a net label sits. The extra sensors are inventoried in `docs/sensor_inventory.md` (what is known, what is not) and their register values are checked in `docs/sensor_datasheet_check.md`. The sensor code is compiled into every board's image and switched off by the pin block, not by a fork.
+The reference board's schematic is `docs/ESP32_health_schematic.pdf`; read pins from it by module pin number, not by where a net label sits. The boards we tested carry an ESP32-WROOM-32E (8 MB), not the 32D the schematic names. A photo of one board (`docs/report/figs/ref_board.jpg`; findings in `docs/sensor_inventory.md`) shows **the MPU6050 (U7) not fitted** and an AMS1117-1.8 in place of the schematic's LD1117 for the 1.8 V rail. The extra sensors are inventoried in `docs/sensor_inventory.md` (what is known, what is not) and their register values are checked in `docs/sensor_datasheet_check.md`. The sensor code is compiled into every board's image and switched off by the pin block, not by a fork.
 
 Never fork `sketch.ino` per board. The two-device study only means something because decoding, register config, sample rate and timestamping are byte-identical on both, so the only difference is electrode site. After editing the sketch, **reflash both boards**. To spot a stale device, compare the `.bin` timestamps in `build/` and `build_ref/` against `sketch.ino`.
 
