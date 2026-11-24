@@ -184,7 +184,7 @@ Published single-lead systems report accuracy on public data or on their own dev
 The system (Fig.~\ref{fig:arch}) has three parts: the hardware and firmware that acquire the ECG, the Android application that processes it in real time, and a Python toolchain that holds the reference implementation of every algorithm and validates it on public data.
 
 \subsection{Reference Board}
-The reference board is a custom PCB (Figs.~\ref{fig:schematic} and~\ref{fig:refboard}) built around an ESP32-WROOM-32E module with 8\,MB of flash (the schematic names the pin-compatible WROOM-32D). Its MAX30003 ECG front end has a $\SI{49.9}{\kilo\ohm}$ series resistor and 10\,pF/1\,nF EMI filter on each input, and the common-mode output VCM is routed to the electrode connector as the body reference electrode. A SiT1533 32.768\,kHz oscillator clocks the MAX30003, so the sample rate is set by this crystal and not by the microcontroller. The board also carries a MAX30102 PPG sensor and a MAX30205 temperature sensor on a shared I$^2$C bus, with a footprint for an MPU6050 inertial sensor that is not fitted on the board shown in Fig.~\ref{fig:refboard}, and a galvanic skin response (GSR) front end built from LM324 op-amp stages feeding an ESP32 ADC input. Power comes from a DC input through 3.3\,V and 1.8\,V linear regulators (AMS1117-3.3 and LD1117 in the schematic; an AMS1117-1.8 is fitted for the 1.8\,V rail).
+The reference board is a custom PCB (Figs.~\ref{fig:schematic} and~\ref{fig:refboard}) built around an ESP32-WROOM-32E module with 8\,MB of flash (the schematic names the pin-compatible WROOM-32D). Its MAX30003 ECG front end has a $\SI{49.9}{\kilo\ohm}$ series resistor and 10\,pF/1\,nF EMI filter on each input, and the common-mode output VCM is routed to the electrode connector as the body reference electrode. A SiT1533 32.768\,kHz oscillator clocks the MAX30003, so the sample rate is set by this crystal and not by the microcontroller. The board also carries a MAX30102 PPG sensor and a MAX30205 temperature sensor on a shared I$^2$C bus, and a galvanic skin response (GSR) front end built from LM324 op-amp stages feeding an ESP32 ADC input. Power comes from a DC input through 3.3\,V and 1.8\,V linear regulators (AMS1117-3.3 and LD1117 in the schematic; an AMS1117-1.8 is fitted for the 1.8\,V rail).
 
 \begin{figure}[t]
 \centering
@@ -196,7 +196,7 @@ The reference board is a custom PCB (Figs.~\ref{fig:schematic} and~\ref{fig:refb
 \begin{figure}[t]
 \centering
 \includegraphics[width=0.75\columnwidth]{figs/ref_board.jpg}
-\caption{The assembled reference board: ESP32-WROOM-32E (right), MAX30003 (centre), MAX30102 and MAX30205 (left), LM324 and the GSR trimmer (bottom), 3.5\,mm electrode jack (bottom left). The MPU6050 footprint (U7, top centre) is unpopulated.}
+\caption{The assembled reference board: ESP32-WROOM-32E (right), MAX30003 (centre), MAX30102 and MAX30205 (left), LM324 and the GSR trimmer (bottom), 3.5\,mm electrode jack (bottom left).}
 \label{fig:refboard}
 \end{figure}
 
