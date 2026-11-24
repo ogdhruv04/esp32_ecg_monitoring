@@ -12,13 +12,13 @@ ECG acquisition for a finger-electrode ECG ring: ESP32 + MAX30003 firmware, an A
 
 `sketch.ino` builds for both boards. The board is selected at compile time by `CONFIG_IDF_TARGET_ESP32C3`:
 
-| | Ring (ESP32-C3 SuperMini) | Reference (ESP32-WROOM-32, custom PCB) |
-|---|---|---|
-| USB | native USB-CDC → `/dev/ttyACM*` | USB-UART bridge → `/dev/ttyUSB*` |
-| CS / INTB / SYNC | GPIO7 / GPIO10 / GPIO3 | IO5 / IO15 / IO25 |
-| BLE | on | off |
-| Extra sensors | none (pins set to -1) | I2C on IO21 (SDA) / IO22 (SCL): MAX30102, MAX30205, MPU6050; GSR on IO27 (ADC) |
-| Build dir | `build/` | `build_ref/` |
+| | Ring (ESP32-C3 SuperMini) | Reference (ESP32-WROOM-32, custom PCB) | Ring flex PCB (`docs/HEALTH_FLEX_C3_WITH_BMS.pdf`; not yet built or supported by `sketch.ino`) |
+|---|---|---|---|
+| USB | native USB-CDC → `/dev/ttyACM*` | USB-UART bridge → `/dev/ttyUSB*` | none: GPIO18/19 are BM_ALRT / BC_EN; UART pads (RX, TX, GND), GPIO9 pad for download mode |
+| CS / INTB / SYNC | GPIO7 / GPIO10 / GPIO3 | IO5 / IO15 / IO25 | GPIO7 / GPIO10 / none (GPIO3 is the MAX30102 INT: the RING block's SYNC output would drive it) |
+| BLE | on | off | intended on (3216 chip antenna) |
+| Extra sensors | none (pins set to -1) | I2C on IO21 (SDA) / IO22 (SCL): MAX30102, MAX30205, MPU6050; GSR on IO27 (ADC) | I2C on GPIO8 (SDA) / GPIO9 (SCL): MAX30102, MAX30205, MPU6050, MAX17055; two electrodes, no VCM (needs EN_RBIAS) |
+| Build dir | `build/` | `build_ref/` | none yet |
 
 The reference board's schematic is `docs/ESP32_health_schematic.pdf`; read pins from it by module pin number, not by where a net label sits. The boards we tested carry an ESP32-WROOM-32E (8 MB), not the 32D the schematic names. A photo of one board (`docs/report/figs/ref_board.jpg`; findings in `docs/sensor_inventory.md`) shows **the MPU6050 (U7) not fitted** (probably unavailable at assembly; not needed yet and likely fitted later; **the report deliberately does not mention it**) and an AMS1117-1.8 in place of the schematic's LD1117 for the 1.8 V rail. The extra sensors are inventoried in `docs/sensor_inventory.md` (what is known, what is not) and their register values are checked in `docs/sensor_datasheet_check.md`. The sensor code is compiled into every board's image and switched off by the pin block, not by a fork.
 
