@@ -368,6 +368,13 @@ All runs: 150 ms tolerance, resampled to 256 Hz, MLII where present, zero-phase 
   devices, not from our boards; the held-out test is our own protocol recordings, not yet made.
   Wrist pulses are poorly locked to ECG beats outside still periods (section 9 of the file), so
   pulse-rate variability is not in the primary models.
+- **Order confound (B1, same file, section 5):** baseline always comes first, so a model that only
+  learned "later in the session" would also separate it from stress. Applied unchanged to the test
+  subject's other conditions, the ECG model called **42.9% of amusement windows stress in the 7
+  stress-first subjects** (49 windows), against **0.0% in the 8 amusement-first subjects** (56
+  windows); Wrist-only 48.8% against 21.4%. The conditions also differ in room, posture and speech
+  (`docs/wesad_plan.md`, confounds), so a separation between them is a separation between everything
+  that differed: **no claim about psychological stress is made.**
 
 ---
 
