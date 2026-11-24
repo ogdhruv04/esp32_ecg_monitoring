@@ -46,3 +46,6 @@ build_test_e/
 src_build_e/
 src_build_ref_e/
 src_build_test_e/
+
+# flex bring-up kit build (images are copied into flex_bringup/firmware/)
+build_flex_bringup/

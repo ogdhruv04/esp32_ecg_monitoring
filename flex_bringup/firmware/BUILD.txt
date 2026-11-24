@@ -1,0 +1,6 @@
+flex_bringup build, 2026-11-24T15:04Z, commit 0c95e59 (sketch may be newer if uncommitted)
+FQBN esp32:esp32:esp32c3:CDCOnBoot=default,FlashMode=dio,FlashSize=4M
+esp32:esp32 3.3.11    3.3.11 esp32
+Sketch uses 349010 bytes (26%) of program storage space. Maximum is 1310720 bytes.
+Global variables use 16736 bytes (5%) of dynamic memory, leaving 310944 bytes for local variables. Maximum is 327680 bytes.
+warnings: 0

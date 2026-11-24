@@ -18,7 +18,9 @@ ECG acquisition for a finger-electrode ECG ring: ESP32 + MAX30003 firmware, an A
 | CS / INTB / SYNC | GPIO7 / GPIO10 / GPIO3 | IO5 / IO15 / IO25 | GPIO7 / GPIO10 / none (GPIO3 is the MAX30102 INT: the RING block's SYNC output would drive it) |
 | BLE | on | off | intended on (3216 chip antenna) |
 | Extra sensors | none (pins set to -1) | I2C on IO21 (SDA) / IO22 (SCL): MAX30102, MAX30205, MPU6050; GSR on IO27 (ADC) | I2C on GPIO8 (SDA) / GPIO9 (SCL): MAX30102, MAX30205, MPU6050, MAX17055; two electrodes, no VCM (needs EN_RBIAS) |
-| Build dir | `build/` | `build_ref/` | none yet |
+| Build dir | `build/` | `build_ref/` | none for `sketch.ino`; bring-up kit only (`flex_bringup/`, `./build_flex_bringup.sh`) |
+
+**Ring flex board, 24 Nov:** a standalone bring-up kit is in `flex_bringup/` (test program, prebuilt images, README + PDF for whoever powers the first boards); not yet run on a board. What `sketch.ino` will need for it (a `BOARD_FLEX_C3` block with `SYNC_PIN` -1 because GPIO3 is the MAX30102 interrupt, CDCOnBoot off, EN_RBIAS on, I2C on strapping pins 8/9) and schematic findings for the hardware team (R5 10 kOhm in the antenna feed, BC_EN tied to GND by R21, charger set to 4.35 V, pads "GND2" = BAT_TEMP and "GND4" = SCL/GPIO9) are in `docs/flex_firmware_notes.md`.
 
 The reference board's schematic is `docs/ESP32_health_schematic.pdf`; read pins from it by module pin number, not by where a net label sits. The boards we tested carry an ESP32-WROOM-32E (8 MB), not the 32D the schematic names. A photo of one board (`docs/report/figs/ref_board.jpg`; findings in `docs/sensor_inventory.md`) shows **the MPU6050 (U7) not fitted** (probably unavailable at assembly; not needed yet and likely fitted later; **the report deliberately does not mention it**) and an AMS1117-1.8 in place of the schematic's LD1117 for the 1.8 V rail. The extra sensors are inventoried in `docs/sensor_inventory.md` (what is known, what is not) and their register values are checked in `docs/sensor_datasheet_check.md`. The sensor code is compiled into every board's image and switched off by the pin block, not by a fork.
 

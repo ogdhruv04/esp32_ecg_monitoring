@@ -69,6 +69,7 @@ against the wearer's own baseline. Each one is validated, and each one is shown 
 
 ### Firmware
 - [ ] Fixes from bench session 1; the new sensor streams over BLE, if they're on the BLE board
+- 24 Nov, not in the plan: **ring flex board bring-up kit** (`flex_bringup/`: test program for chip, flash, LED D2, I2C scan, 1V8 rail, MAX30003 INFO and fuel gauge; prebuilt images; README and `flex_bringup_kit.pdf`). Compiled, not yet run on a board. `docs/flex_firmware_notes.md` lists what `sketch.ino` needs for the flex board; no flex block added yet.
 
 ### You
 - [ ] **Bench session 2** on 3 different days, all sensors: rest 3 min → paced breathing at 6/min for 3 min → mental arithmetic 3 min → light hand motion 2 min → recovery 3 min
