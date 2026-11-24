@@ -1,6 +1,7 @@
 # BTP Phase-I: results the report may quote
 
-Frozen 23 Nov 2026 at tag `phase1-report`. This file lists every result the Phase-I report may
+Frozen 23 Nov 2026 at tag `phase1-report`; section 10 (WESAD) added 24 Nov 2026 at tag
+`phase1-report-v2`, which the report cites. Nothing else changed between the two tags. This file lists every result the Phase-I report may
 quote. Each entry gives the figure, the file it comes from, the method, the data set, the
 coverage or rejection rate, and its main limitation. **Every figure here was copied from the file
 named beside it. None was recalled.** If a figure is not in this file, it is not ready to be
@@ -325,7 +326,52 @@ All runs: 150 ms tolerance, resampled to 256 Hz, MLII where present, zero-phase 
 
 ---
 
-## 10. Not ready to quote
+## 10. Multi-sensor arousal: WESAD, stress against rest (run once)
+
+| Model | Bal. acc. [95% interval] | Se | Sp | Rejected: stress / baseline |
+|---|---|---|---|---|
+| All four (chest ECG + wrist BVP, EDA, TEMP) | **96.1% [91.8, 100.0]** | 92.2% | 100.0% | 13.1% / 5.2% |
+| Wrist only (BVP, EDA, TEMP) | **93.3% [84.2, 99.3]** | 88.5% | 98.0% | 13.1% / 5.2% |
+| EDA alone | 87.2% [78.0, 95.3] | 80.1% | 94.3% | 0% / 0% |
+| ECG alone (time-domain HRV) | 86.0% [76.1, 94.7] | 82.5% | 89.5% | 0% / 0% |
+| BVP alone | 81.6% [71.9, 90.3] | 74.8% | 88.4% | 13.1% / 5.2% |
+| Temperature alone | 64.9% [53.5, 76.8] | 54.2% | 75.7% | 0% / 0% |
+
+- **Task:** second half of the baseline against stress, leave-one-subject-out, pooled over
+  windows; intervals are a bootstrap over subjects (2000 resamples). Scores are over **classified
+  windows only**: a window is classified only when every feature of its model was reported, so read
+  them with the rejection column. Per subject, balanced accuracy median [min, max]: wrist only
+  100.0 [50.0, 100.0], all four 100.0 [78.9, 100.0].
+- **Binary task of Schmidt et al. (stress against baseline + amusement, models retrained):** wrist
+  only accuracy 90.4% [83.7, 96.3], F1 90.2, balanced accuracy 90.0%, with 13.1% of stress and 10.5%
+  of non-stress windows rejected; all four 89.0%; ECG 85.3%; EDA 88.3%. Theirs: 93.12% (LDA, all
+  chest signals), wrist at best 88.33% (random forest). Windows, normalisation, classifier and
+  rejection all differ, so a figure above or below theirs is **not** described as beating or
+  missing it.
+- **Ablation (descriptive):** removing wrist EDA from all four drops balanced accuracy to 83.8%;
+  removing ECG gives 93.3%, removing BVP 98.6%, removing TEMP 96.1%. With 15 subjects no difference
+  between modalities is called significant.
+- **Source:** `analysis/wesad_evaluation.txt` (`./wesad_evaluate.py`, code `fb1fa5c`; settings in the
+  `wesad` and `arousal` blocks of `algorithms/config.json`, frozen 16 Nov 2026).
+- **Method:** 180 s windows every 30 s; ECG time-domain HRV (causal filter, tp3), wrist pulse rate
+  and amplitude, EDA tonic level, slope and skin-conductance responses (cvxEDA), wrist temperature
+  slope; z-scored against each subject's reference half of the baseline; logistic regression
+  (C 1, balanced class weights, threshold 0.5).
+- **Pre-specification:** the plan (`docs/wesad_plan.md`) was frozen on 16 Nov 2026, before any WESAD
+  signal was read. Two amendments (ECG-time in place of ECG-full; BVP rate and amplitude only) were
+  made after a pilot on S2 and S3 and **approved before any classification metric was computed**
+  (amendment log, 23 Nov 2026).
+- **Data:** WESAD (Schmidt et al. 2018), 15 subjects; 251 stress and 210 baseline windows.
+- **Limitation:** WESAD is **development data** for the PPG, EDA and temperature code: leave one
+  subject out protects the classifier, not the feature code. Windows overlap by 150 s and are not
+  independent; the subject is the unit of inference. The signals come from WESAD's chest and wrist
+  devices, not from our boards; the held-out test is our own protocol recordings, not yet made.
+  Wrist pulses are poorly locked to ECG beats outside still periods (section 9 of the file), so
+  pulse-rate variability is not in the primary models.
+
+---
+
+## 11. Not ready to quote
 
 These have **no result** yet, or their result must not be stated as a finding:
 
@@ -337,7 +383,7 @@ These have **no result** yet, or their result must not be stated as a finding:
 | Any measurement on a ring-shaped device | None exists; all own recordings are from the reference and test boards | – |
 | Live phone + board session | Not run | `android_app/LIVE_TEST.md` |
 | PPG, GSR, temperature, IMU motion | Firmware streams exist; no validated result | `fw` branch, `docs/bench_session_1.md` |
-| WESAD arousal index | Plan frozen; no signal processed, no result | `docs/wesad_plan.md` |
+| WESAD arousal index on our own hardware | WESAD result in 10; no recording from our boards | `docs/wesad_plan.md` |
 | S (supraventricular) ectopic label | P+ 23% | 6 |
 | AF "other rhythm" label | Fires on a presumed-healthy wearer | 7.3 |
 | Quality thresholds (kSQI, pSQI) | From the literature, not calibrated | 8 |
