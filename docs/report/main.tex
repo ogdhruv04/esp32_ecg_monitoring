@@ -38,6 +38,7 @@
 \newcommand{\Supervisor}{Prof. Bishnu Prasad Das}
 \newcommand{\ProjectTitle}{A Finger-Electrode ECG Ring: Validated Acquisition, Beat Timing and Physiological Analytics on a Wearable Platform}
 
+\raggedbottom % no stretched gaps between paragraphs when floats leave a column short
 \begin{document}
 
 % =================== Title page and certificate ===================
@@ -107,7 +108,7 @@ Department of Electronics and Communication Engineering, Indian Institute of Tec
 \maketitle
 
 \begin{abstract}
-Single-lead ECG recorded between two fingers is the basis of ring and smartphone heart monitors, but small, noisy finger signals and real-time processing on a phone make beat-to-beat measurements fragile. This project builds an ECG acquisition and analysis system around the MAX30003 analogue front end, an ESP32 microcontroller and an Android application, as the platform for a finger-electrode ECG ring. Identical firmware runs on a ring-format board and on a reference board, so that a simultaneous finger and chest recording differs only in electrode site. A streaming Pan--Tompkins detector, ported sample for sample from a Python reference to the phone, achieves a sensitivity of 99.78\% and positive predictivity of 99.32\% on 32 MIT-BIH records held out from development. Finger and chest heart rate agree within $-0.10$ to $+0.15$ bpm (limits of agreement). We show that real-time filtering makes the conventional timing point jump between the lobes of the QRS complex, which doubled the phone's RMSSD, and introduce a template-alignment timing point that removes this effect and generalises to an unseen database. On this foundation the system computes time-, frequency-domain and nonlinear HRV with enforced validity windows, ECG-derived breathing rate, ventricular ectopic beats and an atrial-fibrillation screen (sensitivity 92.2\%, specificity 96.8\% on an external database), and a pre-specified multi-sensor arousal model reaches 93.3\% balanced accuracy from wrist-type signals alone. The ring's flexible PCB has been designed and fabricated.
+Single-lead ECG recorded between two fingers is the basis of ring and smartphone heart monitors, but small, noisy finger signals and real-time processing on a phone make beat-to-beat measurements fragile. This project builds an ECG acquisition and analysis system around the MAX30003 analogue front end, an ESP32 microcontroller and an Android application, as the platform for a finger-electrode ECG ring. Identical firmware runs on a ring-format board and on a reference board, so that a simultaneous finger and chest recording differs only in electrode site. A streaming Pan--Tompkins detector, ported sample for sample from a Python reference to the phone, achieves a sensitivity of 99.78\% and positive predictivity of 99.32\% on 32 MIT-BIH records held out from development. Finger and chest heart rate agree within $-0.10$ to $+0.15$ bpm (limits of agreement). We show that real-time filtering makes the conventional timing point jump between the lobes of the QRS complex, which doubled the phone's RMSSD, and introduce a template-alignment timing point that removes this effect and generalises to an unseen database. On this foundation the system computes time-domain, frequency-domain and nonlinear HRV with enforced validity windows, ECG-derived breathing rate, ventricular ectopic beats and an atrial-fibrillation screen (sensitivity 92.2\%, specificity 96.8\% on an external database), and a pre-specified multi-sensor arousal model reaches 93.3\% balanced accuracy from wrist-type signals alone. The ring's flexible PCB has been designed and fabricated.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -131,7 +132,7 @@ The project builds an ECG ring in two phases. Phase~I, reported here, covers the
 \item Time beats precisely enough for HRV under real-time filtering.
 \item Compute HRV, breathing rate, ectopic beats and an AF screen, each validated on public data, and a multi-sensor arousal index.
 \item Deliver an Android application that reports only what passes its quality and validity rules.
-\item Design the ring's flexible PCB.
+\item Bring the acquisition chain to the ring's flexible PCB.
 \end{enumerate}
 Section~II reviews the background. Section~III describes the hardware and the design approach, Section~IV the results, Section~V discusses them and Section~VI concludes and outlines Phase~II.
 
@@ -184,12 +185,12 @@ Published single-lead systems report accuracy on public data or on their own dev
 The system (Fig.~\ref{fig:arch}) has three parts: the hardware and firmware that acquire the ECG, the Android application that processes it in real time, and a Python toolchain that holds the reference implementation of every algorithm and validates it on public data.
 
 \subsection{Reference Board}
-The reference board is a custom PCB (Figs.~\ref{fig:schematic} and~\ref{fig:refboard}) built around an ESP32-WROOM-32E module with 8\,MB of flash (the schematic names the pin-compatible WROOM-32D). Its MAX30003 ECG front end has a $\SI{49.9}{\kilo\ohm}$ series resistor and 10\,pF/1\,nF EMI filter on each input, and the common-mode output VCM is routed to the electrode connector as the body reference electrode. A SiT1533 32.768\,kHz oscillator clocks the MAX30003, so the sample rate is set by this crystal and not by the microcontroller. The board also carries a MAX30102 PPG sensor and a MAX30205 temperature sensor on a shared I$^2$C bus, and a galvanic skin response (GSR) front end built from LM324 op-amp stages feeding an ESP32 ADC input. Power comes from a DC input through 3.3\,V and 1.8\,V linear regulators (AMS1117-3.3 and LD1117 in the schematic; an AMS1117-1.8 is fitted for the 1.8\,V rail).
+The reference board is a custom PCB (Figs.~\ref{fig:schematic} and~\ref{fig:refboard}) built around an ESP32-WROOM-32E module with 8\,MB of flash (the schematic names the pin-compatible WROOM-32D). Its MAX30003 ECG front end has a $\SI{49.9}{\kilo\ohm}$ series resistor and 10\,pF/1\,nF EMI filter on each input, and the common-mode output VCM is routed to the electrode connector as the body reference electrode. A SiT1533 32.768\,kHz oscillator clocks the MAX30003, so the sample rate is set by this crystal and not by the microcontroller. The board also carries a MAX30102 PPG sensor and a MAX30205 temperature sensor on a shared I$^2$C bus, and a galvanic skin response (GSR) front end built from LM324 op-amp stages feeding an ESP32 ADC input. Power comes from a DC input through 3.3\,V and 1.8\,V linear regulators.
 
 \begin{figure}[t]
 \centering
 \includegraphics[width=\columnwidth]{figs/schematic-1.png}
-\caption{Schematic of the reference board: ESP32-WROOM-32D, MAX30003 ECG front end, MAX30102 PPG, MAX30205 temperature, MPU6050 IMU, LM324 GSR front end and 3.3\,V/1.8\,V regulators.}
+\caption{Schematic of the reference board: ESP32-WROOM-32D, MAX30003 ECG front end, MAX30102 PPG, MAX30205 temperature, LM324 GSR front end and 3.3\,V/1.8\,V regulators.}
 \label{fig:schematic}
 \end{figure}
 
@@ -201,14 +202,14 @@ The reference board is a custom PCB (Figs.~\ref{fig:schematic} and~\ref{fig:refb
 \end{figure}
 
 \subsection{Ring-Format Development Board}
-The ring-format board pairs a MAX30003 with an ESP32-C3 SuperMini, which has native USB and BLE. It runs the same firmware as the reference board and sends data to the phone over BLE. \TODO{MAX30003 module/breakout used and electrode arrangement.} A further custom ESP32-C3 board with a U.FL antenna connector was used to test wireless stability.
+The ring-format board pairs a MAX30003 with an ESP32-C3 SuperMini, which has native USB and BLE. It runs the same firmware as the reference board and sends data to the phone over BLE. A further custom ESP32-C3 board with a U.FL antenna connector was used to test wireless stability.
 
 \subsection{Ring Flex PCB}
-The ring's electronics are integrated on a four-layer flexible PCB of 50$\times$10\,mm (top, ground, power and bottom layers; Fig.~\ref{fig:flex}), designed by the lab's embedded hardware team. It carries a bare ESP32-C3 with a 40\,MHz crystal and a 3216 chip antenna, and the same MAX30003 front end as the reference board: a SiT1533 32.768\,kHz clock, 51\,k$\Omega$ series resistors and a 10\,pF/1\,nF input filter, with two electrode pads and no body-reference electrode. A MAX30102 PPG sensor, a MAX30205 temperature sensor, an MPU6050 inertial sensor and a MAX17055 fuel gauge share one I$^2$C bus. A single Li-ion cell is charged by a BQ25185 and regulated to 3.3\,V by a TPS631011 buck-boost converter and to 1.8\,V by a TC1015 regulator; the board is programmed through UART pads. It has been fabricated and is in assembly; boards are expected this week, and bring-up is the first Phase~II task.
+The ring's electronics are integrated on a four-layer flexible PCB of 50$\times$10\,mm (top, ground, power and bottom layers; Fig.~\ref{fig:flex}), designed by the lab's embedded hardware team. It carries a bare ESP32-C3 with a 40\,MHz crystal and a 3216 chip antenna, and a MAX30003 front end matching the reference board's (the same SiT1533 32.768\,kHz clock and 10\,pF/1\,nF input filter, with 51\,k$\Omega$ series resistors), with two electrode pads and no body-reference electrode. A MAX30102 PPG sensor, a MAX30205 temperature sensor, an MPU6050 inertial sensor and a MAX17055 fuel gauge share one I$^2$C bus. A single Li-ion cell is charged by a BQ25185 and regulated to 3.3\,V by a TPS631011 buck-boost converter and to 1.8\,V by a TC1015 regulator; the board is programmed through UART pads. The board has been fabricated and its assembly is under way; bring-up is the first Phase~II task.
 
 \begin{figure*}[t]
 \centering
-\includegraphics[width=\textwidth]{figs/flex_render.png}
+\includegraphics[width=\textwidth]{figs/flex_render.jpg}
 \caption{Ring flex PCB (50\,$\times$\,10\,mm): 3D render, top and bottom.}
 \label{fig:flex}
 \end{figure*}
@@ -275,7 +276,7 @@ The application (Fig.~\ref{fig:app}) is written in Kotlin with Jetpack Compose. 
 \end{figure}
 
 \subsection{Verification and Validation Method}
-Python is the reference implementation. Every algorithm on the phone is tested against it on real recordings and must agree to $10^{-9}$; the Android test suite (156 tests) also checks that every constant matches the frozen configuration, that the app's packet path gives the same beats as the detector alone, and that the live heart rate agrees with R peaks found independently by NeuroKit2 \cite{neurokit2}. For each algorithm, parameters were tuned on development data, frozen in a version-controlled commit, and then run once on held-out data: 36 MIT-BIH records \cite{mitbih}, the INCART database \cite{physionet}, held-out BIDMC subjects \cite{pimentel2017}, the MIT-BIH AF Database \cite{moody1983} and leave-one-subject-out testing on WESAD \cite{schmidt2018}. The ectopic-beat rule was tested on the de~Chazal DS2 set \cite{dechazal2004}, a separate set of patients; the detector underneath was developed on all of MIT-BIH. Every number reported below is generated by a script and saved with its settings; the results quoted are listed with their source files at repository tag \texttt{phase1-report-v2}.
+Python is the reference implementation. Every algorithm on the phone is tested against it on real recordings and must agree to $10^{-9}$; the Android test suite (156 tests) also checks that every constant matches the frozen configuration, that the app's packet path gives the same beats as the detector alone, and that the live heart rate agrees with R peaks found independently by NeuroKit2 \cite{neurokit2}. For each algorithm, parameters were tuned on development data, frozen in a version-controlled commit, and then run once on held-out data: 36 MIT-BIH records \cite{mitbih}, the INCART database \cite{physionet}, held-out BIDMC subjects \cite{pimentel2017}, the MIT-BIH AF Database \cite{moody1983} and leave-one-subject-out testing on WESAD \cite{schmidt2018}. The ectopic-beat rule was tested on the de~Chazal DS2 set \cite{dechazal2004}, a separate set of patients; the detector underneath was developed on all of MIT-BIH. Every number reported below is generated by a script and saved with its settings; the results quoted are listed with their source files at repository tag \texttt{phase1-report-final}.
 
 % -------------------------------------------------------------
 \section{Work Completed and Results}
@@ -442,7 +443,7 @@ Signal amplitude lower than expected; input configuration under test. & Front-en
 \section{Conclusion and Proposed Work for Phase II}
 An ECG acquisition platform for a finger-electrode ring, with identical firmware on a ring-format and a reference board, a real-time Android application and a Python reference, was built and validated link by link. The detector reached 99.78\% sensitivity and 99.32\% positive predictivity on held-out MIT-BIH records, and finger and chest heart rate agreed within $-0.10$ to $+0.15$\,bpm. Real-time filtering was shown to make the conventional beat-timing point jump between QRS lobes, doubling RMSSD; a template-alignment timing point corrects this and generalises to unseen data. On this foundation the system reports HRV, breathing rate, ectopic beats and an AF screen, each tested on data not used to tune it, and a pre-specified multi-sensor arousal model reaches 93.3\% balanced accuracy from wrist-type signals.
 
-Phase~II will assemble and bring up the flexible-PCB ring; integrate the PPG, skin-conductance, temperature and motion sensors into the data stream, including pulse arrival time from the shared clock; move the AF screen and ectopic-beat count into the application; and carry out a multi-subject validation study of the ring against chest ECG. The flex board has two electrodes and no body reference, so its firmware must enable the MAX30003's internal lead bias (EN\_RBIAS), which the driver's \texttt{begin()} leaves off; the firmware's \texttt{setRbias()} switches it on. \TODO{Phase~II SoC test work, if part of the project.}
+Phase~II will assemble and bring up the flexible-PCB ring; integrate the PPG, skin-conductance, temperature and motion sensors into the data stream, including pulse arrival time from the shared clock; move the AF screen and ectopic-beat count into the application; and carry out a multi-subject validation study of the ring against chest ECG. Because the flex board has only two electrodes, its firmware will enable the MAX30003's internal lead bias.
 
 % -------------------------------------------------------------
 \begin{thebibliography}{99}\small
