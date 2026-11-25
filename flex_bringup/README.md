@@ -14,9 +14,9 @@ Contents of the kit:
 
 | File | What it is |
 |---|---|
-| `flex_bringup.ino` | the test program (ESP32 Arduino core only, no libraries) |
-| `firmware/*.bin` | the same program, prebuilt, for flashing with esptool alone (`BUILD.txt` says how it was built; `SHA256SUMS` lists the checksums) |
-| `img/*.png` | schematic excerpts for the pads, the LED and the boot circuit |
+| `flex_bringup_kit.pdf` | this document |
+| `flex_bringup/flex_bringup.ino` | the test program (ESP32 Arduino core only, no libraries), for Arduino IDE |
+| `firmware/*.bin` | the same program, prebuilt, for flashing with esptool alone (section 5a); run the commands from the folder that holds `firmware/` |
 
 ## 1. What you need
 
