@@ -595,6 +595,7 @@ tolerance; 60 Hz notch for US data, 50 Hz for ours; every result given for both 
 | Host-side index integrity, both boards, no electrodes | 44,548 + 44,545 samples; 0 missing, 0 gaps, 0 duplicates, 0 backward, 0 malformed | 174.61 s, 29 Sep | `analysis/integrity_20260929_152557_linktest_noelectrodes.txt` |
 | Noise floor, ring-format board, no electrodes | 1.42 codes rms (datasheet typical = 1.39 codes on the unverified nominal scale) | 164 s analysed | `analysis/amplitude_linktest_noelectrodes.txt` |
 | Firmware counters, 5-minute capture | ovf 0, logdrop 0, deepest drain 5/32, interrupt gap 15,618–19,533 µs (last 5 s window) | 19 Aug, older build, firmware-reported | `captures/20260819_153726_gate_rest_01.log` |
+| Interrupt spacing, link test, both boards | median 15,625 µs (nominal 4/256 s); 1st–99th percentile 15,624–15,626 µs (ring-format) and 15,623–15,627 µs (reference), on the ESP32's clock | 174.6 s, 29 Sep | `analysis/poster_checks.txt` |
 | QRS-to-noise, dual03 median beat | chest 19, finger 16 (QRS 270 and 100 codes) | 105.6 s | `analysis/amplitude_dual03.txt` |
 
 ### 9.2 Beat detection, ANSI/AAMI EC57, MIT-BIH, 256 Hz, 150 ms
@@ -630,6 +631,11 @@ tolerance; 60 Hz notch for US data, 50 Hz for ours; every result given for both 
 | **RR LoA, causal (phone) filter** | **−1.8 to +1.8 ms, n = 166** | **tp3** | `tp3_own_recordings.txt` |
 | **RMSSD, causal** | **chest 18.3 ms (coverage 92%), finger 17.9 ms (94%)** | **tp3** | same |
 | RMSSD, zero-phase | chest 18.0 ms (94%), finger 17.9 ms (94%) | tp3 | same |
+
+**Where the 166 comes from** (`analysis/poster_checks.txt`): 180 matched beats give 179 consecutive
+intervals; 13 are left out because one of their four beats was flagged by the timing step at either
+site. The 20% NN rule is **not** applied to these intervals. It belongs to the RMSSD: the finger keeps
+168 of 179 intervals (93.9%), 2 dropped by the 20% rule and 9 next to a flagged beat.
 
 **Caveat to print next to the table:** one subject, seated, 105 s. This is a feasibility
 result, not a validation study, and the recording is development data for tp3. Do **not**

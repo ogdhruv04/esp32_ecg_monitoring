@@ -1,0 +1,19 @@
+# ./poster_checks.py   commit 970f33f; detector tp3
+# Figures quoted on the Phase-I poster that no earlier analysis file printed. Read-only on captures/.
+
+=== 1. Interrupt spacing, link test 29 Sep (no electrodes), on the ESP32 micros() clock ===
+nominal 4 samples / 256 SPS = 15625 us. One gap = time between two consecutive FIFO interrupts.
+ring: 11131 gaps; median 15625 us; 1st-99th percentile 15624-15626 us; min 15579 max 19532 us; within +-2 us of 15625: 98.9%
+ref : 11136 gaps; median 15625 us; 1st-99th percentile 15623-15627 us; min 15620 max 15629 us; within +-2 us of 15625: 98.8%
+The gap is timed by the ESP32's clock and the interrupt's latency, so this shows regular service, not the
+MAX30003's sample rate: microsecond resolution cannot see ppm-level oscillator differences.
+
+=== 2. Simultaneous finger and chest recording (dual03), causal filter, shipped detector (tp3) ===
+beats: chest 180, finger 180; matched 180 (150 ms, offset -13 ms)
+flagged by the timing step (tp3): chest 11, finger 9
+Bland-Altman intervals: 179 consecutive matched intervals; 13 left out because one of their four beats is flagged at either site; 166 used
+  finger - chest RR: bias +0.01 ms, limits -1.8 .. +1.8 ms (n 166; analysis/tp3_own_recordings.txt prints -1.8..+1.8, n 166)
+  The 20% NN rule is NOT applied to these intervals; it belongs to the RMSSD below.
+NN series per site (pan_tompkins.rr_history + clean_nn, as the RMSSD in tp3_own_recordings.txt):
+  chest : 179 inter-beat intervals; 164 accepted (91.6%); not used: 13 next to a flagged or searched-back beat, 0 outside 300-2000 ms, 2 by the 20% rule; RMSSD 18.3 ms
+  finger: 179 inter-beat intervals; 168 accepted (93.9%); not used: 9 next to a flagged or searched-back beat, 0 outside 300-2000 ms, 2 by the 20% rule; RMSSD 17.9 ms
