@@ -129,7 +129,7 @@ code.
 | **2** | **Streaming Pan–Tompkins with robustness fixes and Python↔Kotlin parity** [Py][Kt] | M: classical core; the additions (search-back localisation fix, threshold stall-decay, lost-sample `skip()`) are the contribution | H: the plan's detection deliverable | **H**: held-out EC57, 73,159 beats, plus ablations | M: pipeline diagram and table | Major panel |
 | **3** | **Firmware: the front end's sample index as the clock, integrity first** [FW] | M: careful register and FIFO work, measured design decisions | H: the plan's September deliverable | M: one host-verified link test (2 × ~44.5k samples), firmware counters, noise floor matches datasheet | **H**: data-flow / timing diagram | Major panel |
 | **4** | **Finger vs chest on identical hardware** (dual03) | M | **H**: the plan's correlation-study deliverable | **L–M**: 1 subject, 105 s, seated; DEV data for tp3 | H: traces and Bland–Altman | Results panel, caveat in the same box |
-| **5** | **Validity-gated HRV and the quality gate (sqi2)** [Py][Kt] | M: minimum windows, 95% coverage rule from simulation, a Nyquist-style HF rule, artifact check | M | M: arithmetic identical to neurokit2; gate on DEV data only | M | Supporting panel |
+| **5** | **Validity-gated HRV and the quality gate (sqi2)** [Py][Kt] | M: minimum windows, 95% coverage rule from simulation, a Nyquist-style HF rule, artifact check | M | M: RMSSD, SDNN, SD1, SD2 identical to neurokit2 (LF/HF within 3.2%, the frequency grid); gate on DEV data only | M | Supporting panel |
 | **6** | **Analytics on public data**: breathing [Py][Kt], ventricular ectopic [Py], AF screen [Py], WESAD arousal [Py] | M | L–M: beyond the plan | M–H: held-out or external runs, but public data and mostly Python only | M | One compact table |
 
 Not recommended as contributions: the flex PCB (another team's design), sensor firmware (never
@@ -819,7 +819,8 @@ Three columns (A0 portrait or landscape). Approximate share of area in brackets.
 **Column 3: evidence (30%)**
 
 7. **Validation results** (18%): V4 and V5. Detection 99.78 / 99.32% held-out; INCART 11 → 2;
-   dual03 RR ±1.8 ms with its caveat; HRV arithmetic = neurokit2.
+   dual03 RR ±1.8 ms with its caveat; RMSSD and SDNN identical to neurokit2 (not "all HRV": LF/HF
+   differs by up to 3.2%).
 8. **Validity and quality rules** (5%): minimum-window table (compact), 95% coverage rule, the
    sqi2 one-liner or V6.
 9. **Beyond Phase I plan** (optional, 3%): the analytics table §9.7, four rows, with
@@ -981,7 +982,7 @@ Status levels, strongest last:
 | 20 | tp3 does not change detection | Experimentally evaluated | `ec57_benchmark_tp3.txt` | 48 MIT-BIH (DEV) | Not a held-out result |
 | 21 | Finger–chest HR bias +0.03 bpm, LoA −0.10…+0.15, ICC 0.9998 | Experimentally evaluated | `agreement_..._dual03_..._ref_tp2.txt` | dual03, about 10 windows | tp2; one subject; ICC on a narrow HR range |
 | 22 | The third (reference) electrode is required at the finger | Provisional | `analysis/mains_share_dual01-03.txt`: mains median 1.0% / 2.3% in dual03 vs 91.8% in dual01 | 3 recordings, one subject | dual01's cable configuration is not recorded in the file; the "0.4% → 43%" figure in `CLAUDE.md` has no saved file |
-| 23 | HRV functions equal neurokit2 on the same NN series | Independently validated (arithmetic) | `hrv_vs_neurokit_mitdb_heldout.txt` | 192 held-out windows | Arithmetic only; LF/HF differs ≤ 3.2% from the grid |
+| 23 | RMSSD, SDNN, SD1, SD2 equal neurokit2 on the same NN series | Independently validated (arithmetic) | `hrv_vs_neurokit_mitdb_heldout.txt` | 192 held-out windows | Arithmetic only; LF/HF differs ≤ 3.2% from the grid |
 | 24 | Each HRV measure is withheld below its minimum window | Implemented; Unit-tested (117 Python tests) | `algorithms/config.json`, `tests/` | – | – |
 | 25 | LF/HF withheld below 95% coverage because holes bias band power | Experimentally evaluated (simulation) | `hrv_min_window_simulation.txt` (HF +15.9% / +30.3% at ~90%) | **synthetic** | Simulation only |
 | 26 | Quality gate rejects electrode-settling transients without rejecting clean ECG | Experimentally evaluated | `sqi_artifact_dev.txt`, `app_quality_gate_replay.txt` | **DEV only** | One episode and one burst |
